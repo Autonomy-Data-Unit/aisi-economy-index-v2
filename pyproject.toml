@@ -1,0 +1,44 @@
+[project]
+name = "ai-index"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "netrun>=0.4.1",
+    "netrun-sim>=0.1.4",
+]
+
+[dependency-groups]
+dev = [
+    "jupyterlab>=4.5.3",
+    "nblite>=1.1.11",
+    "netrun-ui>=0.2.0",
+    "netrun[cli]>=0.4.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+]
+
+[project.scripts]
+ai-index = "ai_index.cli._app:app_main"
+
+[project.urls]
+Homepage = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
+Documentation = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
+Repository = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+ignore-vcs = true
+sources = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
+pythonpath = ["src"]

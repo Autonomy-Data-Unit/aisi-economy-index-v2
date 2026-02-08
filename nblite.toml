@@ -1,0 +1,33 @@
+# nblite configuration
+export_pipeline = """
+nbs -> lib
+pts -> pts
+
+nbs_tests -> lib_tests
+pts_tests -> pts_tests
+"""
+
+[cl.nbs]
+path = "nbs/ai_index"
+format = "ipynb"
+
+[cl.pts]
+path = "pts/ai_index"
+format = "percent"
+
+[cl.lib]
+path = "src/ai_index"
+format = "module"
+
+
+[cl.nbs_tests]
+path = "nbs/tests"
+format = "ipynb"
+
+[cl.pts_tests]
+path = "pts/tests"
+format = "percent"
+
+[cl.lib_tests]
+path = "src/tests"
+format = "module"
