@@ -40,21 +40,21 @@
       {
         "name": "fetch_onet",
         "description": "Download and extract O*NET 30.0 database.",
+        "execution_config": {
+          "run_on_startup": true
+        },
         "extra": {
           "description": "Download and extract O*NET 30.0 database",
           "ui": {
             "position": {
-              "x": 510,
-              "y": -120
+              "x": 12,
+              "y": 757.4166666666667
             }
           }
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.fetch_onet"
-        },
-        "execution_config": {
-          "run_on_startup": true
         },
         "type": "node"
       },
@@ -65,8 +65,8 @@
           "description": "Build standard occupation descriptions (894 rows: SOC code, title, description, tasks/skills text)",
           "ui": {
             "position": {
-              "x": 400,
-              "y": 100
+              "x": 515,
+              "y": 775.5833333333334
             }
           }
         },
@@ -83,8 +83,8 @@
           "description": "Build evaluation DataFrames for exposure scoring (skills, abilities, knowledge, tasks, work context)",
           "ui": {
             "position": {
-              "x": 135,
-              "y": 525
+              "x": 522.5,
+              "y": 215
             }
           }
         },
@@ -97,21 +97,21 @@
       {
         "name": "load_job_ads",
         "description": "Load job advertisement dataset.",
+        "execution_config": {
+          "run_on_startup": true
+        },
         "extra": {
           "description": "Load job advertisement dataset",
           "ui": {
             "position": {
-              "x": 100,
-              "y": 100
+              "x": 583,
+              "y": 503.50000000000006
             }
           }
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.load_job_ads"
-        },
-        "execution_config": {
-          "run_on_startup": true
         },
         "type": "node"
       },
@@ -122,8 +122,8 @@
           "description": "Embed O*NET occupations with BGE-large (894x1024 float16, role + task descriptions)",
           "ui": {
             "position": {
-              "x": 700,
-              "y": 100
+              "x": 1122,
+              "y": 727.75
             }
           }
         },
@@ -140,8 +140,8 @@
           "description": "Embed job ads with BGE-large (Nx1024 float16, role + task/skill text)",
           "ui": {
             "position": {
-              "x": 700,
-              "y": 250
+              "x": 1132,
+              "y": 535.75
             }
           }
         },
@@ -158,8 +158,8 @@
           "description": "Top-K candidate matches per job (top-5 role + top-5 task, averaged overlaps)",
           "ui": {
             "position": {
-              "x": 990,
-              "y": 255
+              "x": 1461,
+              "y": 707.75
             }
           }
         },
@@ -176,8 +176,8 @@
           "description": "LLM negative selection with LLaMA-3.1-8B -> normalized weights per job",
           "ui": {
             "position": {
-              "x": 1300,
-              "y": 175
+              "x": 1810,
+              "y": 695.75
             }
           }
         },
@@ -194,8 +194,8 @@
           "description": "GPT task-level 3-level scoring (0=no change, 1=collaboration, 2=independent), aggregated to SOC",
           "ui": {
             "position": {
-              "x": 700,
-              "y": 400
+              "x": 833,
+              "y": 303
             }
           }
         },
@@ -212,8 +212,8 @@
           "description": "Humanness scoring across 3 dimensions (physical, emotional, creative), normalized 0-1",
           "ui": {
             "position": {
-              "x": 700,
-              "y": 525
+              "x": 1122,
+              "y": 204
             }
           }
         },
@@ -230,8 +230,8 @@
           "description": "Felten ability exposure scoring (original, baseline_2025, conservative_2025, genai_only)",
           "ui": {
             "position": {
-              "x": 700,
-              "y": 650
+              "x": 1138.5,
+              "y": 12
             }
           }
         },
@@ -248,8 +248,8 @@
           "description": "Merge + normalize all score types at SOC level, compute composite vulnerability metric",
           "ui": {
             "position": {
-              "x": 1000,
-              "y": 525
+              "x": 1456,
+              "y": 194
             }
           }
         },
@@ -266,8 +266,8 @@
           "description": "Produce benchmarking stats for exposure scores (distributions, correlations, vulnerability rankings)",
           "ui": {
             "position": {
-              "x": 1300,
-              "y": 650
+              "x": 2124,
+              "y": 214.5
             }
           }
         },
@@ -284,8 +284,8 @@
           "description": "Weighted sum of matched O*NET codes' exposure scores -> per-job multi-dimension AI exposure",
           "ui": {
             "position": {
-              "x": 1485,
-              "y": 375
+              "x": 2124,
+              "y": 437.75000000000006
             }
           }
         },
@@ -302,8 +302,8 @@
           "description": "Aggregate full index by geographic dimensions from job ad location metadata",
           "ui": {
             "position": {
-              "x": 1950,
-              "y": -30
+              "x": 2802,
+              "y": 302.58333333333337
             }
           }
         },
@@ -320,8 +320,8 @@
           "description": "Compute summary statistics and visualizations of the full index",
           "ui": {
             "position": {
-              "x": 1900,
-              "y": 425
+              "x": 2802,
+              "y": 494.58333333333337
             }
           }
         },
@@ -333,12 +333,13 @@
       },
       {
         "name": "bc_onet_tables",
+        "description": "Broadcast onet_tables to descriptions + eval_dfs nodes.",
         "extra": {
           "description": "Broadcast onet_tables to descriptions + eval_dfs nodes",
           "ui": {
             "position": {
-              "x": 3200,
-              "y": 100
+              "x": 262,
+              "y": 758.9166666666667
             }
           }
         },
@@ -350,12 +351,13 @@
       },
       {
         "name": "bc_descriptions",
+        "description": "Broadcast descriptions to embed_onet + cosine_similarity.",
         "extra": {
           "description": "Broadcast descriptions to embed_onet + cosine_similarity",
           "ui": {
             "position": {
-              "x": 3400,
-              "y": 100
+              "x": 852.3333333333334,
+              "y": 777.0833333333334
             }
           }
         },
@@ -367,12 +369,13 @@
       },
       {
         "name": "bc_job_ads",
+        "description": "Broadcast job_ads to embed + llm_filter + combine.",
         "extra": {
           "description": "Broadcast job_ads to embed + llm_filter + combine",
           "ui": {
             "position": {
-              "x": 3600,
-              "y": 100
+              "x": 862.25,
+              "y": 495.00000000000006
             }
           }
         },
@@ -384,12 +387,13 @@
       },
       {
         "name": "bc_abilities",
+        "description": "Broadcast abilities to presence + felten scorers.",
         "extra": {
           "description": "Broadcast abilities to presence + felten scorers",
           "ui": {
             "position": {
-              "x": 3800,
-              "y": 100
+              "x": 859,
+              "y": 31.66666666666663
             }
           }
         },
@@ -401,12 +405,13 @@
       },
       {
         "name": "bc_exposure_scores",
+        "description": "Broadcast exposure_scores to benchmark + combine.",
         "extra": {
           "description": "Broadcast exposure_scores to benchmark + combine",
           "ui": {
             "position": {
-              "x": 4000,
-              "y": 100
+              "x": 1831.3333333333333,
+              "y": 215.5
             }
           }
         },
@@ -418,12 +423,13 @@
       },
       {
         "name": "bc_job_exposure_index",
+        "description": "Broadcast job_exposure_index to geography + summary.",
         "extra": {
           "description": "Broadcast job_exposure_index to geography + summary",
           "ui": {
             "position": {
-              "x": 4200,
-              "y": 100
+              "x": 2498,
+              "y": 459.25000000000006
             }
           }
         },
