@@ -98,9 +98,13 @@ def status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
         if not jobs:
             return {}
         job = jobs[0]
+        state = job.get("job_state", "UNKNOWN")
+        # squeue --json may return state as a list (e.g. ["RUNNING"])
+        if isinstance(state, list):
+            state = state[0] if state else "UNKNOWN"
         return {
             "job_id": str(job.get("job_id", job_id)),
-            "state": job.get("job_state", "UNKNOWN"),
+            "state": state,
             "name": job.get("name", ""),
             "node": job.get("nodes", ""),
             "time": job.get("time", ""),

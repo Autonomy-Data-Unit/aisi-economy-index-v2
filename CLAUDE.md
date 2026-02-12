@@ -90,18 +90,49 @@ The old pipeline (now superseded by the DAG above) had four stages:
 - **torch** - GPU inference (LLaMA 3.1-8B)
 - **pandas / polars** - Data manipulation
 - **pydantic** - Configuration and data validation
+- **isambard_utils** - Isambard HPC interaction (SSH, rsync, Slurm, env setup)
+
+## Isambard HPC
+
+The `isambard_utils` package automates interaction with the Isambard HPC cluster for GPU-intensive pipeline nodes.
+
+**Cluster:** Isambard AI Phase 2 — NVIDIA GH200 120GB (ARM64), Slurm scheduler
+**Project dir:** `/projects/a5u/ai-index-v2` (configured in `isambard_config.toml`)
+**SSH host:** `ISAMBARD_HOST` env var in `.env` (Clifton certificate auth, 12hr renewal)
+
+### isambard_utils modules
+- `config` — `IsambardConfig` pydantic model, loads from `config.toml` + `.env`
+- `ssh` — SSH command execution via subprocess
+- `transfer` — rsync upload/download, SSH pipe for small data
+- `slurm` — Slurm job submit/status/wait/cancel/log
+- `env` — Remote environment bootstrap (uv, venv, code sync)
+- `sbatch` — SBATCH script generation from `SbatchConfig`
+
+### Running integration tests
+```bash
+python -m isambard_utils_tests.test_integration
+```
+Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancellation. Requires active Clifton cert.
 
 ## Project Structure
 
 ```
 ├── nblite.toml              # nblite config (export pipelines)
 ├── pyproject.toml            # Package config (ai-index)
+├── .env                      # Environment variables (ISAMBARD_HOST, ISAMBARD_PROJECT_DIR)
+├── isambard_config.toml      # Symlink to src/isambard_utils/assets/config.toml
 ├── agent-context/            # Reference docs for netrun & nblite
 ├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 │   └── assets/
 │       └── netrun.json       # Netrun graph definition for the data pipeline
+├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
+├── src/isambard_utils/       # Isambard utils Python modules (auto-generated)
+│   └── assets/
+│       └── config.toml       # Isambard cluster config (project_dir, partition, etc.)
+├── pts/isambard_utils_tests/ # Isambard integration tests (.pct.py) - EDIT THESE
+├── src/isambard_utils_tests/ # Isambard test modules (auto-generated)
 ├── pts/tests/                # Test notebooks (.pct.py)
 ├── nbs/tests/                # Test notebooks (.ipynb, auto-generated)
 ├── src/tests/                # Test modules (auto-generated)
@@ -130,6 +161,10 @@ nbs -> lib        (nbs/ai_index/*.ipynb -> src/ai_index/*.py)
 nbs -> pts        (nbs/ai_index/*.ipynb -> pts/ai_index/*.pct.py)
 nbs_tests -> lib_tests
 nbs_tests -> pts_tests
+nbs_isambard -> lib_isambard        (isambard_utils package)
+nbs_isambard -> pts_isambard
+nbs_isambard_tests -> lib_isambard_tests
+nbs_isambard_tests -> pts_isambard_tests
 ```
 
 ### Testing

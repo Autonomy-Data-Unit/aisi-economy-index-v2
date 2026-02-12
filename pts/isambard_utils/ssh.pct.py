@@ -60,6 +60,7 @@ def run(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
         check=check,
         capture_output=capture,
         text=True,
+        errors="replace",
     )
 
 # %%

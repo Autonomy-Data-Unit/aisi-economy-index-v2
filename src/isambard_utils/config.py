@@ -4,15 +4,30 @@ __all__ = ['IsambardConfig']
 
 # %% nbs/isambard_utils/config.ipynb 2
 import os
+import tomllib
+from importlib import resources
+from dotenv import load_dotenv
 from pydantic import BaseModel, model_validator
 
 # %% nbs/isambard_utils/config.ipynb 3
+def _load_config_toml() -> dict:
+    """Load the bundled config.toml and return the [isambard] section."""
+    config_path = resources.files("isambard_utils.assets") / "config.toml"
+    with resources.as_file(config_path) as p:
+        with open(p, "rb") as f:
+            data = tomllib.load(f)
+    return data.get("isambard", {})
+
+# %% nbs/isambard_utils/config.ipynb 4
 class IsambardConfig(BaseModel):
-    """Configuration for Isambard HPC cluster access."""
+    """Configuration for Isambard HPC cluster access.
+
+    Defaults are loaded from isambard_utils/assets/config.toml.
+    """
 
     ssh_host: str
     ssh_user: str | None = None
-    project_dir: str = "/projects/a5u/adu_dev/aisi-economy-index-v2"
+    project_dir: str = "/projects/a5u/ai-index-v2"
     hf_cache_dir: str = "{project_dir}/hf_cache"
     logs_dir: str = "{project_dir}/logs"
     partition: str = "workq"
@@ -31,9 +46,28 @@ class IsambardConfig(BaseModel):
         return self
 
     @classmethod
+    def from_toml(cls, **overrides) -> "IsambardConfig":
+        """Load config from bundled config.toml, merged with overrides.
+
+        Requires ssh_host in the TOML or as an override.
+        """
+        defaults = _load_config_toml()
+        defaults.update(overrides)
+        return cls.model_validate(defaults)
+
+    @classmethod
     def from_env(cls, **overrides) -> "IsambardConfig":
-        """Load config with ssh_host from ISAMBARD_HOST env var (.env file)."""
+        """Load config from config.toml + env vars (.env file).
+
+        Env vars: ISAMBARD_HOST (required), ISAMBARD_PROJECT_DIR (optional).
+        """
+        load_dotenv()
         ssh_host = os.environ.get("ISAMBARD_HOST")
         if not ssh_host:
             raise ValueError("ISAMBARD_HOST not set. Check your .env file.")
-        return cls(ssh_host=ssh_host, **overrides)
+        env_overrides = {"ssh_host": ssh_host}
+        project_dir = os.environ.get("ISAMBARD_PROJECT_DIR")
+        if project_dir:
+            env_overrides["project_dir"] = project_dir
+        env_overrides.update(overrides)
+        return cls.from_toml(**env_overrides)

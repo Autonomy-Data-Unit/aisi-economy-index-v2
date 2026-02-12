@@ -8,6 +8,7 @@ dependencies = [
     "netrun>=0.4.1",
     "netrun-sim>=0.1.4",
     "pydantic>=2.0",
+    "python-dotenv>=1.0",
 ]
 
 [dependency-groups]
@@ -47,6 +48,7 @@ packages = ["src/ai_index", "src/isambard_utils"]
 include = [
     "src/ai_index/assets/**",
     "src/ai_index/scripts/**",
+    "src/isambard_utils/assets/**",
 ]
 
 [tool.pytest.ini_options]

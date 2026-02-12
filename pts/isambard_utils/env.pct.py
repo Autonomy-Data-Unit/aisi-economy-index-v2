@@ -74,7 +74,7 @@ def setup(*, config: IsambardConfig | None = None,
 #|export
 def _ensure_uv(*, config: IsambardConfig) -> None:
     """Install uv on the remote if not already present."""
-    result = ssh_run("which uv", config=config, check=False)
+    result = ssh_run("bash -lc 'which uv'", config=config, check=False)
     if result.returncode == 0:
         return
     # Install uv using the official installer
@@ -85,14 +85,20 @@ def _ensure_uv(*, config: IsambardConfig) -> None:
 #|export
 def _ensure_venv(*, config: IsambardConfig) -> None:
     """Create venv and sync dependencies if needed."""
-    venv_path = f"{config.project_dir}/.venv"
-    # Use module load to get a usable Python, then uv sync
-    cmds = " && ".join([
-        f"cd {config.project_dir}",
-        "module load cray-python/3.11.7 2>/dev/null || true",
-        f"uv sync",
-    ])
-    ssh_run(cmds, config=config, timeout=600)
+    # Use bash -l so that module and uv are available (login shell).
+    # --no-dev avoids building dev deps that need npm/node (e.g. netrun-ui).
+    script = f"""
+cd {config.project_dir}
+module load cray-python/3.11.7 2>/dev/null || true
+uv sync --no-dev
+""".strip()
+    ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=600)
+
+# %%
+#|exporti
+def _shlex_quote(s: str) -> str:
+    import shlex
+    return shlex.quote(s)
 
 # %%
 #|export

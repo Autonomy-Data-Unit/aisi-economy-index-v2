@@ -58,7 +58,7 @@ def setup(*, config: IsambardConfig | None = None,
 # %% nbs/isambard_utils/env.ipynb 5
 def _ensure_uv(*, config: IsambardConfig) -> None:
     """Install uv on the remote if not already present."""
-    result = ssh_run("which uv", config=config, check=False)
+    result = ssh_run("bash -lc 'which uv'", config=config, check=False)
     if result.returncode == 0:
         return
     # Install uv using the official installer
@@ -68,16 +68,21 @@ def _ensure_uv(*, config: IsambardConfig) -> None:
 # %% nbs/isambard_utils/env.ipynb 6
 def _ensure_venv(*, config: IsambardConfig) -> None:
     """Create venv and sync dependencies if needed."""
-    venv_path = f"{config.project_dir}/.venv"
-    # Use module load to get a usable Python, then uv sync
-    cmds = " && ".join([
-        f"cd {config.project_dir}",
-        "module load cray-python/3.11.7 2>/dev/null || true",
-        f"uv sync",
-    ])
-    ssh_run(cmds, config=config, timeout=600)
+    # Use bash -l so that module and uv are available (login shell).
+    # --no-dev avoids building dev deps that need npm/node (e.g. netrun-ui).
+    script = f"""
+cd {config.project_dir}
+module load cray-python/3.11.7 2>/dev/null || true
+uv sync --no-dev
+""".strip()
+    ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=600)
 
 # %% nbs/isambard_utils/env.ipynb 7
+def _shlex_quote(s: str) -> str:
+    import shlex
+    return shlex.quote(s)
+
+# %% nbs/isambard_utils/env.ipynb 8
 def _sync_code_git(*, git_url: str, git_branch: str | None,
                    config: IsambardConfig) -> None:
     """Clone or pull code from a git repository."""
@@ -96,7 +101,7 @@ def _sync_code_git(*, git_url: str, git_branch: str | None,
         ssh_run(f"git clone {branch_flag} {git_url} {config.project_dir}",
                 config=config, timeout=300)
 
-# %% nbs/isambard_utils/env.ipynb 8
+# %% nbs/isambard_utils/env.ipynb 9
 def sync_code_rsync(*, config: IsambardConfig | None = None,
                     local_project_dir: str = ".",
                     exclude: list[str] | None = None) -> None:
@@ -114,7 +119,7 @@ def sync_code_rsync(*, config: IsambardConfig | None = None,
     rsync_upload(local, config.project_dir, config=config,
                  exclude=exclude, delete=False)
 
-# %% nbs/isambard_utils/env.ipynb 9
+# %% nbs/isambard_utils/env.ipynb 10
 def check_setup(*, config: IsambardConfig | None = None) -> dict:
     """Check environment status on Isambard.
 
