@@ -1,0 +1,27 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: .venv
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Aggregate Geography
+#
+# Aggregate the full index by geographic dimensions from job ad
+# location metadata.
+
+# %%
+#|default_exp nodes.aggregate_geography
+#|export_as_func true
+
+# %%
+#|set_func_signature
+def aggregate_geography(index, print) -> {"geography_index": dict}:
+    """Aggregate the full index by geographic dimensions."""
+    ...
+
+# %%
+#|export
+raise NotImplementedError("aggregate_geography not yet implemented")

@@ -1,0 +1,195 @@
+{
+  "extra": {
+    "description": "AISI Economy Index v2 — AI exposure scoring pipeline. Matches job ads to O*NET occupations, computes multi-dimensional AI exposure scores, and aggregates results."
+  },
+  "output_queues": {
+    "geography": {
+      "ports": [["aggregate_geography", "geography_index"]]
+    },
+    "summary": {
+      "ports": [["compute_summary_stats", "summary"]]
+    },
+    "benchmark": {
+      "ports": [["benchmark_exposure", "benchmark"]]
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "name": "fetch_onet",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.fetch_onet"},
+        "extra": {
+          "description": "Download and extract O*NET 30.0 database",
+          "ui": {"position": {"x": 100, "y": 250}}
+        }
+      },
+      {
+        "name": "build_onet_descriptions",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.build_onet_descriptions"},
+        "extra": {
+          "description": "Build standard occupation descriptions (894 rows: SOC code, title, description, tasks/skills text)",
+          "ui": {"position": {"x": 400, "y": 100}}
+        }
+      },
+      {
+        "name": "build_onet_eval_dfs",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.build_onet_eval_dfs"},
+        "extra": {
+          "description": "Build evaluation DataFrames for exposure scoring (skills, abilities, knowledge, tasks, work context)",
+          "ui": {"position": {"x": 400, "y": 400}}
+        }
+      },
+      {
+        "name": "load_job_ads",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.load_job_ads"},
+        "extra": {
+          "description": "Load job advertisement dataset",
+          "ui": {"position": {"x": 100, "y": 100}}
+        }
+      },
+      {
+        "name": "embed_onet",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.embed_onet"},
+        "extra": {
+          "description": "Embed O*NET occupations with BGE-large (894x1024 float16, role + task descriptions)",
+          "ui": {"position": {"x": 700, "y": 100}}
+        }
+      },
+      {
+        "name": "embed_job_ads",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.embed_job_ads"},
+        "extra": {
+          "description": "Embed job ads with BGE-large (Nx1024 float16, role + task/skill text)",
+          "ui": {"position": {"x": 700, "y": 250}}
+        }
+      },
+      {
+        "name": "compute_cosine_similarity",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.compute_cosine_similarity"},
+        "extra": {
+          "description": "Top-K candidate matches per job (top-5 role + top-5 task, averaged overlaps)",
+          "ui": {"position": {"x": 1000, "y": 175}}
+        }
+      },
+      {
+        "name": "llm_filter_candidates",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.llm_filter_candidates"},
+        "extra": {
+          "description": "LLM negative selection with LLaMA-3.1-8B -> normalized weights per job",
+          "ui": {"position": {"x": 1300, "y": 175}}
+        }
+      },
+      {
+        "name": "score_task_exposure",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.score_task_exposure"},
+        "extra": {
+          "description": "GPT task-level 3-level scoring (0=no change, 1=collaboration, 2=independent), aggregated to SOC",
+          "ui": {"position": {"x": 700, "y": 400}}
+        }
+      },
+      {
+        "name": "score_presence",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.score_presence"},
+        "extra": {
+          "description": "Humanness scoring across 3 dimensions (physical, emotional, creative), normalized 0-1",
+          "ui": {"position": {"x": 700, "y": 525}}
+        }
+      },
+      {
+        "name": "score_felten",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.score_felten"},
+        "extra": {
+          "description": "Felten ability exposure scoring (original, baseline_2025, conservative_2025, genai_only)",
+          "ui": {"position": {"x": 700, "y": 650}}
+        }
+      },
+      {
+        "name": "aggregate_soc_exposure",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.aggregate_soc_exposure"},
+        "extra": {
+          "description": "Merge + normalize all score types at SOC level, compute composite vulnerability metric",
+          "ui": {"position": {"x": 1000, "y": 525}}
+        }
+      },
+      {
+        "name": "benchmark_exposure",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.benchmark_exposure"},
+        "extra": {
+          "description": "Produce benchmarking stats for exposure scores (distributions, correlations, vulnerability rankings)",
+          "ui": {"position": {"x": 1300, "y": 650}}
+        }
+      },
+      {
+        "name": "combine_job_exposure",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.combine_job_exposure"},
+        "extra": {
+          "description": "Weighted sum of matched O*NET codes' exposure scores -> per-job multi-dimension AI exposure",
+          "ui": {"position": {"x": 1600, "y": 350}}
+        }
+      },
+      {
+        "name": "aggregate_geography",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.aggregate_geography"},
+        "extra": {
+          "description": "Aggregate full index by geographic dimensions from job ad location metadata",
+          "ui": {"position": {"x": 1900, "y": 275}}
+        }
+      },
+      {
+        "name": "compute_summary_stats",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {"func": "ai_index.nodes.compute_summary_stats"},
+        "extra": {
+          "description": "Compute summary statistics and visualizations of the full index",
+          "ui": {"position": {"x": 1900, "y": 425}}
+        }
+      }
+    ],
+    "edges": [
+      {"source_str": "fetch_onet.onet_data",                    "target_str": "build_onet_descriptions.onet_data"},
+      {"source_str": "fetch_onet.onet_data",                    "target_str": "build_onet_eval_dfs.onet_data"},
+
+      {"source_str": "build_onet_descriptions.descriptions",    "target_str": "embed_onet.descriptions"},
+      {"source_str": "build_onet_descriptions.descriptions",    "target_str": "compute_cosine_similarity.onet_descriptions"},
+
+      {"source_str": "load_job_ads.job_ads",                    "target_str": "embed_job_ads.job_ads"},
+      {"source_str": "load_job_ads.job_ads",                    "target_str": "llm_filter_candidates.job_ads"},
+      {"source_str": "load_job_ads.job_ads",                    "target_str": "combine_job_exposure.job_ads"},
+
+      {"source_str": "embed_onet.onet_embeddings",              "target_str": "compute_cosine_similarity.onet_embeddings"},
+      {"source_str": "embed_job_ads.job_ad_embeddings",         "target_str": "compute_cosine_similarity.job_ad_embeddings"},
+      {"source_str": "compute_cosine_similarity.candidates",    "target_str": "llm_filter_candidates.candidates"},
+
+      {"source_str": "build_onet_eval_dfs.eval_dfs",            "target_str": "score_task_exposure.eval_dfs"},
+      {"source_str": "build_onet_eval_dfs.eval_dfs",            "target_str": "score_presence.eval_dfs"},
+      {"source_str": "build_onet_eval_dfs.eval_dfs",            "target_str": "score_felten.eval_dfs"},
+
+      {"source_str": "score_task_exposure.task_scores",         "target_str": "aggregate_soc_exposure.task_scores"},
+      {"source_str": "score_presence.presence_scores",          "target_str": "aggregate_soc_exposure.presence_scores"},
+      {"source_str": "score_felten.felten_scores",              "target_str": "aggregate_soc_exposure.felten_scores"},
+
+      {"source_str": "aggregate_soc_exposure.exposure_scores",  "target_str": "benchmark_exposure.scores"},
+
+      {"source_str": "llm_filter_candidates.weighted_codes",    "target_str": "combine_job_exposure.weighted_codes"},
+      {"source_str": "aggregate_soc_exposure.exposure_scores",  "target_str": "combine_job_exposure.exposure_scores"},
+
+      {"source_str": "combine_job_exposure.index",              "target_str": "aggregate_geography.index"},
+      {"source_str": "combine_job_exposure.index",              "target_str": "compute_summary_stats.index"}
+    ]
+  }
+}

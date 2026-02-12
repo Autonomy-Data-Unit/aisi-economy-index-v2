@@ -1,10 +1,10 @@
 # nblite configuration
 export_pipeline = """
 nbs -> lib
-pts -> pts
+nbs -> pts
 
 nbs_tests -> lib_tests
-pts_tests -> pts_tests
+nbs_tests -> pts_tests
 """
 
 [cl.nbs]
