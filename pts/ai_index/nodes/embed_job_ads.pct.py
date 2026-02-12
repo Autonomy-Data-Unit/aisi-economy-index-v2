@@ -24,4 +24,5 @@ def embed_job_ads(job_ads, print) -> {"job_ad_embeddings": dict}:
 
 # %%
 #|export
-raise NotImplementedError("embed_job_ads not yet implemented")
+print("embed_job_ads: returning dummy data")
+return {"job_ad_embeddings": {"dummy": True}}

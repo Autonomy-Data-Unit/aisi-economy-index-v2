@@ -18,10 +18,11 @@
 
 # %%
 #|set_func_signature
-def score_felten(eval_dfs, print) -> {"felten_scores": dict}:
+def score_felten(abilities, print) -> {"felten_scores": dict}:
     """Compute Felten ability exposure scores across multiple scenarios."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("score_felten not yet implemented")
+print("score_felten: returning dummy data")
+return {"felten_scores": {"dummy": True}}

@@ -2,6 +2,13 @@
   "extra": {
     "description": "AISI Economy Index v2 — AI exposure scoring pipeline. Matches job ads to O*NET occupations, computes multi-dimensional AI exposure scores, and aggregates results."
   },
+  "storage": {
+    "cache": {
+      "enabled": true,
+      "include_all_nodes": true,
+      "storage_path": ".cache/netrun"
+    }
+  },
   "output_queues": {
     "geography": {
       "ports": [["aggregate_geography", "geography_index"]]
@@ -158,38 +165,94 @@
           "description": "Compute summary statistics and visualizations of the full index",
           "ui": {"position": {"x": 1900, "y": 425}}
         }
+      },
+
+      {
+        "name": "bc_onet_tables",
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {"num_outputs": 2},
+        "extra": {
+          "description": "Broadcast onet_tables to descriptions + eval_dfs nodes"
+        }
+      },
+      {
+        "name": "bc_descriptions",
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {"num_outputs": 2},
+        "extra": {
+          "description": "Broadcast descriptions to embed_onet + cosine_similarity"
+        }
+      },
+      {
+        "name": "bc_job_ads",
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {"num_outputs": 3},
+        "extra": {
+          "description": "Broadcast job_ads to embed + llm_filter + combine"
+        }
+      },
+      {
+        "name": "bc_abilities",
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {"num_outputs": 2},
+        "extra": {
+          "description": "Broadcast abilities to presence + felten scorers"
+        }
+      },
+      {
+        "name": "bc_exposure_scores",
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {"num_outputs": 2},
+        "extra": {
+          "description": "Broadcast exposure_scores to benchmark + combine"
+        }
+      },
+      {
+        "name": "bc_job_exposure_index",
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {"num_outputs": 2},
+        "extra": {
+          "description": "Broadcast job_exposure_index to geography + summary"
+        }
       }
     ],
     "edges": [
-      {"source_str": "fetch_onet.onet_data",                    "target_str": "build_onet_descriptions.onet_data"},
-      {"source_str": "fetch_onet.onet_data",                    "target_str": "build_onet_eval_dfs.onet_data"},
+      {"source_str": "fetch_onet.onet_tables",                        "target_str": "bc_onet_tables.in_0"},
+      {"source_str": "bc_onet_tables.out_0",                          "target_str": "build_onet_descriptions.onet_tables"},
+      {"source_str": "bc_onet_tables.out_1",                          "target_str": "build_onet_eval_dfs.onet_tables"},
 
-      {"source_str": "build_onet_descriptions.descriptions",    "target_str": "embed_onet.descriptions"},
-      {"source_str": "build_onet_descriptions.descriptions",    "target_str": "compute_cosine_similarity.onet_descriptions"},
+      {"source_str": "build_onet_descriptions.descriptions",          "target_str": "bc_descriptions.in_0"},
+      {"source_str": "bc_descriptions.out_0",                         "target_str": "embed_onet.descriptions"},
+      {"source_str": "bc_descriptions.out_1",                         "target_str": "compute_cosine_similarity.onet_descriptions"},
 
-      {"source_str": "load_job_ads.job_ads",                    "target_str": "embed_job_ads.job_ads"},
-      {"source_str": "load_job_ads.job_ads",                    "target_str": "llm_filter_candidates.job_ads"},
-      {"source_str": "load_job_ads.job_ads",                    "target_str": "combine_job_exposure.job_ads"},
+      {"source_str": "load_job_ads.job_ads",                          "target_str": "bc_job_ads.in_0"},
+      {"source_str": "bc_job_ads.out_0",                              "target_str": "embed_job_ads.job_ads"},
+      {"source_str": "bc_job_ads.out_1",                              "target_str": "llm_filter_candidates.job_ads"},
+      {"source_str": "bc_job_ads.out_2",                              "target_str": "combine_job_exposure.job_ads"},
 
-      {"source_str": "embed_onet.onet_embeddings",              "target_str": "compute_cosine_similarity.onet_embeddings"},
-      {"source_str": "embed_job_ads.job_ad_embeddings",         "target_str": "compute_cosine_similarity.job_ad_embeddings"},
-      {"source_str": "compute_cosine_similarity.candidates",    "target_str": "llm_filter_candidates.candidates"},
+      {"source_str": "embed_onet.onet_embeddings",                    "target_str": "compute_cosine_similarity.onet_embeddings"},
+      {"source_str": "embed_job_ads.job_ad_embeddings",               "target_str": "compute_cosine_similarity.job_ad_embeddings"},
+      {"source_str": "compute_cosine_similarity.candidates",          "target_str": "llm_filter_candidates.candidates"},
 
-      {"source_str": "build_onet_eval_dfs.eval_dfs",            "target_str": "score_task_exposure.eval_dfs"},
-      {"source_str": "build_onet_eval_dfs.eval_dfs",            "target_str": "score_presence.eval_dfs"},
-      {"source_str": "build_onet_eval_dfs.eval_dfs",            "target_str": "score_felten.eval_dfs"},
+      {"source_str": "build_onet_eval_dfs.tasks",                     "target_str": "score_task_exposure.tasks"},
+      {"source_str": "build_onet_eval_dfs.abilities",                 "target_str": "bc_abilities.in_0"},
+      {"source_str": "bc_abilities.out_0",                            "target_str": "score_presence.abilities"},
+      {"source_str": "bc_abilities.out_1",                            "target_str": "score_felten.abilities"},
+      {"source_str": "build_onet_eval_dfs.work_context",              "target_str": "score_presence.work_context"},
 
-      {"source_str": "score_task_exposure.task_scores",         "target_str": "aggregate_soc_exposure.task_scores"},
-      {"source_str": "score_presence.presence_scores",          "target_str": "aggregate_soc_exposure.presence_scores"},
-      {"source_str": "score_felten.felten_scores",              "target_str": "aggregate_soc_exposure.felten_scores"},
+      {"source_str": "score_task_exposure.task_scores",               "target_str": "aggregate_soc_exposure.task_scores"},
+      {"source_str": "score_presence.presence_scores",                "target_str": "aggregate_soc_exposure.presence_scores"},
+      {"source_str": "score_felten.felten_scores",                    "target_str": "aggregate_soc_exposure.felten_scores"},
 
-      {"source_str": "aggregate_soc_exposure.exposure_scores",  "target_str": "benchmark_exposure.scores"},
+      {"source_str": "aggregate_soc_exposure.exposure_scores",        "target_str": "bc_exposure_scores.in_0"},
+      {"source_str": "bc_exposure_scores.out_0",                      "target_str": "benchmark_exposure.exposure_scores"},
+      {"source_str": "bc_exposure_scores.out_1",                      "target_str": "combine_job_exposure.exposure_scores"},
 
-      {"source_str": "llm_filter_candidates.weighted_codes",    "target_str": "combine_job_exposure.weighted_codes"},
-      {"source_str": "aggregate_soc_exposure.exposure_scores",  "target_str": "combine_job_exposure.exposure_scores"},
+      {"source_str": "llm_filter_candidates.weighted_codes",          "target_str": "combine_job_exposure.weighted_codes"},
 
-      {"source_str": "combine_job_exposure.index",              "target_str": "aggregate_geography.index"},
-      {"source_str": "combine_job_exposure.index",              "target_str": "compute_summary_stats.index"}
+      {"source_str": "combine_job_exposure.job_exposure_index",       "target_str": "bc_job_exposure_index.in_0"},
+      {"source_str": "bc_job_exposure_index.out_0",                   "target_str": "aggregate_geography.job_exposure_index"},
+      {"source_str": "bc_job_exposure_index.out_1",                   "target_str": "compute_summary_stats.job_exposure_index"}
     ]
   }
 }

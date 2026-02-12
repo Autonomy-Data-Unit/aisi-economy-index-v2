@@ -2,4 +2,5 @@
 
 def aggregate_soc_exposure(task_scores, presence_scores, felten_scores, print) -> {"exposure_scores": dict}:
     """Merge and normalize all exposure score types at SOC level."""
-    raise NotImplementedError("aggregate_soc_exposure not yet implemented")
+    print("aggregate_soc_exposure: returning dummy data")
+    return {"exposure_scores": {"dummy": True}}

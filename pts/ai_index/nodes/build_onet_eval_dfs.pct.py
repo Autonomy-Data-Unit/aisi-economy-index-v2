@@ -18,10 +18,11 @@
 
 # %%
 #|set_func_signature
-def build_onet_eval_dfs(onet_data, print) -> {"eval_dfs": dict}:
+def build_onet_eval_dfs(onet_tables, print) -> {"tasks": dict, "skills": dict, "abilities": dict, "knowledge": dict, "work_context": dict}:
     """Build evaluation DataFrames for exposure scoring from raw O*NET data."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("build_onet_eval_dfs not yet implemented")
+print("build_onet_eval_dfs: returning dummy data")
+return {"tasks": {"dummy": True}, "skills": {"dummy": True}, "abilities": {"dummy": True}, "knowledge": {"dummy": True}, "work_context": {"dummy": True}}

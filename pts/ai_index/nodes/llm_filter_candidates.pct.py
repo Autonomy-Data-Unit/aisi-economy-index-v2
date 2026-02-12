@@ -24,4 +24,5 @@ def llm_filter_candidates(candidates, job_ads, print) -> {"weighted_codes": dict
 
 # %%
 #|export
-raise NotImplementedError("llm_filter_candidates not yet implemented")
+print("llm_filter_candidates: returning dummy data")
+return {"weighted_codes": {"dummy": True}}

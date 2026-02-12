@@ -24,4 +24,5 @@ def embed_onet(descriptions, print) -> {"onet_embeddings": dict}:
 
 # %%
 #|export
-raise NotImplementedError("embed_onet not yet implemented")
+print("embed_onet: returning dummy data")
+return {"onet_embeddings": {"dummy": True}}

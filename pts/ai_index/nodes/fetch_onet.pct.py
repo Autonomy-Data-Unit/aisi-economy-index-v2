@@ -17,10 +17,11 @@
 
 # %%
 #|set_func_signature
-def fetch_onet(print) -> {"onet_data": dict}:
+def fetch_onet(print) -> {"onet_tables": dict}:
     """Download and extract O*NET 30.0 database."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("fetch_onet not yet implemented")
+print("fetch_onet: returning dummy data")
+return {"onet_tables": {"dummy": True}}

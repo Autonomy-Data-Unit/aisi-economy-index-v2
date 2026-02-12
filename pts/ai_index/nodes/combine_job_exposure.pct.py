@@ -19,10 +19,11 @@
 
 # %%
 #|set_func_signature
-def combine_job_exposure(job_ads, weighted_codes, exposure_scores, print) -> {"index": dict}:
+def combine_job_exposure(job_ads, weighted_codes, exposure_scores, print) -> {"job_exposure_index": dict}:
     """Combine matched O*NET weights with exposure scores to produce per-job AI exposure."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("combine_job_exposure not yet implemented")
+print("combine_job_exposure: returning dummy data")
+return {"job_exposure_index": {"dummy": True}}

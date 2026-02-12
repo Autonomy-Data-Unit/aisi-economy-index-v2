@@ -19,10 +19,11 @@
 
 # %%
 #|set_func_signature
-def score_task_exposure(eval_dfs, print) -> {"task_scores": dict}:
+def score_task_exposure(tasks, print) -> {"task_scores": dict}:
     """Compute GPT task-level AI exposure scores, aggregated to SOC level."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("score_task_exposure not yet implemented")
+print("score_task_exposure: returning dummy data")
+return {"task_scores": {"dummy": True}}

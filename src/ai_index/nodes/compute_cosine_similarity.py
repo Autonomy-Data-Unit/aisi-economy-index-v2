@@ -2,4 +2,5 @@
 
 def compute_cosine_similarity(onet_descriptions, onet_embeddings, job_ad_embeddings, print) -> {"candidates": dict}:
     """Compute top-K cosine similarity matches between job ads and O*NET occupations."""
-    raise NotImplementedError("compute_cosine_similarity not yet implemented")
+    print("compute_cosine_similarity: returning dummy data")
+    return {"candidates": {"dummy": True}}

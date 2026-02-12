@@ -18,10 +18,11 @@
 
 # %%
 #|set_func_signature
-def build_onet_descriptions(onet_data, print) -> {"descriptions": dict}:
+def build_onet_descriptions(onet_tables, print) -> {"descriptions": dict}:
     """Build standard occupation descriptions from raw O*NET data."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("build_onet_descriptions not yet implemented")
+print("build_onet_descriptions: returning dummy data")
+return {"descriptions": {"dummy": True}}

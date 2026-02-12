@@ -36,7 +36,7 @@ dev = [
     { name = "jupyterlab", specifier = ">=4.5.3" },
     { name = "nblite", specifier = ">=1.1.11" },
     { name = "netrun", extras = ["cli"], git = "https://github.com/lukastk/netrun?subdirectory=netrun" },
-    { name = "netrun-ui", specifier = ">=0.2.0" },
+    { name = "netrun-ui", git = "https://github.com/lukastk/netrun?subdirectory=netrun-ui" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
 ]
@@ -445,7 +445,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.128.8"
+version = "0.129.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -454,9 +454,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/01/72/0df5c58c954742f31a7054e2dd1143bae0b408b7f36b59b85f928f9b456c/fastapi-0.128.8.tar.gz", hash = "sha256:3171f9f328c4a218f0a8d2ba8310ac3a55d1ee12c28c949650288aee25966007", size = 375523, upload-time = "2026-02-11T15:19:36.69Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/47/75f6bea02e797abff1bca968d5997793898032d9923c1935ae2efdece642/fastapi-0.129.0.tar.gz", hash = "sha256:61315cebd2e65df5f97ec298c888f9de30430dd0612d59d6480beafbc10655af", size = 375450, upload-time = "2026-02-12T13:54:52.541Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/37/37b07e276f8923c69a5df266bfcb5bac4ba8b55dfe4a126720f8c48681d1/fastapi-0.128.8-py3-none-any.whl", hash = "sha256:5618f492d0fe973a778f8fec97723f598aa9deee495040a8d51aaf3cf123ecf1", size = 103630, upload-time = "2026-02-11T15:19:35.209Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/dd/d0ee25348ac58245ee9f90b6f3cbb666bf01f69be7e0911f9851bddbda16/fastapi-0.129.0-py3-none-any.whl", hash = "sha256:b4946880e48f462692b31c083be0432275cbfb6e2274566b1be91479cc1a84ec", size = 102950, upload-time = "2026-02-12T13:54:54.528Z" },
 ]
 
 [[package]]
@@ -1065,7 +1065,7 @@ wheels = [
 [[package]]
 name = "netrun"
 version = "0.4.1"
-source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun#9f4963a12baf82e39a28739a4b46c7521529e08c" }
+source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun#42225922b15dd34dcaa513e201fdf8299a2ffca5" }
 dependencies = [
     { name = "beartype" },
     { name = "diskcache" },
@@ -1084,7 +1084,7 @@ cli = [
 [[package]]
 name = "netrun-sim"
 version = "0.1.4"
-source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-sim%2Fpython#9f4963a12baf82e39a28739a4b46c7521529e08c" }
+source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-sim%2Fpython#42225922b15dd34dcaa513e201fdf8299a2ffca5" }
 dependencies = [
     { name = "python-ulid" },
 ]
@@ -1092,7 +1092,7 @@ dependencies = [
 [[package]]
 name = "netrun-ui"
 version = "0.2.0"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-ui#42225922b15dd34dcaa513e201fdf8299a2ffca5" }
 dependencies = [
     { name = "fastapi" },
     { name = "netrun" },
@@ -1102,10 +1102,6 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/ca/0f968e3d6fb0ada1833cadf5054b9ee1a26d7d6a7dbb4a8efb29cc41a17f/netrun_ui-0.2.0.tar.gz", hash = "sha256:8adee89fb0ef3defb7bd9d92cd0437d2ede0dcf7454e14cf50c6764653089452", size = 148430, upload-time = "2026-02-08T20:19:40.666Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/43/4d/700cd82c03e621c2d26e90d4764431864567e95938f077cad95bae4b4864/netrun_ui-0.2.0-py3-none-any.whl", hash = "sha256:3319325cafaad89d5a05f87582b21a9162a549d386f51867ca9920bca5a60fcd", size = 200737, upload-time = "2026-02-08T20:19:39.093Z" },
 ]
 
 [[package]]
@@ -1174,11 +1170,11 @@ wheels = [
 
 [[package]]
 name = "platformdirs"
-version = "4.5.1"
+version = "4.6.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cf/86/0248f086a84f01b37aaec0fa567b397df1a119f73c16f6c7a9aac73ea309/platformdirs-4.5.1.tar.gz", hash = "sha256:61d5cdcc6065745cdd94f0f878977f8de9437be93de97c1c12f853c9c0cdcbda", size = 21715, upload-time = "2025-12-05T13:52:58.638Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/e5/474d0a8508029286b905622e6929470fb84337cfa08f9d09fbb624515249/platformdirs-4.6.0.tar.gz", hash = "sha256:4a13c2db1071e5846c3b3e04e5b095c0de36b2a24be9a3bc0145ca66fce4e328", size = 23433, upload-time = "2026-02-12T14:36:21.288Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/28/3bfe2fa5a7b9c46fe7e13c97bda14c895fb10fa2ebf1d0abb90e0cea7ee1/platformdirs-4.5.1-py3-none-any.whl", hash = "sha256:d03afa3963c806a9bed9d5125c8f4cb2fdaf74a55ab60e5d59b3fde758104d31", size = 18731, upload-time = "2025-12-05T13:52:56.823Z" },
+    { url = "https://files.pythonhosted.org/packages/da/10/1b0dcf51427326f70e50d98df21b18c228117a743a1fc515a42f8dc7d342/platformdirs-4.6.0-py3-none-any.whl", hash = "sha256:dd7f808d828e1764a22ebff09e60f175ee3c41876606a6132a688d809c7c9c73", size = 19549, upload-time = "2026-02-12T14:36:19.743Z" },
 ]
 
 [[package]]

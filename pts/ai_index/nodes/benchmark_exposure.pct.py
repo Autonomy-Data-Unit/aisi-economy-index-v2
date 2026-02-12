@@ -19,10 +19,11 @@
 
 # %%
 #|set_func_signature
-def benchmark_exposure(scores, print) -> {"benchmark": dict}:
+def benchmark_exposure(exposure_scores, print) -> {"benchmark": dict}:
     """Produce benchmarking stats and visualizations for exposure scores."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("benchmark_exposure not yet implemented")
+print("benchmark_exposure: returning dummy data")
+return {"benchmark": {"dummy": True}}

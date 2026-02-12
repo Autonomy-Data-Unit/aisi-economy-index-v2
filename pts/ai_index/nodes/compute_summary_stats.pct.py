@@ -17,10 +17,11 @@
 
 # %%
 #|set_func_signature
-def compute_summary_stats(index, print) -> {"summary": dict}:
+def compute_summary_stats(job_exposure_index, print) -> {"summary": dict}:
     """Compute summary statistics and visualizations of the full index."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("compute_summary_stats not yet implemented")
+print("compute_summary_stats: returning dummy data")
+return {"summary": {"dummy": True}}

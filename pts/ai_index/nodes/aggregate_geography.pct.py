@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -18,10 +18,11 @@
 
 # %%
 #|set_func_signature
-def aggregate_geography(index, print) -> {"geography_index": dict}:
+def aggregate_geography(job_exposure_index, print) -> {"geography_index": dict}:
     """Aggregate the full index by geographic dimensions."""
     ...
 
 # %%
 #|export
-raise NotImplementedError("aggregate_geography not yet implemented")
+print("aggregate_geography: returning dummy data")
+return {"geography_index": {"dummy": True}}

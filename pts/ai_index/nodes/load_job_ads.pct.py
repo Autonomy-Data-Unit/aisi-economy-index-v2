@@ -23,4 +23,5 @@ def load_job_ads(print) -> {"job_ads": dict}:
 
 # %%
 #|export
-raise NotImplementedError("load_job_ads not yet implemented")
+print("load_job_ads: returning dummy data")
+return {"job_ads": {"dummy": True}}
