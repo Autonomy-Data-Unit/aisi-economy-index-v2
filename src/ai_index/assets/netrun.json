@@ -2,6 +2,23 @@
   "extra": {
     "description": "AISI Economy Index v2 \u2014 AI exposure scoring pipeline. Matches job ads to O*NET occupations, computes multi-dimensional AI exposure scores, and aggregates results."
   },
+  "node_vars": {
+    "embedding_model":          {"value": {"$env": "EMBEDDING_MODEL", "default": "BAAI/bge-large-en-v1.5"}, "type": "str"},
+    "embedding_dtype":          {"value": "float16", "type": "str"},
+    "embed_onet_batch_size":    {"value": "64",    "type": "int"},
+    "embed_job_ads_batch_size": {"value": "512",   "type": "int"},
+    "embed_job_ads_chunk_size": {"value": "20000", "type": "int"},
+    "cosine_top_k":             {"value": "5",     "type": "int"},
+    "cosine_batch_size":        {"value": "16384", "type": "int"},
+    "llm_model":                {"value": {"$env": "LLM_MODEL", "default": "meta-llama/Meta-Llama-3.1-8B-Instruct"}, "type": "str"},
+    "llm_dtype":                {"value": "float16", "type": "str"},
+    "llm_batch_size":           {"value": "128",   "type": "int"},
+    "llm_max_new_tokens":       {"value": "60",    "type": "int"},
+    "llm_max_keep":             {"value": "5",     "type": "int"},
+    "job_ads_sample_rate":      {"value": {"$env": "JOB_ADS_SAMPLE_RATE", "default": "1.0"}, "type": "float"},
+    "job_ads_random_seed":      {"value": {"$env": "JOB_ADS_RANDOM_SEED", "default": ""}, "type": "str"},
+    "execution_mode":           {"value": {"$env": "EXECUTION_MODE", "default": "local"}, "type": "str"}
+  },
   "storage": {
     "cache": {
       "enabled": true,

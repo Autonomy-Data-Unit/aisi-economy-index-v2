@@ -83,7 +83,7 @@ The old pipeline (now superseded by the DAG above) had four stages:
 ## Tech Stack
 
 - **netrun** - Flow-based data pipeline orchestration (nodes, edges, packets, epochs)
-- **nblite** - Notebook-driven literate programming (`.pct.py` -> `.ipynb` -> Python modules)
+- **nblite** (>=1.1.12) - Notebook-driven literate programming (`.pct.py` -> `.ipynb` -> Python modules)
 - **Python 3.12+**
 - **uv** - Package management
 - **sentence-transformers** - BGE-large embeddings
@@ -91,6 +91,30 @@ The old pipeline (now superseded by the DAG above) had four stages:
 - **pandas / polars** - Data manipulation
 - **pydantic** - Configuration and data validation
 - **isambard_utils** - Isambard HPC interaction (SSH, rsync, Slurm, env setup)
+- **adulib[llm]** - LLM API abstraction (used in api execution mode)
+
+## Execution Modes
+
+The 4 matching pipeline GPU nodes (`embed_onet`, `embed_job_ads`, `compute_cosine_similarity`, `llm_filter_candidates`) support configurable execution via the `execution_mode` node_var (env: `EXECUTION_MODE`, default: `local`):
+
+| Mode | Description |
+|------|-------------|
+| `local` | Direct CUDA on current machine |
+| `deploy` | Functionally identical to local (pipeline runs on Isambard directly) |
+| `sbatch` | Orchestrate from local: serialize inputs, submit SBATCH job to Isambard, wait, download results |
+| `api` | No GPU needed: embeddings via sentence-transformers on CPU, cosine sim via numpy, LLM via `adulib.llm.async_single` |
+
+### Node structure pattern
+
+Each GPU node follows this pattern:
+1. **sbatch guard** (`maybe_run_remote()`) — if sbatch mode, handles full remote lifecycle and returns
+2. **mode-aware body** — reads `execution_mode` from `ctx.vars`, sets `device` accordingly
+3. For `compute_cosine_similarity`: api mode uses numpy-only CPU path (no torch import)
+4. For `llm_filter_candidates`: api mode uses `adulib.llm.async_single()` + `batch_executor`
+
+### Key files
+- `pts/ai_index/utils.pct.py` — `ExecutionMode` type, `serialize_node_data`/`deserialize_node_data`, `maybe_run_remote()` guard, `_run_sbatch()` orchestration
+- `test_matching_pipeline.py` — Synthetic CPU test of all 4 matching nodes
 
 ## Isambard HPC
 
@@ -182,6 +206,10 @@ nbl test                      # Test all notebooks execute
 - `#|eval: false` - Skip cell during execution
 - `#|export_as_func true` - Export entire notebook as a callable function
 - `#|set_func_signature` - Define function name/params for function-export mode
+
+## Important: Suspected netrun bugs
+
+If you encounter behaviour that looks like a bug in **netrun itself** (not in our node code), **stop immediately and notify the user**. Do not try to work around it. We may need to fix netrun upstream before continuing.
 
 ## Netrun Conventions
 

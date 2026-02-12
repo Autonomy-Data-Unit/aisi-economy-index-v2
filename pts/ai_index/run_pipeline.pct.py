@@ -27,7 +27,7 @@ async def run_pipeline_async():
     """Load and run the full pipeline, returning output queue results."""
     config_path = resources.files("ai_index.assets") / "netrun.json"
     config = NetConfig.from_file(str(config_path))
-    config.project_root = str(Path.cwd())
+    config.project_root_override = str(Path.cwd())
 
     async with Net(config) as net:
         made_progress = True

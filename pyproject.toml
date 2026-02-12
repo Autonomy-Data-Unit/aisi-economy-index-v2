@@ -9,12 +9,13 @@ dependencies = [
     "netrun-sim>=0.1.4",
     "pydantic>=2.0",
     "python-dotenv>=1.0",
+    "adulib[llm]>=0.1",
 ]
 
 [dependency-groups]
 dev = [
     "jupyterlab>=4.5.3",
-    "nblite>=1.1.11",
+    "nblite>=1.1.12",
     "netrun-ui>=0.2.0",
     "netrun[cli]>=0.4.1",
     "pytest>=9.0.2",

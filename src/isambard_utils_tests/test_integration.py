@@ -121,7 +121,7 @@ def test_environment_setup(cfg: IsambardConfig):
     install_cmd = (
         f"cd {cfg.project_dir} && source .venv/bin/activate && "
         "uv pip install torch --index-url https://download.pytorch.org/whl/cu126 --quiet && "
-        "uv pip install transformers accelerate --quiet"
+        "uv pip install transformers accelerate sentence-transformers --quiet"
     )
     ssh_run(f"bash -lc {_quote(install_cmd)}", config=cfg, timeout=600)
     _print_ok("GPU packages installed")
