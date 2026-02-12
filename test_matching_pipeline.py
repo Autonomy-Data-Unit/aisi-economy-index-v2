@@ -2,48 +2,80 @@
 
 Creates fake upstream data, mocks GPU model calls, and runs each
 matching node function to validate data contracts and logic.
+
+Supports execution modes via EXECUTION_MODE env var:
+  - local (default): mocks torch, tests GPU code paths with fake tensors
+  - api: no torch mock needed, tests numpy cosine sim + mocked adulib LLM
 """
+import os
 import sys
 import numpy as np
 from types import SimpleNamespace
 
-# ---------------------------------------------------------------------------
-# 0. Install a minimal torch mock BEFORE any node imports
-# ---------------------------------------------------------------------------
-class FakeTensor:
-    def __init__(self, data):
-        self.data = np.asarray(data)
-    def __matmul__(self, other):
-        return FakeTensor(self.data @ other.data)
-    @property
-    def T(self):
-        return FakeTensor(self.data.T)
-    def to(self, **kw):
-        return self
-    def cpu(self):
-        return self
-    def numpy(self):
-        return self.data
+EXECUTION_MODE = os.environ.get("EXECUTION_MODE", "local")
 
-class _FakeTorchModule:
-    float16 = "float16"
-    float32 = "float32"
-    class device:
-        def __init__(self, name): pass
-    @staticmethod
-    def from_numpy(arr):
-        return FakeTensor(arr)
-    @staticmethod
-    def topk(tensor, k, dim=1):
-        data = tensor.data
-        if data.ndim == 1:
-            idx = np.argsort(data)[-k:][::-1]
-            return FakeTensor(data[idx]), FakeTensor(idx)
-        indices = np.argsort(data, axis=dim)[:, -k:][:, ::-1].copy()
-        scores = np.take_along_axis(data, indices, axis=dim).copy()
-        return FakeTensor(scores), FakeTensor(indices)
+# ---------------------------------------------------------------------------
+# 0. Install mocks BEFORE any node imports
+# ---------------------------------------------------------------------------
+if EXECUTION_MODE != "api":
+    # Mock torch for local/deploy modes (no GPU available in test)
+    class FakeTensor:
+        def __init__(self, data):
+            self.data = np.asarray(data)
+        def __matmul__(self, other):
+            return FakeTensor(self.data @ other.data)
+        @property
+        def T(self):
+            return FakeTensor(self.data.T)
+        def to(self, **kw):
+            return self
+        def cpu(self):
+            return self
+        def numpy(self):
+            return self.data
 
-sys.modules["torch"] = _FakeTorchModule()
+    class _FakeTorchModule:
+        float16 = "float16"
+        float32 = "float32"
+        class device:
+            def __init__(self, name): pass
+        @staticmethod
+        def from_numpy(arr):
+            return FakeTensor(arr)
+        @staticmethod
+        def topk(tensor, k, dim=1):
+            data = tensor.data
+            if data.ndim == 1:
+                idx = np.argsort(data)[-k:][::-1]
+                return FakeTensor(data[idx]), FakeTensor(idx)
+            indices = np.argsort(data, axis=dim)[:, -k:][:, ::-1].copy()
+            scores = np.take_along_axis(data, indices, axis=dim).copy()
+            return FakeTensor(scores), FakeTensor(indices)
+
+    sys.modules["torch"] = _FakeTorchModule()
+
+if EXECUTION_MODE == "api":
+    # Mock adulib for api mode (no real API keys in test)
+    import types
+
+    _adulib = types.ModuleType("adulib")
+    _adulib_llm = types.ModuleType("adulib.llm")
+    _adulib_async = types.ModuleType("adulib.asynchronous")
+
+    async def _fake_async_single(model, system, prompt, max_tokens=60, **kw):
+        return '{"drop": [2]}', False, {}
+    _adulib_llm.async_single = _fake_async_single
+
+    async def _fake_batch_executor(fn, items, max_concurrent=10, **kw):
+        results = []
+        for item in items:
+            results.append(await fn(item))
+        return results
+    _adulib_async.batch_executor = _fake_batch_executor
+
+    sys.modules["adulib"] = _adulib
+    sys.modules["adulib.llm"] = _adulib_llm
+    sys.modules["adulib.asynchronous"] = _adulib_async
 
 # ---------------------------------------------------------------------------
 # 1. Synthetic upstream data
@@ -75,6 +107,7 @@ job_ads = {
 # ---------------------------------------------------------------------------
 ctx = SimpleNamespace(
     vars={
+        "execution_mode": EXECUTION_MODE,
         "embedding_model": "mock-model",
         "embedding_dtype": "float32",
         "embed_onet_batch_size": 16,
@@ -115,7 +148,7 @@ models_mod.load_llm = lambda *a, **kw: FakeLLM()
 # ---------------------------------------------------------------------------
 try:
     print("=" * 60)
-    print("MATCHING PIPELINE SYNTHETIC TEST")
+    print(f"MATCHING PIPELINE SYNTHETIC TEST (mode={EXECUTION_MODE})")
     print("=" * 60)
 
     # -- embed_onet --
@@ -152,7 +185,7 @@ try:
     print(f"    All weight vectors sum to 1.0")
 
     print(f"\n{'=' * 60}")
-    print(f"ALL 4 MATCHING PIPELINE NODES PASSED")
+    print(f"ALL 4 MATCHING PIPELINE NODES PASSED (mode={EXECUTION_MODE})")
     print(f"  embed_onet:                {N_ONET} occupations -> ({N_ONET}, {DIM}) embeddings")
     print(f"  embed_job_ads:             {N_JOBS} -> {n_sampled} sampled -> ({n_sampled}, {DIM}) embeddings")
     print(f"  compute_cosine_similarity: {n_sampled} jobs x {N_ONET} occupations -> candidates")
@@ -162,4 +195,7 @@ try:
 finally:
     models_mod.load_embedding_model = _orig_load_emb
     models_mod.load_llm = _orig_load_llm
-    del sys.modules["torch"]
+    if "torch" in sys.modules and not hasattr(sys.modules["torch"], "__file__"):
+        del sys.modules["torch"]
+    for mod_name in ["adulib", "adulib.llm", "adulib.asynchronous"]:
+        sys.modules.pop(mod_name, None)
