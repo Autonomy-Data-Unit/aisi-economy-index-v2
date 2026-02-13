@@ -32,4 +32,4 @@ set_node_func_args(compute_summary_stats)
 # %%
 #|export
 print("compute_summary_stats: returning dummy data")
-return {"summary": {"dummy": True}}
+{"summary": {"dummy": True}}  #|func_return_line

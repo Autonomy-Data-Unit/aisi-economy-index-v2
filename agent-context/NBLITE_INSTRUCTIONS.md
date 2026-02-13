@@ -168,7 +168,7 @@ In function export mode:
 - `#|top_export` cells stay at **module level** (imports, constants). Cells exported using this directive get exported to the top of the Python file, outside of the function declaration. This is useful if types need to be imported for the function signature, or if you want to define extra helper functions that you also want to be re-usable from outside the submodule.
 - `#|set_func_signature` defines the function's name, parameters, and docstring
 - `#|func_return` adds a `return` statement to the first line of the cell
-- `#|return_line` is an inline directive that adds `return` to a specific line (e.g., `result  #|return_line`)
+- `#|func_return_line` is an inline directive that adds `return` to a specific line (e.g., `result  #|func_return_line`)
 
 Example:
 
@@ -204,9 +204,9 @@ result;
 #|export
 # Alternative: use inline directive for specific line
 if success:
-    result  #|return_line
+    result  #|func_return_line
 else:
-    None  #|return_line
+    None  #|func_return_line
 ```
 
 ### Execution Control Directives

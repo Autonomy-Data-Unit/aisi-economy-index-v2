@@ -34,4 +34,4 @@ set_node_func_args(benchmark_exposure)
 # %%
 #|export
 print("benchmark_exposure: returning dummy data")
-return {"benchmark": {"dummy": True}}
+{"benchmark": {"dummy": True}}  #|func_return_line

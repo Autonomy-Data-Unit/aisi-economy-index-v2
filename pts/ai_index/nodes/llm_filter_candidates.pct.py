@@ -43,7 +43,7 @@ remote_result = maybe_run_remote(
     required_models_from_vars=["llm_model"],
 )
 if remote_result is not None:
-    return remote_result
+    remote_result  #|func_return_line
 
 # %% [markdown]
 # ## Config & data prep
@@ -262,7 +262,7 @@ else:
             print(f"  llm_filter: {end}/{n_jobs} jobs processed")
 
 print(f"llm_filter_candidates: done — {n_jobs} jobs")
-return {"weighted_codes": {
+{"weighted_codes": {  #|func_return_line
     "job_ids": cand_job_ids,
     "weights": all_weighted,
 }}

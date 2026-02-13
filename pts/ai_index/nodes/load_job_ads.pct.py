@@ -87,7 +87,7 @@ for _, row in raw.iterrows():
     domains.append(domain)
 
 print(f"load_job_ads: extracted {len(job_ids)} job ads")
-return {"job_ads": {
+{"job_ads": {  #|func_return_line
     "job_ids": job_ids,
     "role_text": role_text,
     "taskskill_text": taskskill_text,

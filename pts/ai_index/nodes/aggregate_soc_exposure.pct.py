@@ -33,4 +33,4 @@ set_node_func_args(aggregate_soc_exposure)
 # %%
 #|export
 print("aggregate_soc_exposure: returning dummy data")
-return {"exposure_scores": {"dummy": True}}
+{"exposure_scores": {"dummy": True}}  #|func_return_line

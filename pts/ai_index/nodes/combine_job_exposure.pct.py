@@ -34,4 +34,4 @@ set_node_func_args(combine_job_exposure)
 # %%
 #|export
 print("combine_job_exposure: returning dummy data")
-return {"job_exposure_index": {"dummy": True}}
+{"job_exposure_index": {"dummy": True}}  #|func_return_line

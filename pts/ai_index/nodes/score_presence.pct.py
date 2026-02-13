@@ -33,4 +33,4 @@ set_node_func_args(score_presence)
 # %%
 #|export
 print("score_presence: returning dummy data")
-return {"presence_scores": {"dummy": True}}
+{"presence_scores": {"dummy": True}}  #|func_return_line

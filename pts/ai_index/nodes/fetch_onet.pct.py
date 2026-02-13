@@ -70,4 +70,4 @@ print(f"fetch_onet: loaded {len(onet_tables)} tables from O*NET 30.0")
 for key, df in sorted(onet_tables.items()):
     print(f"  {key}: {df.shape}")
 
-return {"onet_tables": onet_tables}
+{"onet_tables": onet_tables}  #|func_return_line

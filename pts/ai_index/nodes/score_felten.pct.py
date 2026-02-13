@@ -33,4 +33,4 @@ set_node_func_args(score_felten)
 # %%
 #|export
 print("score_felten: returning dummy data")
-return {"felten_scores": {"dummy": True}}
+{"felten_scores": {"dummy": True}}  #|func_return_line

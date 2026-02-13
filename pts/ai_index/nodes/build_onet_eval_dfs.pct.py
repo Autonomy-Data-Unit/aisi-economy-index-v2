@@ -33,4 +33,4 @@ set_node_func_args(build_onet_eval_dfs)
 # %%
 #|export
 print("build_onet_eval_dfs: returning dummy data")
-return {"tasks": {"dummy": True}, "skills": {"dummy": True}, "abilities": {"dummy": True}, "knowledge": {"dummy": True}, "work_context": {"dummy": True}}
+{"tasks": {"dummy": True}, "skills": {"dummy": True}, "abilities": {"dummy": True}, "knowledge": {"dummy": True}, "work_context": {"dummy": True}}  #|func_return_line

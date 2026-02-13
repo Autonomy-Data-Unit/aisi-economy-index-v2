@@ -33,4 +33,4 @@ set_node_func_args(aggregate_geography)
 # %%
 #|export
 print("aggregate_geography: returning dummy data")
-return {"geography_index": {"dummy": True}}
+{"geography_index": {"dummy": True}}  #|func_return_line

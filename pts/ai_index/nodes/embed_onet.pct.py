@@ -42,7 +42,7 @@ remote_result = maybe_run_remote(
     required_models_from_vars=["embedding_model"],
 )
 if remote_result is not None:
-    return remote_result
+    remote_result  #|func_return_line
 
 # %%
 #|export
@@ -83,7 +83,7 @@ assert not np.any(np.isnan(role_embeddings)), "NaN in role_embeddings"
 assert not np.any(np.isnan(task_embeddings)), "NaN in task_embeddings"
 
 print(f"embed_onet: done — {n} occupations, dim={role_embeddings.shape[1]}")
-return {"onet_embeddings": {
+{"onet_embeddings": {  #|func_return_line
     "role_embeddings": role_embeddings,
     "task_embeddings": task_embeddings,
     "titles": titles,

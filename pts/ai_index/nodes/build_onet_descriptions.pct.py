@@ -128,7 +128,7 @@ role_descriptions = occ["role_description"].tolist()
 task_descriptions = occ["task_description"].tolist()
 
 print(f"build_onet_descriptions: built {len(titles)} occupation descriptions")
-return {"descriptions": {
+{"descriptions": {  #|func_return_line
     "soc_codes": soc_codes,
     "titles": titles,
     "role_descriptions": role_descriptions,

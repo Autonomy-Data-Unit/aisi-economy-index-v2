@@ -42,7 +42,7 @@ remote_result = maybe_run_remote(
     job_name="compute_cosine_similarity", time="01:00:00",
 )
 if remote_result is not None:
-    return remote_result
+    remote_result  #|func_return_line
 
 # %%
 #|export
@@ -179,7 +179,7 @@ else:
             print(f"  cosine (gpu): {end}/{n_jobs} jobs processed")
 
 print(f"compute_cosine_similarity: done — {n_jobs} jobs, avg candidates per job: {sum(len(c) for c in all_candidates) / max(n_jobs, 1):.1f}")
-return {"candidates": {
+{"candidates": {  #|func_return_line
     "job_ids": job_ids,
     "candidates": all_candidates,
 }}
