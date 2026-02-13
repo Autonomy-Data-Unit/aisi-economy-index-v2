@@ -4,10 +4,7 @@
   },
   "node_vars": {
     "embedding_model": {
-      "value": {
-        "$env": "EMBEDDING_MODEL",
-        "default": "BAAI/bge-large-en-v1.5"
-      },
+      "value": { "$env": "EMBEDDING_MODEL" },
       "type": "str"
     },
     "embedding_dtype": {
@@ -35,10 +32,7 @@
       "type": "int"
     },
     "llm_model": {
-      "value": {
-        "$env": "LLM_MODEL",
-        "default": "Qwen/Qwen2.5-7B-Instruct"
-      },
+      "value": { "$env": "LLM_MODEL" },
       "type": "str"
     },
     "llm_dtype": {
@@ -58,31 +52,19 @@
       "type": "int"
     },
     "llm_backend": {
-      "value": {
-        "$env": "LLM_BACKEND",
-        "default": "transformers"
-      },
+      "value": { "$env": "LLM_BACKEND" },
       "type": "str"
     },
     "job_ads_sample_rate": {
-      "value": {
-        "$env": "JOB_ADS_SAMPLE_RATE",
-        "default": "1.0"
-      },
+      "value": { "$env": "JOB_ADS_SAMPLE_RATE" },
       "type": "float"
     },
     "job_ads_random_seed": {
-      "value": {
-        "$env": "JOB_ADS_RANDOM_SEED",
-        "default": ""
-      },
+      "value": { "$env": "JOB_ADS_RANDOM_SEED" },
       "type": "str"
     },
     "execution_mode": {
-      "value": {
-        "$env": "EXECUTION_MODE",
-        "default": "local"
-      },
+      "value": { "$env": "EXECUTION_MODE" },
       "type": "str"
     }
   },
@@ -119,6 +101,7 @@
       ]
     }
   },
+  "max_epochs": 1,
   "graph": {
     "nodes": [
       {
