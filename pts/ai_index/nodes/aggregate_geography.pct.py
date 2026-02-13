@@ -22,6 +22,10 @@ def aggregate_geography(job_exposure_index, print) -> {"geography_index": dict}:
     """Aggregate the full index by geographic dimensions."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
 # %%
 #|export
 print("aggregate_geography: returning dummy data")

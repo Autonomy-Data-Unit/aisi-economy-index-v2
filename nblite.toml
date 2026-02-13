@@ -11,6 +11,9 @@ nbs_isambard -> pts_isambard
 
 nbs_isambard_tests -> lib_isambard_tests
 nbs_isambard_tests -> pts_isambard_tests
+
+nbs_dev -> lib_dev
+nbs_dev -> pts_dev
 """
 
 [cl.nbs]
@@ -62,4 +65,17 @@ format = "percent"
 
 [cl.lib_isambard_tests]
 path = "src/isambard_utils_tests"
+format = "module"
+
+
+[cl.nbs_dev]
+path = "nbs/dev_utils"
+format = "ipynb"
+
+[cl.pts_dev]
+path = "pts/dev_utils"
+format = "percent"
+
+[cl.lib_dev]
+path = "src/dev_utils"
 format = "module"
