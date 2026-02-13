@@ -16,13 +16,14 @@
 
 # %%
 #|export
+import asyncio
 import json
 import re
 import time
 from dataclasses import dataclass, field
 from typing import Callable
 from isambard_utils.config import IsambardConfig
-from isambard_utils.ssh import run as ssh_run, _get_config
+from isambard_utils.ssh import run as ssh_run, arun as async_ssh_run, _get_config, _run_sync
 
 # %%
 #|export
@@ -34,8 +35,23 @@ class SlurmJob:
 
 # %%
 #|export
-def submit(sbatch_script: str, *, config: IsambardConfig | None = None) -> SlurmJob:
-    """Submit an SBATCH script and return the job.
+def _parse_array_spec(spec: str) -> list[int]:
+    """Parse a Slurm array spec like '0-9' or '1,3,5' into a list of task IDs."""
+    ids = []
+    for part in spec.split(","):
+        if "-" in part:
+            parts = part.split("-")
+            start, end = int(parts[0]), int(parts[1])
+            step = int(parts[2]) if len(parts) > 2 else 1
+            ids.extend(range(start, end + 1, step))
+        else:
+            ids.append(int(part))
+    return ids
+
+# %%
+#|export
+async def asubmit(sbatch_script: str, *, config: IsambardConfig | None = None) -> SlurmJob:
+    """Submit an SBATCH script and return the job (async).
 
     Uploads the script to a temp file on the remote, runs sbatch, and parses
     the job ID from stdout.
@@ -46,18 +62,18 @@ def submit(sbatch_script: str, *, config: IsambardConfig | None = None) -> Slurm
     """
     config = _get_config(config)
     scripts_dir = f"{config.project_dir}/.sbatch_scripts"
-    ssh_run(f"mkdir -p {scripts_dir}", config=config)
+    await async_ssh_run(f"mkdir -p {scripts_dir}", config=config)
 
     # Upload script to remote temp file
     import hashlib
     script_hash = hashlib.md5(sbatch_script.encode()).hexdigest()[:8]
     remote_script = f"{scripts_dir}/job_{script_hash}.sh"
 
-    from isambard_utils.transfer import upload_bytes
-    upload_bytes(sbatch_script.encode(), remote_script, config=config)
+    from isambard_utils.transfer import aupload_bytes
+    await aupload_bytes(sbatch_script.encode(), remote_script, config=config)
 
     # Submit via sbatch
-    result = ssh_run(f"sbatch {remote_script}", config=config)
+    result = await async_ssh_run(f"sbatch {remote_script}", config=config)
     # Parse: "Submitted batch job 12345"
     match = re.search(r"Submitted batch job (\d+)", result.stdout)
     if not match:
@@ -77,23 +93,22 @@ def submit(sbatch_script: str, *, config: IsambardConfig | None = None) -> Slurm
 
 # %%
 #|export
-def _parse_array_spec(spec: str) -> list[int]:
-    """Parse a Slurm array spec like '0-9' or '1,3,5' into a list of task IDs."""
-    ids = []
-    for part in spec.split(","):
-        if "-" in part:
-            parts = part.split("-")
-            start, end = int(parts[0]), int(parts[1])
-            step = int(parts[2]) if len(parts) > 2 else 1
-            ids.extend(range(start, end + 1, step))
-        else:
-            ids.append(int(part))
-    return ids
+def submit(sbatch_script: str, *, config: IsambardConfig | None = None) -> SlurmJob:
+    """Submit an SBATCH script and return the job.
+
+    Uploads the script to a temp file on the remote, runs sbatch, and parses
+    the job ID from stdout.
+
+    Args:
+        sbatch_script: Complete SBATCH script content as a string.
+        config: Isambard configuration.
+    """
+    return _run_sync(asubmit(sbatch_script, config=config))
 
 # %%
 #|export
-def status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
-    """Get job status via squeue.
+async def astatus(job_id: str, *, config: IsambardConfig | None = None) -> dict:
+    """Get job status via squeue (async).
 
     Returns a dict with job information, or empty dict if job is no longer in
     the queue (completed/failed).
@@ -103,7 +118,7 @@ def status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
         config: Isambard configuration.
     """
     config = _get_config(config)
-    result = ssh_run(
+    result = await async_ssh_run(
         f"squeue --json -j {job_id}",
         config=config, check=False,
     )
@@ -132,10 +147,24 @@ def status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
 
 # %%
 #|export
-def _sacct_status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
-    """Get completed job status via sacct."""
+def status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
+    """Get job status via squeue.
+
+    Returns a dict with job information, or empty dict if job is no longer in
+    the queue (completed/failed).
+
+    Args:
+        job_id: Slurm job ID.
+        config: Isambard configuration.
+    """
+    return _run_sync(astatus(job_id, config=config))
+
+# %%
+#|export
+async def _asacct_status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
+    """Get completed job status via sacct (async)."""
     config = _get_config(config)
-    result = ssh_run(
+    result = await async_ssh_run(
         f"sacct -j {job_id} --json",
         config=config, check=False,
     )
@@ -160,10 +189,16 @@ def _sacct_status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
 
 # %%
 #|export
-def wait(job_id: str, *, config: IsambardConfig | None = None,
-         poll_interval: int = 15, timeout: int | None = None,
-         on_poll: Callable | None = None) -> dict:
-    """Poll until a job completes, then return sacct summary.
+def _sacct_status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
+    """Get completed job status via sacct."""
+    return _run_sync(_asacct_status(job_id, config=config))
+
+# %%
+#|export
+async def await_job(job_id: str, *, config: IsambardConfig | None = None,
+                    poll_interval: int = 15, timeout: int | None = None,
+                    on_poll: Callable | None = None) -> dict:
+    """Poll until a job completes, then return sacct summary (async).
 
     Args:
         job_id: Slurm job ID.
@@ -179,20 +214,49 @@ def wait(job_id: str, *, config: IsambardConfig | None = None,
         if timeout and (time.time() - start) > timeout:
             raise TimeoutError(f"Job {job_id} did not complete within {timeout}s")
 
-        job_status = status(job_id, config=config)
+        job_status = await astatus(job_id, config=config)
         if on_poll:
             on_poll(job_status)
 
         if not job_status:
-            # Job left the queue — check sacct for final status
-            return _sacct_status(job_id, config=config)
+            # Job left the queue -- check sacct for final status
+            return await _asacct_status(job_id, config=config)
 
         state = job_status.get("state", "")
         if state in ("COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "NODE_FAIL",
                       "OUT_OF_MEMORY", "PREEMPTED"):
-            return _sacct_status(job_id, config=config)
+            return await _asacct_status(job_id, config=config)
 
-        time.sleep(poll_interval)
+        await asyncio.sleep(poll_interval)
+
+# %%
+#|export
+def wait(job_id: str, *, config: IsambardConfig | None = None,
+         poll_interval: int = 15, timeout: int | None = None,
+         on_poll: Callable | None = None) -> dict:
+    """Poll until a job completes, then return sacct summary.
+
+    Args:
+        job_id: Slurm job ID.
+        config: Isambard configuration.
+        poll_interval: Seconds between status checks.
+        timeout: Maximum seconds to wait (None = no limit).
+        on_poll: Optional callback receiving status dict each iteration.
+    """
+    return _run_sync(await_job(job_id, config=config, poll_interval=poll_interval,
+                               timeout=timeout, on_poll=on_poll))
+
+# %%
+#|export
+async def acancel(job_id: str, *, config: IsambardConfig | None = None) -> None:
+    """Cancel a running or pending job via scancel (async).
+
+    Args:
+        job_id: Slurm job ID to cancel.
+        config: Isambard configuration.
+    """
+    config = _get_config(config)
+    await async_ssh_run(f"scancel {job_id}", config=config)
 
 # %%
 #|export
@@ -203,14 +267,13 @@ def cancel(job_id: str, *, config: IsambardConfig | None = None) -> None:
         job_id: Slurm job ID to cancel.
         config: Isambard configuration.
     """
-    config = _get_config(config)
-    ssh_run(f"scancel {job_id}", config=config)
+    _run_sync(acancel(job_id, config=config))
 
 # %%
 #|export
-def job_log(job_id: str, *, config: IsambardConfig | None = None,
-            stream: str = "stdout", tail: int | None = None) -> str:
-    """Read job stdout or stderr log file from Isambard.
+async def ajob_log(job_id: str, *, config: IsambardConfig | None = None,
+                   stream: str = "stdout", tail: int | None = None) -> str:
+    """Read job stdout or stderr log file from Isambard (async).
 
     Args:
         job_id: Slurm job ID.
@@ -226,5 +289,19 @@ def job_log(job_id: str, *, config: IsambardConfig | None = None,
     if tail:
         cat_cmd = f"tail -n {tail} {pattern}"
 
-    result = ssh_run(cat_cmd, config=config, check=False)
+    result = await async_ssh_run(cat_cmd, config=config, check=False)
     return result.stdout if result.returncode == 0 else ""
+
+# %%
+#|export
+def job_log(job_id: str, *, config: IsambardConfig | None = None,
+            stream: str = "stdout", tail: int | None = None) -> str:
+    """Read job stdout or stderr log file from Isambard.
+
+    Args:
+        job_id: Slurm job ID.
+        config: Isambard configuration.
+        stream: 'stdout' or 'stderr'.
+        tail: If set, return only the last N lines.
+    """
+    return _run_sync(ajob_log(job_id, config=config, stream=stream, tail=tail))

@@ -16,6 +16,7 @@ dependencies = [
     "accelerate>=1.0",
     "pandas>=2.0",
     "pyarrow>=10.0",
+    "nest-asyncio>=1.6",
 ]
 
 [dependency-groups]

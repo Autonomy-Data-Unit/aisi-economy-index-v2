@@ -168,6 +168,7 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 ### Where to edit code
 - **Edit `.pct.py` files in `pts/ai_index/`** - these are the source of truth
 - **Never edit files in `src/`** - they are auto-generated and will be overwritten
+- **Exception: `__init__.py` files** — nblite skips dunder-named files (`__init__`, `__main__`, etc.) during module export. These must be edited directly in `src/` and kept in sync with the corresponding `pts/.../__init__.pct.py` notebook.
 - After editing `.pct.py` files, run: `nbl export --reverse && nbl export`
 
 ### nblite commands

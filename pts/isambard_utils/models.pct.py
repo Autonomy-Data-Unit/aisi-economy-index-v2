@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from isambard_utils.config import IsambardConfig
-from isambard_utils.ssh import run as ssh_run, _get_config
+from isambard_utils.ssh import run as ssh_run, arun as async_ssh_run, _get_config, _run_sync
 
 # %% [markdown]
 # ## Orchestration (run locally, SSH to Isambard)
@@ -42,60 +42,25 @@ def _hf_cache_dir(config: IsambardConfig) -> str:
 
 # %%
 #|export
-def _remote_python(script: str, *, config: IsambardConfig, timeout: int = 600) -> str:
-    """Run a Python script in the remote venv and return stdout."""
+async def _aremote_python(script: str, *, config: IsambardConfig, timeout: int = 600) -> str:
+    """Run a Python script in the remote venv and return stdout (async)."""
     cmd = (
         f"cd {config.project_dir} && source .venv/bin/activate && "
         f"python -c {_shlex_quote(script)}"
     )
-    result = ssh_run(f"bash -lc {_shlex_quote(cmd)}", config=config, timeout=timeout)
+    result = await async_ssh_run(f"bash -lc {_shlex_quote(cmd)}", config=config, timeout=timeout)
     return result.stdout
 
 # %%
 #|export
-def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
-                 token: str | None = None, timeout: int = 1800) -> str:
-    """Pre-download a HuggingFace model to the Isambard cache via the login node.
-
-    Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
-    remote snapshot path. Skips download if model is already cached.
-
-    Args:
-        model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
-        config: Isambard configuration.
-        token: Optional HuggingFace token for gated models.
-        timeout: SSH timeout in seconds (default 30 minutes for large models).
-    """
-    config = _get_config(config)
-    cache_dir = _hf_cache_dir(config)
-
-    # Skip download if already cached (avoids 401 for gated models)
-    if check_model(model_name, config=config):
-        model_dir = model_name.replace("/", "--")
-        # Return the snapshot path by reading the refs/main pointer
-        script = (
-            f"import os; "
-            f"refs = os.path.join({cache_dir!r}, 'models--{model_dir}', 'refs', 'main'); "
-            f"rev = open(refs).read().strip() if os.path.exists(refs) else 'unknown'; "
-            f"snap = os.path.join({cache_dir!r}, 'models--{model_dir}', 'snapshots', rev); "
-            f"print(snap)"
-        )
-        stdout = _remote_python(script, config=config, timeout=30)
-        return stdout.strip().split("\n")[-1]
-
-    token_arg = f", token={token!r}" if token else ""
-    script = (
-        f"from huggingface_hub import snapshot_download; "
-        f"path = snapshot_download({model_name!r}, cache_dir={cache_dir!r}{token_arg}); "
-        f"print(path)"
-    )
-    stdout = _remote_python(script, config=config, timeout=timeout)
-    return stdout.strip().split("\n")[-1]
+def _remote_python(script: str, *, config: IsambardConfig, timeout: int = 600) -> str:
+    """Run a Python script in the remote venv and return stdout."""
+    return _run_sync(_aremote_python(script, config=config, timeout=timeout))
 
 # %%
 #|export
-def check_model(model_name: str, *, config: IsambardConfig | None = None) -> bool:
-    """Check if a HuggingFace model is already cached on Isambard.
+async def acheck_model(model_name: str, *, config: IsambardConfig | None = None) -> bool:
+    """Check if a HuggingFace model is already cached on Isambard (async).
 
     Verifies the snapshot directory exists AND contains a config.json
     (not just metadata like README/LICENSE from partial downloads).
@@ -115,8 +80,80 @@ def check_model(model_name: str, *, config: IsambardConfig | None = None) -> boo
         f"test -d {_shlex_quote(path)} && "
         f"ls {_shlex_quote(path)}/snapshots/*/config.json >/dev/null 2>&1"
     )
-    result = ssh_run(check_cmd, config=config, check=False)
+    result = await async_ssh_run(check_cmd, config=config, check=False)
     return result.returncode == 0
+
+# %%
+#|export
+def check_model(model_name: str, *, config: IsambardConfig | None = None) -> bool:
+    """Check if a HuggingFace model is already cached on Isambard.
+
+    Verifies the snapshot directory exists AND contains a config.json
+    (not just metadata like README/LICENSE from partial downloads).
+
+    Args:
+        model_name: HuggingFace model ID.
+        config: Isambard configuration.
+    """
+    return _run_sync(acheck_model(model_name, config=config))
+
+# %%
+#|export
+async def aensure_model(model_name: str, *, config: IsambardConfig | None = None,
+                        token: str | None = None, timeout: int = 1800) -> str:
+    """Pre-download a HuggingFace model to the Isambard cache via the login node (async).
+
+    Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
+    remote snapshot path. Skips download if model is already cached.
+
+    Args:
+        model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
+        config: Isambard configuration.
+        token: Optional HuggingFace token for gated models.
+        timeout: SSH timeout in seconds (default 30 minutes for large models).
+    """
+    config = _get_config(config)
+    cache_dir = _hf_cache_dir(config)
+
+    # Skip download if already cached (avoids 401 for gated models)
+    if await acheck_model(model_name, config=config):
+        model_dir = model_name.replace("/", "--")
+        # Return the snapshot path by reading the refs/main pointer
+        script = (
+            f"import os; "
+            f"refs = os.path.join({cache_dir!r}, 'models--{model_dir}', 'refs', 'main'); "
+            f"rev = open(refs).read().strip() if os.path.exists(refs) else 'unknown'; "
+            f"snap = os.path.join({cache_dir!r}, 'models--{model_dir}', 'snapshots', rev); "
+            f"print(snap)"
+        )
+        stdout = await _aremote_python(script, config=config, timeout=30)
+        return stdout.strip().split("\n")[-1]
+
+    token_arg = f", token={token!r}" if token else ""
+    script = (
+        f"from huggingface_hub import snapshot_download; "
+        f"path = snapshot_download({model_name!r}, cache_dir={cache_dir!r}{token_arg}); "
+        f"print(path)"
+    )
+    stdout = await _aremote_python(script, config=config, timeout=timeout)
+    return stdout.strip().split("\n")[-1]
+
+# %%
+#|export
+def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
+                 token: str | None = None, timeout: int = 1800) -> str:
+    """Pre-download a HuggingFace model to the Isambard cache via the login node.
+
+    Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
+    remote snapshot path. Skips download if model is already cached.
+
+    Args:
+        model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
+        config: Isambard configuration.
+        token: Optional HuggingFace token for gated models.
+        timeout: SSH timeout in seconds (default 30 minutes for large models).
+    """
+    return _run_sync(aensure_model(model_name, config=config, token=token, timeout=timeout))
 
 # %% [markdown]
 # ## Compute-node functions (run on Isambard in SBATCH jobs)

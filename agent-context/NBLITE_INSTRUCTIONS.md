@@ -428,9 +428,13 @@ from my_package.core import something  # Becomes: from ..core import something
 
 ## `__init__.py` Management
 
-nblite auto-generates `__init__.py` files for packages that contain non-underscore-prefixed modules. However, packages with only underscore-prefixed modules (e.g., `_context.py`, `_net.py`) do **not** get an auto-generated `__init__.py`.
+**nblite's module export skips all dunder-named files** (`__init__`, `__main__`, etc.) due to the `_path_contains_dunder()` filter in its export pipeline. This means:
 
-In this project, **`__init__.py` files are usually manually managed** — they contain explicit re-exports to control the public API of each package. When adding a new module to a package, you must manually update its `__init__.py` to re-export any new public symbols. The `nbl export` command will not overwrite manually managed `__init__.py` files.
+- Even if you create a `pts/package/__init__.pct.py` notebook with `#|default_exp __init__` and `#|export` cells, **`nbl export` will NOT generate `src/package/__init__.py`**.
+- `__init__.py` files must be **created and edited directly in `src/`**. This is the one exception to the "never edit `src/`" rule.
+- When you modify the `pts/.../__init__.pct.py` notebook, you must **manually keep `src/.../__init__.py` in sync**.
+
+When adding new public symbols to a package, update both the `pts/.../__init__.pct.py` (for notebook documentation) and `src/.../__init__.py` (for the actual re-exports).
 
 ---
 

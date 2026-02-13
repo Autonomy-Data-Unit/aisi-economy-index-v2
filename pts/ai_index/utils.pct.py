@@ -193,6 +193,121 @@ import json
 import tempfile
 
 
+async def _arun_sbatch(func_path: str, inputs: dict, node_vars: dict,
+                       job_name: str, time: str,
+                       required_models: list[str],
+                       print_fn) -> dict:
+    """Run a node function remotely via Isambard sbatch (async).
+
+    Args:
+        func_path: Dotted import path to the node function.
+        inputs: Dict of input port values.
+        node_vars: All node variables from ctx.vars.
+        job_name: Slurm job name.
+        time: Slurm time limit (e.g. "02:00:00").
+        required_models: HuggingFace model names to pre-cache on Isambard.
+        print_fn: Print function for logging.
+
+    Returns:
+        Dict of output port values (deserialized from remote).
+    """
+    from isambard_utils import (
+        IsambardConfig, generate_sbatch, SbatchConfig,
+    )
+    from isambard_utils.ssh import arun as async_ssh_run
+    from isambard_utils.transfer import aupload, adownload, aupload_bytes
+    from isambard_utils.slurm import asubmit, ajob_log, await_job
+    from isambard_utils.env import asetup
+    from isambard_utils.models import aensure_model
+
+    config = IsambardConfig.from_env()
+    work_dir = f"{config.project_dir}/.gpu_jobs/{job_name}"
+    inputs_dir = f"{work_dir}/inputs"
+    outputs_dir = f"{work_dir}/outputs"
+    runner_file = f"{work_dir}/runner.py"
+    status_file = f"{work_dir}/status.json"
+
+    # 1. Bootstrap remote environment
+    print_fn(f"sbatch [{job_name}]: setting up remote environment...")
+    await asetup(config=config)
+
+    # 2. Pre-cache required models
+    for model_name in required_models:
+        print_fn(f"sbatch [{job_name}]: ensuring model {model_name}...")
+        await aensure_model(model_name, config=config)
+
+    # 3. Serialize inputs locally
+    print_fn(f"sbatch [{job_name}]: serializing inputs...")
+    with tempfile.TemporaryDirectory() as tmp:
+        local_inputs = Path(tmp) / "inputs"
+        serialize_node_data(inputs, local_inputs)
+
+        # 4. Create remote work dir and upload inputs
+        print_fn(f"sbatch [{job_name}]: uploading inputs...")
+        await async_ssh_run(f"mkdir -p {inputs_dir} {outputs_dir}", config=config)
+        await aupload(str(local_inputs) + "/", inputs_dir, config=config)
+
+    # 5. Generate and upload runner script
+    runner_code = _generate_runner_script(
+        func_path, inputs_dir, outputs_dir, status_file, dict(node_vars),
+    )
+    await aupload_bytes(runner_code.encode(), runner_file, config=config)
+
+    # 6. Generate and submit sbatch script
+    sbatch_cfg = SbatchConfig(
+        job_name=job_name,
+        time=time,
+        python_script=runner_file,
+    )
+    sbatch_script = generate_sbatch(sbatch_cfg, isambard_config=config)
+    print_fn(f"sbatch [{job_name}]: submitting job...")
+    job = await asubmit(sbatch_script, config=config)
+    print_fn(f"sbatch [{job_name}]: submitted job {job.job_id}")
+
+    # 7. Wait for completion
+    def _on_poll(status):
+        if status:
+            print_fn(f"sbatch [{job_name}]: job {job.job_id} state={status.get('state', '?')}")
+
+    final = await await_job(job.job_id, config=config, on_poll=_on_poll)
+    final_state = final.get("state", "UNKNOWN")
+    print_fn(f"sbatch [{job_name}]: job finished with state={final_state}")
+
+    if final_state != "COMPLETED":
+        # Fetch logs for debugging
+        stdout_log = await ajob_log(job.job_id, config=config, stream="stdout", tail=50)
+        stderr_log = await ajob_log(job.job_id, config=config, stream="stderr", tail=50)
+        raise RuntimeError(
+            f"sbatch job {job_name} (id={job.job_id}) failed with state={final_state}.\n"
+            f"--- stdout (last 50 lines) ---\n{stdout_log}\n"
+            f"--- stderr (last 50 lines) ---\n{stderr_log}"
+        )
+
+    # 8. Check runner status file
+    check = await async_ssh_run(f"cat {status_file}", config=config, check=False)
+    if check.returncode == 0:
+        runner_status = json.loads(check.stdout)
+        if runner_status.get("state") != "COMPLETED":
+            raise RuntimeError(
+                f"sbatch runner for {job_name} reported: {runner_status}"
+            )
+
+    # 9. Download outputs
+    print_fn(f"sbatch [{job_name}]: downloading outputs...")
+    with tempfile.TemporaryDirectory() as tmp:
+        local_outputs = Path(tmp) / "outputs"
+        local_outputs.mkdir()
+        await adownload(outputs_dir + "/", str(local_outputs), config=config)
+        result = deserialize_node_data(local_outputs)
+
+    # 10. Cleanup remote work dir
+    await async_ssh_run(f"rm -rf {work_dir}", config=config, check=False)
+    print_fn(f"sbatch [{job_name}]: done")
+
+    return result
+
+# %%
+#|export
 def _run_sbatch(func_path: str, inputs: dict, node_vars: dict,
                 job_name: str, time: str,
                 required_models: list[str],
@@ -211,97 +326,12 @@ def _run_sbatch(func_path: str, inputs: dict, node_vars: dict,
     Returns:
         Dict of output port values (deserialized from remote).
     """
-    from isambard_utils import (
-        IsambardConfig, setup, ensure_model, upload, download,
-        upload_bytes, submit, wait, job_log, generate_sbatch, SbatchConfig,
-    )
-    from isambard_utils.ssh import run as ssh_run
-
-    config = IsambardConfig.from_env()
-    work_dir = f"{config.project_dir}/.gpu_jobs/{job_name}"
-    inputs_dir = f"{work_dir}/inputs"
-    outputs_dir = f"{work_dir}/outputs"
-    runner_file = f"{work_dir}/runner.py"
-    status_file = f"{work_dir}/status.json"
-
-    # 1. Bootstrap remote environment
-    print_fn(f"sbatch [{job_name}]: setting up remote environment...")
-    setup(config=config)
-
-    # 2. Pre-cache required models
-    for model_name in required_models:
-        print_fn(f"sbatch [{job_name}]: ensuring model {model_name}...")
-        ensure_model(model_name, config=config)
-
-    # 3. Serialize inputs locally
-    print_fn(f"sbatch [{job_name}]: serializing inputs...")
-    with tempfile.TemporaryDirectory() as tmp:
-        local_inputs = Path(tmp) / "inputs"
-        serialize_node_data(inputs, local_inputs)
-
-        # 4. Create remote work dir and upload inputs
-        print_fn(f"sbatch [{job_name}]: uploading inputs...")
-        ssh_run(f"mkdir -p {inputs_dir} {outputs_dir}", config=config)
-        upload(str(local_inputs) + "/", inputs_dir, config=config)
-
-    # 5. Generate and upload runner script
-    runner_code = _generate_runner_script(
-        func_path, inputs_dir, outputs_dir, status_file, dict(node_vars),
-    )
-    upload_bytes(runner_code.encode(), runner_file, config=config)
-
-    # 6. Generate and submit sbatch script
-    sbatch_cfg = SbatchConfig(
-        job_name=job_name,
-        time=time,
-        python_script=runner_file,
-    )
-    sbatch_script = generate_sbatch(sbatch_cfg, isambard_config=config)
-    print_fn(f"sbatch [{job_name}]: submitting job...")
-    job = submit(sbatch_script, config=config)
-    print_fn(f"sbatch [{job_name}]: submitted job {job.job_id}")
-
-    # 7. Wait for completion
-    def _on_poll(status):
-        if status:
-            print_fn(f"sbatch [{job_name}]: job {job.job_id} state={status.get('state', '?')}")
-
-    final = wait(job.job_id, config=config, on_poll=_on_poll)
-    final_state = final.get("state", "UNKNOWN")
-    print_fn(f"sbatch [{job_name}]: job finished with state={final_state}")
-
-    if final_state != "COMPLETED":
-        # Fetch logs for debugging
-        stdout_log = job_log(job.job_id, config=config, stream="stdout", tail=50)
-        stderr_log = job_log(job.job_id, config=config, stream="stderr", tail=50)
-        raise RuntimeError(
-            f"sbatch job {job_name} (id={job.job_id}) failed with state={final_state}.\n"
-            f"--- stdout (last 50 lines) ---\n{stdout_log}\n"
-            f"--- stderr (last 50 lines) ---\n{stderr_log}"
-        )
-
-    # 8. Check runner status file
-    check = ssh_run(f"cat {status_file}", config=config, check=False)
-    if check.returncode == 0:
-        runner_status = json.loads(check.stdout)
-        if runner_status.get("state") != "COMPLETED":
-            raise RuntimeError(
-                f"sbatch runner for {job_name} reported: {runner_status}"
-            )
-
-    # 9. Download outputs
-    print_fn(f"sbatch [{job_name}]: downloading outputs...")
-    with tempfile.TemporaryDirectory() as tmp:
-        local_outputs = Path(tmp) / "outputs"
-        local_outputs.mkdir()
-        download(outputs_dir + "/", str(local_outputs), config=config)
-        result = deserialize_node_data(local_outputs)
-
-    # 10. Cleanup remote work dir
-    ssh_run(f"rm -rf {work_dir}", config=config, check=False)
-    print_fn(f"sbatch [{job_name}]: done")
-
-    return result
+    from isambard_utils.ssh import _run_sync
+    return _run_sync(_arun_sbatch(
+        func_path=func_path, inputs=inputs, node_vars=node_vars,
+        job_name=job_name, time=time, required_models=required_models,
+        print_fn=print_fn,
+    ))
 
 # %% [markdown]
 # ## Guard function
@@ -311,11 +341,11 @@ def _run_sbatch(func_path: str, inputs: dict, node_vars: dict,
 
 # %%
 #|export
-def maybe_run_remote(func_path: str, inputs: dict, ctx, print_fn,
-                     job_name: str, time: str = "02:00:00",
-                     required_models_from_vars: list[str] | None = None,
-                     ) -> dict | None:
-    """Guard function for GPU nodes — handles sbatch orchestration.
+async def amaybe_run_remote(func_path: str, inputs: dict, ctx, print_fn,
+                            job_name: str, time: str = "02:00:00",
+                            required_models_from_vars: list[str] | None = None,
+                            ) -> dict | None:
+    """Async guard function for GPU nodes — handles sbatch orchestration.
 
     Call at the top of each GPU node. For **local** and **deploy** modes,
     returns ``None`` (the existing node body should run). For **sbatch** mode,
@@ -350,7 +380,7 @@ def maybe_run_remote(func_path: str, inputs: dict, ctx, print_fn,
             if model_name:
                 required_models.append(model_name)
 
-        return _run_sbatch(
+        return await _arun_sbatch(
             func_path=func_path,
             inputs=inputs,
             node_vars=dict(ctx.vars),
@@ -361,3 +391,39 @@ def maybe_run_remote(func_path: str, inputs: dict, ctx, print_fn,
         )
 
     raise ValueError(f"Unknown execution_mode: {mode!r}. Expected one of: local, deploy, sbatch, api")
+
+# %%
+#|export
+def maybe_run_remote(func_path: str, inputs: dict, ctx, print_fn,
+                     job_name: str, time: str = "02:00:00",
+                     required_models_from_vars: list[str] | None = None,
+                     ) -> dict | None:
+    """Guard function for GPU nodes — handles sbatch orchestration.
+
+    Call at the top of each GPU node. For **local** and **deploy** modes,
+    returns ``None`` (the existing node body should run). For **sbatch** mode,
+    handles the full remote execution lifecycle and returns the result dict.
+
+    **api** mode is not handled here — each node implements its own API path.
+
+    Args:
+        func_path: Dotted import path to this node's function
+            (e.g. "ai_index.nodes.embed_onet.embed_onet").
+        inputs: Dict mapping input port names to values.
+        ctx: Node execution context (must have ``ctx.vars``).
+        print_fn: Print function for logging.
+        job_name: Slurm job name.
+        time: Slurm time limit (default "02:00:00").
+        required_models_from_vars: List of var names whose values are HuggingFace
+            model IDs to pre-cache on Isambard (e.g. ["embedding_model"]).
+
+    Returns:
+        ``None`` if the node body should execute locally, or a dict of output
+        port values if remote execution was performed.
+    """
+    from isambard_utils.ssh import _run_sync
+    return _run_sync(amaybe_run_remote(
+        func_path=func_path, inputs=inputs, ctx=ctx, print_fn=print_fn,
+        job_name=job_name, time=time,
+        required_models_from_vars=required_models_from_vars,
+    ))
