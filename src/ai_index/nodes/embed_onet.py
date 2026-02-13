@@ -29,7 +29,7 @@ def embed_onet(descriptions, ctx, print) -> {"onet_embeddings": dict}:
     print(f"embed_onet: encoding {n} occupations with {model_name} (device={device}, dtype={dtype}, batch_size={batch_size})")
     
     from isambard_utils.models import load_embedding_model
-    model = load_embedding_model(model_name, device=device, dtype=dtype)
+    model = load_embedding_model(model_name, device=device, dtype=dtype, offline=(execution_mode != "api"))
     print(f"embed_onet: encoding role descriptions...")
     role_embeddings = model.encode(role_texts, batch_size=batch_size)
     role_embeddings = np.asarray(role_embeddings, dtype=np.float16)

@@ -48,6 +48,7 @@ def generate(sbatch_config: SbatchConfig, *,
     lines.append(f"#SBATCH --cpus-per-task={sc.cpus_per_task}")
     lines.append(f"#SBATCH --mem={sc.mem}")
     lines.append(f"#SBATCH --time={sc.time}")
+    lines.append(f"#SBATCH --ntasks=1")
     if sc.array:
         lines.append(f"#SBATCH --array={sc.array}")
     lines.append("")
@@ -68,7 +69,7 @@ def generate(sbatch_config: SbatchConfig, *,
     lines.append("")
 
     # Environment variables
-    lines.append(f'export HF_HOME="{ic.hf_cache_dir}"')
+    lines.append(f'export HF_HUB_CACHE="{ic.hf_cache_dir}"')
     lines.append('export HF_HUB_DISABLE_TELEMETRY=1')
     lines.append('export TOKENIZERS_PARALLELISM=false')
     for key, val in sc.env_vars.items():

@@ -79,7 +79,7 @@ if 0 < sample_rate < 1.0:
 print(f"embed_job_ads: encoding {n_valid} job ads with {model_name} (device={device}, dtype={dtype}, batch_size={batch_size}, chunk_size={chunk_size})")
 
 from isambard_utils.models import load_embedding_model
-model = load_embedding_model(model_name, device=device, dtype=dtype)
+model = load_embedding_model(model_name, device=device, dtype=dtype, offline=(execution_mode != "api"))
 
 # %%
 #|export

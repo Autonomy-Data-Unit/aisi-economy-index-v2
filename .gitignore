@@ -3,6 +3,9 @@ nbs/
 old-repo
 old-data
 
+# Data store (large files, not tracked)
+src/ai_index/store/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

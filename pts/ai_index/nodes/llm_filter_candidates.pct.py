@@ -47,11 +47,12 @@ import re
 
 execution_mode = ctx.vars.get("execution_mode", "local")
 
-llm_model = ctx.vars.get("llm_model", "meta-llama/Meta-Llama-3.1-8B-Instruct")
+llm_model = ctx.vars.get("llm_model", "Qwen/Qwen2.5-7B-Instruct")
 llm_dtype = ctx.vars.get("llm_dtype", "float16")
 llm_batch_size = ctx.vars.get("llm_batch_size", 128)
 max_new_tokens = ctx.vars.get("llm_max_new_tokens", 60)
 max_keep = ctx.vars.get("llm_max_keep", 5)
+llm_backend = ctx.vars.get("llm_backend", "transformers")
 
 # Build lookup from job_ads for fast access
 ad_lookup = {}
@@ -69,7 +70,7 @@ for idx in range(len(ad_job_ids)):
 cand_job_ids = candidates["job_ids"]
 cand_lists = candidates["candidates"]
 n_jobs = len(cand_job_ids)
-print(f"llm_filter_candidates: {n_jobs} jobs, model={llm_model}, mode={execution_mode}, batch_size={llm_batch_size}, max_keep={max_keep}")
+print(f"llm_filter_candidates: {n_jobs} jobs, model={llm_model}, mode={execution_mode}, backend={llm_backend}, batch_size={llm_batch_size}, max_keep={max_keep}")
 
 # %% [markdown]
 # ## Prompt builder & JSON parser
@@ -206,7 +207,7 @@ if execution_mode == "api":
     )
 else:
     from isambard_utils.models import load_llm
-    llm = load_llm(llm_model, device="cuda", dtype=llm_dtype)
+    llm = load_llm(llm_model, device="cuda", dtype=llm_dtype, backend=llm_backend)
     print(f"llm_filter_candidates: model loaded")
 
     all_weighted = []

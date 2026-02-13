@@ -87,10 +87,14 @@ def _ensure_venv(*, config: IsambardConfig) -> None:
     """Create venv and sync dependencies if needed."""
     # Use bash -l so that module and uv are available (login shell).
     # --no-dev avoids building dev deps that need npm/node (e.g. netrun-ui).
+    # After uv sync, reinstall torch from the PyTorch CUDA index because
+    # the default PyPI torch for aarch64 is CPU-only.
+    cuda_index = "https://download.pytorch.org/whl/cu126"
     script = f"""
 cd {config.project_dir}
 module load cray-python/3.11.7 2>/dev/null || true
 uv sync --no-dev
+uv pip install torch --index-url {cuda_index} --reinstall
 """.strip()
     ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=600)
 

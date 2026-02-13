@@ -54,7 +54,7 @@ n = len(titles)
 print(f"embed_onet: encoding {n} occupations with {model_name} (device={device}, dtype={dtype}, batch_size={batch_size})")
 
 from isambard_utils.models import load_embedding_model
-model = load_embedding_model(model_name, device=device, dtype=dtype)
+model = load_embedding_model(model_name, device=device, dtype=dtype, offline=(execution_mode != "api"))
 
 # %%
 #|export
