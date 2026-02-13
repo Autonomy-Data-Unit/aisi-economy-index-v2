@@ -28,6 +28,7 @@ def build_onet_descriptions(onet_tables, ctx, print) -> {"descriptions": dict}:
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(build_onet_descriptions)
 

@@ -28,6 +28,7 @@ def load_job_ads(ctx, print) -> {"job_ads": dict}:
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(load_job_ads)
 

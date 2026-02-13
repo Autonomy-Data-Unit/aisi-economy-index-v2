@@ -28,6 +28,7 @@ def combine_job_exposure(job_ads, weighted_codes, exposure_scores, print) -> {"j
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(combine_job_exposure)
 

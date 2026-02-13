@@ -27,6 +27,7 @@ def score_presence(abilities, work_context, print) -> {"presence_scores": dict}:
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(score_presence)
 

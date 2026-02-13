@@ -28,6 +28,7 @@ def llm_filter_candidates(candidates, job_ads, ctx, print) -> {"weighted_codes":
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(llm_filter_candidates)
 

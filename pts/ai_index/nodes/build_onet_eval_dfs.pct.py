@@ -27,6 +27,7 @@ def build_onet_eval_dfs(onet_tables, print) -> {"tasks": dict, "skills": dict, "
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(build_onet_eval_dfs)
 

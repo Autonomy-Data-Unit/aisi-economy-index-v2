@@ -27,6 +27,7 @@ def embed_onet(descriptions, ctx, print) -> {"onet_embeddings": dict}:
 # Retrieve input arguments
 
 # %%
+from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args(embed_onet)
 
