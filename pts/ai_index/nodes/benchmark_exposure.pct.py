@@ -23,6 +23,14 @@ def benchmark_exposure(exposure_scores, print) -> {"benchmark": dict}:
     """Produce benchmarking stats and visualizations for exposure scores."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(benchmark_exposure)
+
 # %%
 #|export
 print("benchmark_exposure: returning dummy data")

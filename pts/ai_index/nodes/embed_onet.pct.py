@@ -22,6 +22,14 @@ def embed_onet(descriptions, ctx, print) -> {"onet_embeddings": dict}:
     """Embed O*NET occupations with BGE-large."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(embed_onet)
+
 # %%
 #|export
 from ai_index.utils import maybe_run_remote

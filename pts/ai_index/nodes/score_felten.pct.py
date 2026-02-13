@@ -22,6 +22,14 @@ def score_felten(abilities, print) -> {"felten_scores": dict}:
     """Compute Felten ability exposure scores across multiple scenarios."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(score_felten)
+
 # %%
 #|export
 print("score_felten: returning dummy data")

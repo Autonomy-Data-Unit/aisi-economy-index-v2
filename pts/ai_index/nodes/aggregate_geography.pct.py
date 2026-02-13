@@ -27,6 +27,10 @@ def aggregate_geography(job_exposure_index, print) -> {"geography_index": dict}:
 # Retrieve input arguments
 
 # %%
+from dev_utils import set_node_func_args
+set_node_func_args(aggregate_geography)
+
+# %%
 #|export
 print("aggregate_geography: returning dummy data")
 return {"geography_index": {"dummy": True}}

@@ -23,6 +23,14 @@ def compute_cosine_similarity(onet_descriptions, onet_embeddings, job_ad_embeddi
     """Compute top-K cosine similarity matches between job ads and O*NET occupations."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(compute_cosine_similarity)
+
 # %%
 #|export
 from ai_index.utils import maybe_run_remote

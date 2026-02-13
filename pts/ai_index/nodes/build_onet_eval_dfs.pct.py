@@ -22,6 +22,14 @@ def build_onet_eval_dfs(onet_tables, print) -> {"tasks": dict, "skills": dict, "
     """Build evaluation DataFrames for exposure scoring from raw O*NET data."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(build_onet_eval_dfs)
+
 # %%
 #|export
 print("build_onet_eval_dfs: returning dummy data")

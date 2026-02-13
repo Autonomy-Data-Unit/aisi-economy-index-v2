@@ -23,6 +23,14 @@ def score_task_exposure(tasks, print) -> {"task_scores": dict}:
     """Compute GPT task-level AI exposure scores, aggregated to SOC level."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(score_task_exposure)
+
 # %%
 #|export
 print("score_task_exposure: returning dummy data")

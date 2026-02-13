@@ -21,6 +21,14 @@ def compute_summary_stats(job_exposure_index, print) -> {"summary": dict}:
     """Compute summary statistics and visualizations of the full index."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(compute_summary_stats)
+
 # %%
 #|export
 print("compute_summary_stats: returning dummy data")

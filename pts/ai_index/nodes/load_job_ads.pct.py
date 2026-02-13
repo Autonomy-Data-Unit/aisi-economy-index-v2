@@ -23,6 +23,14 @@ def load_job_ads(ctx, print) -> {"job_ads": dict}:
     """Load job advertisement dataset."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(load_job_ads)
+
 # %%
 #|export
 from pathlib import Path

@@ -22,6 +22,14 @@ def embed_job_ads(job_ads, ctx, print) -> {"job_ad_embeddings": dict}:
     """Embed job ads with BGE-large."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(embed_job_ads)
+
 # %%
 #|export
 from ai_index.utils import maybe_run_remote

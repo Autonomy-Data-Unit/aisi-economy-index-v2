@@ -23,6 +23,14 @@ def llm_filter_candidates(candidates, job_ads, ctx, print) -> {"weighted_codes":
     """Filter O*NET candidates using LLM negative selection and normalize weights."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(llm_filter_candidates)
+
 # %%
 #|export
 from ai_index.utils import maybe_run_remote

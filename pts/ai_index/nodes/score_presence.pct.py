@@ -22,6 +22,14 @@ def score_presence(abilities, work_context, print) -> {"presence_scores": dict}:
     """Compute humanness presence scores across physical, emotional, and creative dimensions."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(score_presence)
+
 # %%
 #|export
 print("score_presence: returning dummy data")

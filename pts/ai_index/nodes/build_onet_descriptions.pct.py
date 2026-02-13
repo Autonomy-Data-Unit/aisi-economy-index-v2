@@ -23,6 +23,14 @@ def build_onet_descriptions(onet_tables, ctx, print) -> {"descriptions": dict}:
     """Build standard occupation descriptions from raw O*NET data."""
     ...
 
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import set_node_func_args
+set_node_func_args(build_onet_descriptions)
+
 # %%
 #|export
 import pandas as pd
