@@ -1,0 +1,89 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "name": "bc_job_exposure_index",
+        "description": "Broadcast job_exposure_index to geography + summary.",
+        "extra": {
+          "description": "Broadcast job_exposure_index to geography + summary",
+          "ui": {
+            "position": {
+              "x": 12,
+              "y": 36
+            },
+            "portGroups": {
+              "in:__all__": false,
+              "out:__all__": true
+            },
+            "descriptionExpanded": false,
+            "shape": "triangle-left",
+            "hideLabel": true,
+            "hideDescription": true,
+            "hidePortNames": true
+          }
+        },
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {
+          "num_outputs": 2
+        },
+        "type": "node"
+      },
+      {
+        "name": "aggregate_geography",
+        "description": "Aggregate the full index by geographic dimensions.",
+        "extra": {
+          "description": "Aggregate full index by geographic dimensions from job ad location metadata",
+          "ui": {
+            "position": {
+              "x": 262,
+              "y": 12
+            },
+            "portGroups": {
+              "in:__all__": false,
+              "out:__all__": false
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.aggregate_geography"
+        },
+        "type": "node"
+      },
+      {
+        "name": "compute_summary_stats",
+        "description": "Compute summary statistics and visualizations of the full index.",
+        "extra": {
+          "description": "Compute summary statistics and visualizations of the full index",
+          "ui": {
+            "position": {
+              "x": 262,
+              "y": 208
+            },
+            "portGroups": {
+              "in:__all__": false,
+              "out:__all__": false
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.compute_summary_stats"
+        },
+        "type": "node"
+      }
+    ],
+    "edges": [
+      {
+        "source_str": "bc_job_exposure_index.out_0",
+        "target_str": "aggregate_geography.job_exposure_index"
+      },
+      {
+        "source_str": "bc_job_exposure_index.out_1",
+        "target_str": "compute_summary_stats.job_exposure_index"
+      }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "name": "fetch_onet",
+        "description": "Download and extract O*NET 30.0 database.",
+        "execution_config": {
+          "run_on_startup": true
+        },
+        "extra": {
+          "description": "Download and extract O*NET 30.0 database",
+          "ui": {
+            "position": {
+              "x": 12,
+              "y": 12
+            },
+            "descriptionExpanded": false,
+            "portGroups": {
+              "out:__all__": false,
+              "in:__all__": false
+            }
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.fetch_onet"
+        },
+        "type": "node"
+      },
+      {
+        "name": "load_job_ads",
+        "description": "Load job advertisement dataset.",
+        "execution_config": {
+          "run_on_startup": true
+        },
+        "extra": {
+          "description": "Load job advertisement dataset",
+          "ui": {
+            "position": {
+              "x": 12,
+              "y": 200
+            },
+            "portGroups": {
+              "in:__all__": false,
+              "out:__all__": false
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.load_job_ads"
+        },
+        "type": "node"
+      }
+    ],
+    "edges": []
+  }
+}

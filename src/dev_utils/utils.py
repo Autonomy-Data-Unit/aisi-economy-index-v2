@@ -46,6 +46,47 @@ def _resolve_node_vars(config: NetConfig) -> dict:
     return resolved
 
 # %% nbs/dev_utils/utils.ipynb 6
+def _resolve_node_name(config: NetConfig, bare_name: str) -> str:
+    """Resolve a bare node name to its (possibly prefixed) name in the graph.
+
+    With subgraphs, node names are prefixed (e.g., ``embed_onet`` becomes
+    ``matching.embed_onet``). This helper finds the full name so that
+    ``set_node_func_args`` works without changes to individual node notebooks.
+
+    Args:
+        config: The resolved NetConfig.
+        bare_name: The unqualified node name (e.g. "embed_onet").
+
+    Returns:
+        The full node name (e.g. "matching.embed_onet"), or ``bare_name``
+        unchanged if it already matches a node directly.
+
+    Raises:
+        ValueError: If the name cannot be found, or matches multiple nodes.
+    """
+    # Resolve the graph to get all flattened node names
+    resolved = config.graph.resolve(config)
+    all_names = [n.name for n in resolved.nodes]
+
+    # Exact match — return as-is
+    if bare_name in all_names:
+        return bare_name
+
+    # Look for suffix match (e.g. "embed_onet" matches "matching.embed_onet")
+    matches = [n for n in all_names if n.endswith(f".{bare_name}")]
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise ValueError(
+            f"Ambiguous node name '{bare_name}' — matches multiple nodes: {matches}"
+        )
+
+    raise ValueError(
+        f"Node '{bare_name}' not found in graph. "
+        f"Available nodes: {sorted(all_names)}"
+    )
+
+# %% nbs/dev_utils/utils.ipynb 8
 async def _get_input_salvo(config: NetConfig, node_name: str) -> dict[str, list]:
     """Get input salvo for a node — from cache if available, otherwise by running upstream.
 
@@ -79,7 +120,7 @@ def _run_async(coro):
         pass
     return asyncio.run(coro)
 
-# %% nbs/dev_utils/utils.ipynb 8
+# %% nbs/dev_utils/utils.ipynb 10
 _SPECIAL_PARAMS = frozenset({"ctx", "print"})
 
 
@@ -110,6 +151,9 @@ def set_node_func_args(func, *, node_name=None, return_args=False):
     """
     name = node_name or func.__name__
     config = _load_net_config()
+
+    # Resolve bare name to prefixed name (e.g. "embed_onet" -> "matching.embed_onet")
+    name = _resolve_node_name(config, name)
 
     # Retrieve input salvo (cached or computed)
     salvo = _run_async(_get_input_salvo(config, name))

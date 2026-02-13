@@ -1,0 +1,30 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "name": "benchmark_exposure",
+        "description": "Produce benchmarking stats and visualizations for exposure scores.",
+        "extra": {
+          "description": "Produce benchmarking stats for exposure scores (distributions, correlations, vulnerability rankings)",
+          "ui": {
+            "position": {
+              "x": 76,
+              "y": 23.166666666666742
+            },
+            "portGroups": {
+              "in:__all__": false,
+              "out:__all__": false
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.benchmark_exposure"
+        },
+        "type": "node"
+      }
+    ],
+    "edges": []
+  }
+}

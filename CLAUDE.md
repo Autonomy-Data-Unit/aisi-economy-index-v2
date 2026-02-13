@@ -8,63 +8,94 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `src/ai_index/assets/netrun.json` (16 nodes, 21 edges). Two independent branches converge at the combine step:
+The pipeline is defined across `src/ai_index/assets/netrun.json` (parent) and 7 subgraph files in `src/ai_index/assets/subgraphs/`. Subgraphs are flattened at resolution time — node names get prefixed (e.g., `embed_onet` → `job_ad_matching.embed_onet`).
 
 ```
-          fetch_onet ─────────────────────────────── build_onet_eval_dfs
-              │                                       │         │        │
-              ▼                                       ▼         ▼        ▼
-    build_onet_descriptions              score_task_exposure  score_  score_
-              │         │                       │           presence  felten
-              │         ▼                       │              │        │
-              │     embed_onet                  ▼              ▼        ▼
-              │         │                 aggregate_soc_exposure
-              │         │                       │          │
-              ▼         ▼                       │          ▼
-load_job_ads ─┬─► embed_job_ads                 │   benchmark_exposure
-              │         │                       │
-              │         ▼                       │
-              │  compute_cosine_similarity      │
-              │         │                       │
-              │         ▼                       ▼
-              ├──► llm_filter_candidates        │
-              │         │                       │
-              │         ▼                       ▼
-              └──► combine_job_exposure ◄───────┘
-                        │
-                   ┌────┴────┐
-                   ▼         ▼
-          aggregate_    compute_
-          geography     summary_stats
+  ┌─────────────────┐
+  │ [data_prep]      │
+  │  fetch_onet      │
+  │  load_job_ads    │
+  └──┬───────────┬───┘
+     │onet_tables│job_ads
+     │           │
+     │       bc_job_ads (parent)
+     │        ├──┬───────────┐
+     ▼        │  │           │
+  ┌──────────────────────────────────────────────────────┐
+  │ [exposure_scores]                                     │
+  │  bc_onet_tables ─┬► build_onet_descriptions           │
+  │                  └► build_onet_eval_dfs               │
+  │                       │         │        │            │
+  │                       ▼         ▼        ▼            │
+  │              score_task_exp   score_    score_         │
+  │                    │         presence   felten         │
+  │                    └────┬───────┘──────┘              │
+  │                         ▼                             │
+  │                aggregate_soc_exposure                  │
+  └──┬──────────────────────┬─────────────────────────────┘
+     │descriptions          │exposure_scores
+     ▼                      │
+  ┌──────────────────────┐  │  bc_exposure_scores (parent)
+  │ [job_ad_matching]    │  │   ├──────────────┐
+  │  bc_desc ─► embed_   │  │   │              │
+  │  job_ads ─► onet     │  │   ▼              ▼
+  │             │        │  │  ┌──────────┐  ┌─────────────────┐
+  │             ▼        │  │  │[benchmark│  │ [generate_index] │
+  │          cos_sim     │  │  │_exposure]│  │  combine_job_    │
+  │             │        │  │  │benchmark │  │  exposure ◄──────┤
+  │             ▼        │  │  │_exposure │  └────────┬─────────┘
+  │          llm_filter  │  │  └──────────┘           │
+  └──────────┬───────────┘  │              job_exposure_index
+             │weighted_codes│                         │
+             └──────────────┼─────────► [generate_    │
+                            └────────►    index]      │
+                                                      ▼
+                                         ┌────────────────────────┐
+                                         │ [index_analysis]        │
+                                         │  bc_job_exp ─┬► agg_geo│
+                                         │              └► summary│
+                                         └────────────────────────┘
 ```
 
-### Node Inventory
+### Parent graph (2 nodes + 7 subgraphs, 11 edges)
+- `bc_job_ads` — Fan out job_ads to matching (×2) and generate_index (×1)
+- `bc_exposure_scores` — Fan out to benchmark (×1) and generate_index (×1)
+- 7 subgraphs: `data_prep`, `exposure_scores`, `job_ad_matching`, `benchmark_exposure_scores`, `benchmark_job_ad_matching`, `generate_index`, `index_analysis`
 
-**Data Preparation (4 nodes):**
-- `fetch_onet` — Download O\*NET 30.0 database
-- `build_onet_descriptions` — Build occupation descriptions (894 rows: SOC, title, description, tasks/skills text)
-- `build_onet_eval_dfs` — Build eval DataFrames for exposure scoring (skills, abilities, knowledge, tasks, work context)
-- `load_job_ads` — Load job advertisement dataset
+### `data_prep` subgraph (2 nodes, 0 edges)
+- `fetch_onet` (run_on_startup) — Download O\*NET 30.0 database
+- `load_job_ads` (run_on_startup) — Load job advertisement dataset
+- Exposed out: `onet_tables`, `job_ads`
 
-**Matching Pipeline (4 nodes) → Weighted O\*NET codes per job:**
-- `embed_onet` — Embed O\*NET occupations with BGE-large (894x1024 float16)
-- `embed_job_ads` — Embed job ads with BGE-large (Nx1024 float16)
-- `compute_cosine_similarity` — Top-K candidate matches (top-5 role + top-5 task, averaged overlaps)
-- `llm_filter_candidates` — LLM negative selection (LLaMA-3.1-8B) → normalized weights per job
-
-**Exposure Scoring (4 nodes) → AI exposure per O\*NET code:**
+### `exposure_scores` subgraph (8 nodes, 10 edges)
+- `bc_onet_tables` → `build_onet_descriptions` + `build_onet_eval_dfs`
 - `score_task_exposure` — GPT task-level 3-level scoring, aggregated to SOC
-- `score_presence` — Humanness scoring across 3 dimensions (physical, emotional, creative)
+- `score_presence` — Humanness scoring (physical, emotional, creative)
 - `score_felten` — Felten ability exposure scoring (multiple scenarios)
 - `aggregate_soc_exposure` — Merge + normalize all score types at SOC level
+- Exposed in: `onet_tables`; out: `descriptions`, `exposure_scores`
 
-**Benchmarking (1 node, side branch):**
+### `job_ad_matching` subgraph (5 nodes, 5 edges)
+- `embed_onet` — Embed O\*NET occupations with BGE-large (894×1024 float16)
+- `embed_job_ads` — Embed job ads with BGE-large (N×1024 float16)
+- `compute_cosine_similarity` — Top-K candidate matches (top-5 role + top-5 task)
+- `llm_filter_candidates` — LLM negative selection → normalized weights per job
+- Exposed in: `descriptions`, `job_ads_embed`, `job_ads_llm`; out: `weighted_codes`
+
+### `benchmark_exposure_scores` subgraph (1 node, 0 edges)
 - `benchmark_exposure` — Benchmarking stats for exposure scores
+- Exposed in: `exposure_scores`; out: `benchmark`
 
-**Combination + Output (3 nodes):**
-- `combine_job_exposure` — Weighted sum of matched O\*NET exposure scores → per-job AI exposure
+### `benchmark_job_ad_matching` subgraph (placeholder, 0 nodes)
+
+### `generate_index` subgraph (1 node, 0 edges)
+- `combine_job_exposure` — Weighted sum of matched exposure scores → per-job AI exposure
+- Exposed in: `weighted_codes`, `exposure_scores`, `job_ads`; out: `job_exposure_index`
+
+### `index_analysis` subgraph (3 nodes, 2 edges)
 - `aggregate_geography` — Aggregate by geographic dimensions
 - `compute_summary_stats` — Summary statistics and visualizations
+- Exposed in: `job_exposure_index`; out: `geography_index`, `summary`
 
 ### Node Function Paths
 
@@ -150,7 +181,8 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 │   └── assets/
-│       └── netrun.json       # Netrun graph definition for the data pipeline
+│       ├── netrun.json       # Netrun parent graph (subgraph references + cross-subgraph edges)
+│       └── subgraphs/        # 7 subgraph definitions (data_prep, exposure_scores, job_ad_matching, ...)
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
 ├── src/isambard_utils/       # Isambard utils Python modules (auto-generated)
 │   └── assets/
