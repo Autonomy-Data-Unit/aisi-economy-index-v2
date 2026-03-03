@@ -3,82 +3,6 @@
     "description": "AISI Economy Index v2 \u2014 AI exposure scoring pipeline. Matches job ads to O*NET occupations, computes multi-dimensional AI exposure scores, and aggregates results."
   },
   "node_vars": {
-    "embedding_model": {
-      "value": {
-        "$env": "EMBEDDING_MODEL"
-      },
-      "type": "str"
-    },
-    "embedding_dtype": {
-      "value": "float16",
-      "type": "str"
-    },
-    "embed_onet_batch_size": {
-      "value": "64",
-      "type": "int"
-    },
-    "embed_job_ads_batch_size": {
-      "value": "512",
-      "type": "int"
-    },
-    "embed_job_ads_chunk_size": {
-      "value": "20000",
-      "type": "int"
-    },
-    "cosine_top_k": {
-      "value": "5",
-      "type": "int"
-    },
-    "cosine_batch_size": {
-      "value": "16384",
-      "type": "int"
-    },
-    "llm_model": {
-      "value": {
-        "$env": "LLM_MODEL"
-      },
-      "type": "str"
-    },
-    "llm_dtype": {
-      "value": "float16",
-      "type": "str"
-    },
-    "llm_batch_size": {
-      "value": "128",
-      "type": "int"
-    },
-    "llm_max_new_tokens": {
-      "value": "60",
-      "type": "int"
-    },
-    "llm_max_keep": {
-      "value": "5",
-      "type": "int"
-    },
-    "llm_backend": {
-      "value": {
-        "$env": "LLM_BACKEND"
-      },
-      "type": "str"
-    },
-    "job_ads_sample_rate": {
-      "value": {
-        "$env": "JOB_ADS_SAMPLE_RATE"
-      },
-      "type": "float"
-    },
-    "job_ads_random_seed": {
-      "value": {
-        "$env": "JOB_ADS_RANDOM_SEED"
-      },
-      "type": "str"
-    },
-    "execution_mode": {
-      "value": {
-        "$env": "EXECUTION_MODE"
-      },
-      "type": "str"
-    },
     "data_year": {
       "value": {
         "$env": "DATA_YEAR"
@@ -99,360 +23,90 @@
       "storage_path": ".cache/netrun"
     }
   },
-  "output_queues": {
-    "geography": {
-      "ports": [
-        [
-          "index_analysis.aggregate_geography",
-          "geography_index"
-        ]
-      ]
-    },
-    "summary": {
-      "ports": [
-        [
-          "index_analysis.compute_summary_stats",
-          "summary"
-        ]
-      ]
-    },
-    "benchmark": {
-      "ports": [
-        [
-          "benchmark_exposure_scores.benchmark_exposure",
-          "benchmark"
-        ]
-      ]
-    }
-  },
   "max_epochs": 1,
   "project_root": "../../../",
   "graph": {
     "nodes": [
       {
-        "name": "bc_job_ads",
-        "description": "Broadcast job_ads to matching (embed + llm_filter) and index generation.",
-        "extra": {
-          "description": "Broadcast job_ads to matching (embed + llm_filter) and index generation",
-          "ui": {
-            "position": {
-              "x": 1511,
-              "y": 423.5
-            },
-            "portGroups": {
-              "in:__all__": false,
-              "out:__all__": false
-            },
-            "descriptionExpanded": false,
-            "shape": "triangle-left",
-            "hideLabel": true,
-            "hideDescription": true,
-            "hidePortNames": true
-          }
-        },
-        "factory": "netrun.node_factories.broadcast",
-        "factory_args": {
-          "num_outputs": 3
-        },
-        "type": "node"
-      },
-      {
-        "name": "bc_exposure_scores",
-        "description": "Broadcast exposure_scores to benchmark + index generation.",
-        "extra": {
-          "description": "Broadcast exposure_scores to benchmark + index generation",
-          "ui": {
-            "position": {
-              "x": 2874,
-              "y": 1018.8333333333333
-            },
-            "portGroups": {
-              "in:__all__": false,
-              "out:__all__": false
-            },
-            "descriptionExpanded": false,
-            "shape": "triangle-left",
-            "hideLabel": true,
-            "hideDescription": true,
-            "hidePortNames": true
-          }
-        },
-        "factory": "netrun.node_factories.broadcast",
-        "factory_args": {
-          "num_outputs": 2
-        },
-        "type": "node"
-      },
-      {
-        "name": "data_prep",
-        "description": "Data loading: fetch O*NET database and load job advertisements.",
-        "path": "./src/ai_index/assets/subgraphs/data_prep.netrun.json",
-        "exposed_out_ports": {
-          "onet_tables": {
-            "internal_node": "fetch_onet",
-            "internal_port": "onet_tables"
-          },
-          "job_ads": {
-            "internal_node": "load_job_ads",
-            "internal_port": "job_ads"
-          }
+        "name": "fetch_onet",
+        "description": "Download and extract O*NET 30.0 database.",
+        "execution_config": {
+          "run_on_startup": true
         },
         "extra": {
-          "ui": {
-            "position": {
-              "x": 12,
-              "y": 666.6666666666667
-            },
-            "descriptionExpanded": false,
-            "expanded": true,
-            "dimensions": {
-              "width": 400,
-              "height": 410
-            }
-          }
-        },
-        "type": "subgraph"
-      },
-      {
-        "name": "exposure_scores",
-        "description": "O*NET processing and AI exposure scoring: build descriptions/eval DFs, score tasks/presence/Felten, aggregate.",
-        "path": "./src/ai_index/assets/subgraphs/exposure_scores.netrun.json",
-        "exposed_in_ports": {
-          "onet_tables": {
-            "internal_node": "bc_onet_tables",
-            "internal_port": "in_0"
-          }
-        },
-        "exposed_out_ports": {
-          "descriptions": {
-            "internal_node": "build_onet_descriptions",
-            "internal_port": "descriptions"
-          },
-          "exposure_scores": {
-            "internal_node": "aggregate_soc_exposure",
-            "internal_port": "exposure_scores"
-          }
-        },
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 512,
-              "y": 595.5
-            },
-            "expanded": true,
-            "dimensions": {
-              "width": 1482,
-              "height": 689
-            }
-          }
-        },
-        "type": "subgraph"
-      },
-      {
-        "name": "job_ad_matching",
-        "description": "Job ad to O*NET matching: embed, cosine similarity, LLM filter.",
-        "path": "./src/ai_index/assets/subgraphs/job_ad_matching.netrun.json",
-        "exposed_in_ports": {
-          "descriptions": {
-            "internal_node": "bc_descriptions",
-            "internal_port": "in_0"
-          },
-          "job_ads_embed": {
-            "internal_node": "embed_job_ads",
-            "internal_port": "job_ads"
-          },
-          "job_ads_llm": {
-            "internal_node": "llm_filter_candidates",
-            "internal_port": "job_ads"
-          }
-        },
-        "exposed_out_ports": {
-          "weighted_codes": {
-            "internal_node": "llm_filter_candidates",
-            "internal_port": "weighted_codes"
-          }
-        },
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 2094,
-              "y": 343
-            },
-            "descriptionExpanded": true,
-            "expanded": true,
-            "dimensions": {
-              "width": 1320,
-              "height": 506
-            }
-          }
-        },
-        "type": "subgraph"
-      },
-      {
-        "name": "benchmark_exposure_scores",
-        "description": "Benchmarking stats for exposure scores.",
-        "path": "./src/ai_index/assets/subgraphs/benchmark_exposure_scores.netrun.json",
-        "exposed_in_ports": {
-          "exposure_scores": {
-            "internal_node": "benchmark_exposure",
-            "internal_port": "exposure_scores"
-          }
-        },
-        "exposed_out_ports": {
-          "benchmark": {
-            "internal_node": "benchmark_exposure",
-            "internal_port": "benchmark"
-          }
-        },
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 3514,
-              "y": 966.8333333333333
-            },
-            "expanded": true,
-            "dimensions": {
-              "width": 400,
-              "height": 300
-            }
-          }
-        },
-        "type": "subgraph"
-      },
-      {
-        "name": "benchmark_job_ad_matching",
-        "description": "Benchmarking stats for job ad matching quality (placeholder).",
-        "path": "./src/ai_index/assets/subgraphs/benchmark_job_ad_matching.netrun.json",
-        "extra": {
+          "description": "Download and extract O*NET 30.0 database",
           "ui": {
             "position": {
               "x": 12,
               "y": 12
             },
-            "expanded": true
-          }
-        },
-        "type": "subgraph"
-      },
-      {
-        "name": "generate_index",
-        "description": "Combine matched O*NET weights with exposure scores to produce per-job AI exposure index.",
-        "path": "./src/ai_index/assets/subgraphs/generate_index.netrun.json",
-        "exposed_in_ports": {
-          "weighted_codes": {
-            "internal_node": "combine_job_exposure",
-            "internal_port": "weighted_codes"
-          },
-          "exposure_scores": {
-            "internal_node": "combine_job_exposure",
-            "internal_port": "exposure_scores"
-          },
-          "job_ads": {
-            "internal_node": "combine_job_exposure",
-            "internal_port": "job_ads"
-          }
-        },
-        "exposed_out_ports": {
-          "job_exposure_index": {
-            "internal_node": "combine_job_exposure",
-            "internal_port": "job_exposure_index"
-          }
-        },
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 3514,
-              "y": 408.5
-            },
-            "expanded": true,
-            "dimensions": {
-              "width": 550,
-              "height": 375
+            "descriptionExpanded": false,
+            "portGroups": {
+              "out:__all__": false,
+              "in:__all__": false
             }
           }
         },
-        "type": "subgraph"
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.fetch_onet"
+        },
+        "type": "node"
       },
       {
-        "name": "index_analysis",
-        "description": "Aggregate index by geography and compute summary statistics.",
-        "path": "./src/ai_index/assets/subgraphs/index_analysis.netrun.json",
-        "exposed_in_ports": {
-          "job_exposure_index": {
-            "internal_node": "bc_job_exposure_index",
-            "internal_port": "in_0"
-          }
-        },
-        "exposed_out_ports": {
-          "geography_index": {
-            "internal_node": "aggregate_geography",
-            "internal_port": "geography_index"
-          },
-          "summary": {
-            "internal_node": "compute_summary_stats",
-            "internal_port": "summary"
-          }
+        "name": "fetch_adzuna",
+        "description": "Download raw Adzuna job ads from S3 to monthly parquets.",
+        "execution_config": {
+          "run_on_startup": true
         },
         "extra": {
+          "description": "Download raw Adzuna job ads from S3 to monthly parquets",
           "ui": {
             "position": {
-              "x": 4164,
-              "y": 493.5
+              "x": 12,
+              "y": 250
             },
-            "expanded": true,
-            "dimensions": {
-              "width": 652,
-              "height": 485
+            "descriptionExpanded": false,
+            "portGroups": {
+              "out:__all__": false,
+              "in:__all__": false
             }
           }
         },
-        "type": "subgraph"
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.fetch_adzuna"
+        },
+        "type": "node"
+      },
+      {
+        "name": "dedup_adzuna",
+        "description": "Deduplicate Adzuna job ads by ID across months.",
+        "extra": {
+          "description": "Deduplicate Adzuna job ads by ID across months",
+          "ui": {
+            "position": {
+              "x": 400,
+              "y": 250
+            },
+            "descriptionExpanded": false,
+            "portGroups": {
+              "out:__all__": false,
+              "in:__all__": false
+            }
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.dedup_adzuna"
+        },
+        "type": "node"
       }
     ],
     "edges": [
       {
-        "source_str": "data_prep.job_ads",
-        "target_str": "bc_job_ads.in_0"
-      },
-      {
-        "source_str": "bc_job_ads.out_0",
-        "target_str": "job_ad_matching.job_ads_embed"
-      },
-      {
-        "source_str": "bc_job_ads.out_1",
-        "target_str": "job_ad_matching.job_ads_llm"
-      },
-      {
-        "source_str": "bc_job_ads.out_2",
-        "target_str": "generate_index.job_ads"
-      },
-      {
-        "source_str": "data_prep.onet_tables",
-        "target_str": "exposure_scores.onet_tables"
-      },
-      {
-        "source_str": "exposure_scores.descriptions",
-        "target_str": "job_ad_matching.descriptions"
-      },
-      {
-        "source_str": "exposure_scores.exposure_scores",
-        "target_str": "bc_exposure_scores.in_0"
-      },
-      {
-        "source_str": "bc_exposure_scores.out_0",
-        "target_str": "benchmark_exposure_scores.exposure_scores"
-      },
-      {
-        "source_str": "bc_exposure_scores.out_1",
-        "target_str": "generate_index.exposure_scores"
-      },
-      {
-        "source_str": "job_ad_matching.weighted_codes",
-        "target_str": "generate_index.weighted_codes"
-      },
-      {
-        "source_str": "generate_index.job_exposure_index",
-        "target_str": "index_analysis.job_exposure_index"
+        "source_str": "fetch_adzuna.adzuna_meta",
+        "target_str": "dedup_adzuna.adzuna_meta"
       }
     ],
     "extra": {
