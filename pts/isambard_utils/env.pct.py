@@ -122,7 +122,7 @@ cd {config.project_dir}
 module load cray-python/3.11.7 2>/dev/null || true
 uv sync --no-dev
 """.strip()
-    await async_ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=600)
+    await async_ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=1800)
 
 # %%
 #|export

@@ -27,7 +27,7 @@ class IsambardConfig(BaseModel):
 
     ssh_host: str
     ssh_user: str | None = None
-    project_dir: str = "/projects/a5u/ai-index-v2"
+    project_dir: str
     hf_cache_dir: str = "{project_dir}/hf_cache"
     logs_dir: str = "{project_dir}/logs"
     partition: str = "workq"
