@@ -114,6 +114,8 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
     """
     config = _get_config(config)
     cache_dir = _hf_cache_dir(config)
+    if token is None:
+        token = os.environ.get("HF_TOKEN")
 
     # Skip download if already cached (avoids 401 for gated models)
     if await acheck_model(model_name, config=config):
