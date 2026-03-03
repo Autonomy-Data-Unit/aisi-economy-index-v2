@@ -20,4 +20,5 @@ pkg_path = Path(__file__).resolve().parent
 assets_path = pkg_path / "assets"
 store_path = pkg_path / "store"
 llm_models_config_path = assets_path / "llm_models.toml"
+embed_models_config_path = assets_path / "embed_models.toml"
 adulib_cache_path = store_path / "adulib_cache"
