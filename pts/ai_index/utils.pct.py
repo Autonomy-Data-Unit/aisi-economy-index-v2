@@ -36,6 +36,16 @@ _RUN_REMOTE_KEYS = {
     "output_transfer", "isambard_config", "print_fn",
 }
 
+def _resolve_llm_args(mode, model, kwargs):
+    """Resolve config + kwargs into (model, cfg) tuple."""
+    cfg = _load_llm_config(mode, model)
+    cfg.update(kwargs)
+    if model is None:
+        model = cfg.pop("model", "Qwen/Qwen2.5-7B-Instruct")
+    else:
+        cfg.pop("model", None)
+    return model, cfg
+
 def llm_generate(
     prompts: list[str],
     *,
@@ -48,12 +58,7 @@ def llm_generate(
     Config is loaded from llm_models.toml ({mode}.defaults -> {mode}."{model}"),
     then any explicit **kwargs override config values.
     """
-    cfg = _load_llm_config(mode, model)
-    cfg.update(kwargs)
-    if model is None:
-        model = cfg.pop("model", "Qwen/Qwen2.5-7B-Instruct")
-    else:
-        cfg.pop("model", None)
+    model, cfg = _resolve_llm_args(mode, model, kwargs)
 
     if mode in ("api", "local"):
         from llm_runner.llm import run_llm_generate
@@ -63,10 +68,49 @@ def llm_generate(
 
     elif mode == "sbatch":
         from isambard_utils.orchestrate import run_remote
-        # Split cfg into run_remote kwargs vs config_dict (sent to llm_runner on remote)
         remote_kw = {k: cfg.pop(k) for k in list(cfg) if k in _RUN_REMOTE_KEYS}
         cfg["model_name"] = model
         result = run_remote(
+            "llm_generate",
+            inputs={"prompts": prompts},
+            config_dict=cfg,
+            required_models=[model],
+            **remote_kw,
+        )
+        return result["responses"]
+
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}")
+
+# %%
+#|export
+import asyncio
+
+async def allm_generate(
+    prompts: list[str],
+    *,
+    mode: str = "api",
+    model: str | None = None,
+    **kwargs,
+) -> list[str]:
+    """Async version of llm_generate.
+
+    For api/local modes, runs the sync run_llm_generate in a thread.
+    For sbatch mode, uses the native async arun_remote.
+    """
+    model, cfg = _resolve_llm_args(mode, model, kwargs)
+
+    if mode in ("api", "local"):
+        from llm_runner.llm import run_llm_generate
+        if mode == "api":
+            cfg["backend"] = "api"
+        return await asyncio.to_thread(run_llm_generate, prompts, model_name=model, **cfg)
+
+    elif mode == "sbatch":
+        from isambard_utils.orchestrate import arun_remote
+        remote_kw = {k: cfg.pop(k) for k in list(cfg) if k in _RUN_REMOTE_KEYS}
+        cfg["model_name"] = model
+        result = await arun_remote(
             "llm_generate",
             inputs={"prompts": prompts},
             config_dict=cfg,
