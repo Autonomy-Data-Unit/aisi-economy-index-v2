@@ -62,7 +62,6 @@ async def arun_remote(
     Returns:
         Dict of operation outputs (deserialized).
     """
-    from .env import asetup_runner
     from .models import aensure_model
     from .transfer import (
         aupload_tar_pipe, adownload_tar_pipe,
@@ -74,7 +73,6 @@ async def arun_remote(
     from llm_runner.serialization import serialize, deserialize
 
     ic = _get_config(isambard_config)
-    runner_dir = f"{ic.project_dir}/llm_runner_env"
     work_dir = f"{ic.project_dir}/.runner_jobs/{job_name}"
     cache_dir = f"{ic.project_dir}/.runner_cache"
     outputs_remote = f"{work_dir}/outputs"
@@ -83,16 +81,12 @@ async def arun_remote(
     if isinstance(transfer_modes, TransferMode):
         transfer_modes = {key: transfer_modes for key in inputs}
 
-    # 1. Setup runner
-    print_fn(f"run_remote [{job_name}]: setting up runner environment...")
-    await asetup_runner(config=ic, print_fn=print_fn)
-
-    # 2. Pre-cache models
+    # 1. Pre-cache models
     for model_name in (required_models or []):
         print_fn(f"run_remote [{job_name}]: ensuring model {model_name}...")
         await aensure_model(model_name, config=ic)
 
-    # 3. Transfer inputs
+    # 2. Transfer inputs
     print_fn(f"run_remote [{job_name}]: transferring inputs...")
     await async_ssh_run(f"mkdir -p {work_dir} {outputs_remote}", config=ic)
     manifest = {}
@@ -121,14 +115,14 @@ async def arun_remote(
                 )
                 manifest[key] = remote_dir
 
-    # 4. Write manifest
+    # 3. Write manifest
     manifest_remote = f"{work_dir}/manifest.json"
     await aupload_bytes(json.dumps(manifest).encode(), manifest_remote, config=ic)
 
-    # 5. Submit SBATCH
+    # 4. Submit SBATCH
     config_json = json.dumps(config_dict)
     python_command = (
-        f"cd {runner_dir} && source .venv/bin/activate && "
+        f"cd {ic.project_dir} && source .venv/bin/activate && "
         f"python -m llm_runner {operation} "
         f"--manifest {manifest_remote} "
         f"--outputs-dir {outputs_remote} "
@@ -144,7 +138,7 @@ async def arun_remote(
     job = await asubmit(sbatch_script, config=ic)
     print_fn(f"run_remote [{job_name}]: submitted job {job.job_id}")
 
-    # 6. Poll
+    # 5. Poll
     def _on_poll(status):
         if status:
             print_fn(f"run_remote [{job_name}]: job {job.job_id} state={status.get('state', '?')}")
@@ -162,7 +156,7 @@ async def arun_remote(
             f"--- stderr (last 50 lines) ---\n{stderr_log}"
         )
 
-    # 7. Check status.json
+    # 6. Check status.json
     check = await async_ssh_run(f"cat {outputs_remote}/status.json", config=ic, check=False)
     if check.returncode == 0:
         runner_status = json.loads(check.stdout)
@@ -171,7 +165,7 @@ async def arun_remote(
                 f"run_remote runner for {job_name} reported: {runner_status}"
             )
 
-    # 8. Download outputs
+    # 7. Download outputs
     print_fn(f"run_remote [{job_name}]: downloading outputs...")
     with tempfile.TemporaryDirectory() as tmp:
         local_outputs = Path(tmp) / "outputs"
@@ -186,7 +180,7 @@ async def arun_remote(
 
         result = deserialize(local_outputs)
 
-    # 9. Cleanup work dir (but not cache)
+    # 8. Cleanup work dir (but not cache)
     await async_ssh_run(f"rm -rf {work_dir}", config=ic, check=False)
     print_fn(f"run_remote [{job_name}]: done")
 
