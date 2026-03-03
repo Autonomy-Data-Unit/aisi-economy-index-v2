@@ -78,6 +78,18 @@
         "$env": "EXECUTION_MODE"
       },
       "type": "str"
+    },
+    "data_year": {
+      "value": {
+        "$env": "DATA_YEAR"
+      },
+      "type": "str"
+    },
+    "adzuna_s3_prefix": {
+      "value": {
+        "$env": "ADZUNA_S3_PREFIX"
+      },
+      "type": "str"
     }
   },
   "storage": {
