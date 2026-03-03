@@ -33,14 +33,13 @@ set_node_func_args(fetch_onet)
 
 # %%
 #|export
-from pathlib import Path
 from zipfile import ZipFile
-from importlib import resources
 
 import pandas as pd
 
-store_dir = Path(resources.files("ai_index")).parent / "ai_index" / "store" / "inputs"
-zip_path = store_dir / "db_30_0_text.zip"
+from ai_index.const import onet_store_path
+
+zip_path = onet_store_path / "db_30_0_text.zip"
 
 # Download if not present
 if not zip_path.exists():
