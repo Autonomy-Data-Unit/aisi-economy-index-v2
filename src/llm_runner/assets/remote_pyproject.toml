@@ -1,0 +1,21 @@
+# Minimal pyproject.toml for deploying llm_runner on Isambard.
+# Only lists the dependencies llm_runner actually needs — not the
+# full ai-index project. Uploaded by asetup_runner().
+
+[project]
+name = "llm-runner"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "torch>=2.0",
+    "sentence-transformers>=5.0",
+    "transformers>=5.0",
+    "accelerate>=1.0",
+    "vllm",
+    "nest-asyncio>=1.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

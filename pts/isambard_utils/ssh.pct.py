@@ -48,9 +48,13 @@ def _run_sync(coro):
 
 # %%
 #|export
-def _build_ssh_cmd(config: IsambardConfig) -> list[str]:
+def _build_ssh_cmd(config: IsambardConfig, *, timeout: int = 120) -> list[str]:
     """Build the base SSH command list."""
-    cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new"]
+    connect_timeout = min(timeout, 30)
+    cmd = ["ssh", "-o", "StrictHostKeyChecking=accept-new",
+           "-o", f"ConnectTimeout={connect_timeout}",
+           "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3"]
+           # "-o", "IdentitiesOnly=yes", "-o", "PreferredAuthentications=publickey"]
     if config.ssh_user:
         cmd.extend(["-l", config.ssh_user])
     cmd.append(config.ssh_host)
@@ -58,20 +62,9 @@ def _build_ssh_cmd(config: IsambardConfig) -> list[str]:
 
 # %%
 #|export
-async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
-               check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
-    """Run a command on the Isambard login node via SSH (async).
-
-    Args:
-        cmd: Shell command to execute remotely.
-        config: Isambard configuration. Defaults to IsambardConfig.from_env().
-        timeout: Timeout in seconds.
-        check: Raise CalledProcessError on non-zero exit.
-        capture: Capture stdout/stderr (True) or inherit terminal (False).
-    """
-    config = _get_config(config)
-    ssh_cmd = _build_ssh_cmd(config) + [cmd]
-
+async def _arun_once(ssh_cmd: list[str], *, timeout: int,
+                     capture: bool) -> subprocess.CompletedProcess:
+    """Single SSH attempt (no retries)."""
     if capture:
         proc = await asyncio.create_subprocess_exec(
             *ssh_cmd,
@@ -93,17 +86,44 @@ async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int =
     stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
     stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
 
-    result = subprocess.CompletedProcess(
+    return subprocess.CompletedProcess(
         args=ssh_cmd, returncode=proc.returncode,
         stdout=stdout if capture else None,
         stderr=stderr if capture else None,
     )
-    if check and result.returncode != 0:
-        raise subprocess.CalledProcessError(
-            result.returncode, ssh_cmd,
-            output=result.stdout, stderr=result.stderr,
-        )
-    return result
+
+async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
+               check: bool = True, capture: bool = True,
+               retries: int = 0, print_fn=print) -> subprocess.CompletedProcess:
+    """Run a command on the Isambard login node via SSH (async).
+
+    Args:
+        cmd: Shell command to execute remotely.
+        config: Isambard configuration. Defaults to IsambardConfig.from_env().
+        timeout: Timeout in seconds.
+        check: Raise CalledProcessError on non-zero exit.
+        capture: Capture stdout/stderr (True) or inherit terminal (False).
+        retries: Number of retries on timeout (default 0 = no retries).
+        print_fn: Print function for retry logging.
+    """
+    config = _get_config(config)
+    ssh_cmd = _build_ssh_cmd(config, timeout=timeout) + [cmd]
+
+    last_exc = None
+    for attempt in range(1 + retries):
+        try:
+            result = await _arun_once(ssh_cmd, timeout=timeout, capture=capture)
+            if check and result.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    result.returncode, ssh_cmd,
+                    output=result.stdout, stderr=result.stderr,
+                )
+            return result
+        except subprocess.TimeoutExpired as e:
+            last_exc = e
+            if attempt < retries:
+                print_fn(f"SSH timed out ({timeout}s), retrying ({attempt + 1}/{retries})...")
+    raise last_exc
 
 # %%
 #|export
@@ -122,13 +142,27 @@ def run(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
 
 # %%
 #|export
-async def acheck_connection(config: IsambardConfig | None = None) -> bool:
-    """Test SSH connectivity (async). Returns True if connection succeeds."""
-    try:
-        result = await arun("echo ok", config=config, timeout=30, check=False)
-        return result.returncode == 0 and "ok" in result.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return False
+async def acheck_connection(config: IsambardConfig | None = None, *,
+                            max_retries: int = 10, print_fn=print) -> bool:
+    """Test SSH connectivity with progressive timeout retries (async).
+
+    Starts with a short timeout and increases it on each retry, up to
+    max_retries attempts. Returns True if connection succeeds.
+    """
+    timeouts = [30, 30, 30, 30, 60, 60, 60, 60, 60, 60]
+    for attempt in range(max_retries):
+        timeout = timeouts[attempt] if attempt < len(timeouts) else 60
+        try:
+            result = await arun("echo ok", config=config, timeout=timeout, check=False)
+            if result.returncode == 0 and "ok" in result.stdout:
+                return True
+        except subprocess.TimeoutExpired:
+            pass
+        except (FileNotFoundError, OSError):
+            return False
+        if attempt < max_retries - 1:
+            print_fn(f"SSH connection attempt {attempt + 1}/{max_retries} timed out ({timeout}s), retrying...")
+    return False
 
 # %%
 #|export

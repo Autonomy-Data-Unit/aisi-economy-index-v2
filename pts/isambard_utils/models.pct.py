@@ -44,13 +44,20 @@ def _hf_cache_dir(config: IsambardConfig) -> str:
 #|export
 async def _aremote_python(script: str, *, config: IsambardConfig, timeout: int = 600) -> str:
     """Run a Python script in the remote venv and return stdout (async)."""
-    import base64
+    import base64, subprocess
     b64 = base64.b64encode(script.encode()).decode()
     cmd = (
         f"cd {config.project_dir} && source .venv/bin/activate && "
         f"echo {b64} | base64 -d | python"
     )
-    result = await async_ssh_run(f"bash -lc {_shlex_quote(cmd)}", config=config, timeout=timeout)
+    try:
+        result = await async_ssh_run(f"bash -lc {_shlex_quote(cmd)}", config=config, timeout=timeout)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Remote python script failed (exit {e.returncode}).\n"
+            f"--- script ---\n{script}\n"
+            f"--- stderr ---\n{e.stderr or '(empty)'}"
+        ) from e
     return result.stdout
 
 # %%

@@ -8,12 +8,10 @@ from isambard_utils.transfer import aupload_tar_pipe, adownload_tar_pipe, auploa
 from isambard_utils.transfer import compute_content_hash
 from isambard_utils.slurm import submit, status, wait, cancel, job_log, SlurmJob
 from isambard_utils.slurm import asubmit, astatus, await_job, acancel, ajob_log
-from isambard_utils.env import setup, sync_code_rsync as sync_code, check_setup
-from isambard_utils.env import asetup, async_code_rsync as async_sync_code, acheck_setup
 from isambard_utils.sbatch import generate as generate_sbatch, SbatchConfig
 from isambard_utils.models import (
     ensure_model, check_model, set_model_env,
     load_embedding_model, load_llm, EmbeddingModel, LLM,
 )
 from isambard_utils.models import aensure_model, acheck_model
-from isambard_utils.orchestrate import run_remote, arun_remote, TransferMode
+from isambard_utils.orchestrate import run_remote, arun_remote, setup_runner, asetup_runner, TransferMode
