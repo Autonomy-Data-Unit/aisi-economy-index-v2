@@ -1,0 +1,90 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Test: llm_runner serialization round-trip
+
+# %%
+#|default_exp llm_runner.test_serialization
+
+# %%
+#|export
+import json
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+# %%
+#|export
+class TestSerialization:
+    """Test llm_runner.serialization serialize/deserialize round-trip."""
+
+    def test_numpy_roundtrip(self):
+        from llm_runner.serialization import serialize, deserialize
+        data = {"embeddings": np.random.randn(10, 64).astype(np.float32)}
+        with tempfile.TemporaryDirectory() as tmp:
+            serialize(data, Path(tmp))
+            result = deserialize(Path(tmp))
+        np.testing.assert_array_equal(result["embeddings"], data["embeddings"])
+
+    def test_json_roundtrip(self):
+        from llm_runner.serialization import serialize, deserialize
+        data = {
+            "texts": ["hello", "world"],
+            "config": {"k": 5, "nested": [1, 2, 3]},
+            "count": 42,
+            "flag": True,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            serialize(data, Path(tmp))
+            result = deserialize(Path(tmp))
+        assert result == data
+
+    def test_mixed_roundtrip(self):
+        from llm_runner.serialization import serialize, deserialize
+        arr = np.array([1.0, 2.0, 3.0], dtype=np.float16)
+        data = {
+            "embeddings": arr,
+            "labels": ["a", "b", "c"],
+            "meta": {"version": 1},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            serialize(data, Path(tmp))
+            result = deserialize(Path(tmp))
+        np.testing.assert_array_equal(result["embeddings"], arr)
+        assert result["labels"] == ["a", "b", "c"]
+        assert result["meta"] == {"version": 1}
+
+    def test_pickle_fallback(self):
+        """Non-JSON-serializable objects should fall back to pickle."""
+        from llm_runner.serialization import serialize, deserialize
+        data = {"obj": set([1, 2, 3])}
+        with tempfile.TemporaryDirectory() as tmp:
+            serialize(data, Path(tmp))
+            result = deserialize(Path(tmp))
+        assert result["obj"] == {1, 2, 3}
+
+    def test_manifest_structure(self):
+        from llm_runner.serialization import serialize
+        data = {"arr": np.zeros(5), "text": "hello", "obj": set([1])}
+        with tempfile.TemporaryDirectory() as tmp:
+            serialize(data, Path(tmp))
+            with open(Path(tmp) / "_manifest.json") as f:
+                manifest = json.load(f)
+        assert manifest["arr"]["type"] == "npy"
+        assert manifest["text"]["type"] == "json"
+        assert manifest["obj"]["type"] == "pkl"
+
+    def test_empty_dict(self):
+        from llm_runner.serialization import serialize, deserialize
+        with tempfile.TemporaryDirectory() as tmp:
+            serialize({}, Path(tmp))
+            result = deserialize(Path(tmp))
+        assert result == {}

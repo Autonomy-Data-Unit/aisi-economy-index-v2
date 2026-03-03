@@ -1,0 +1,54 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Test: llm_runner cosine top-K (CPU)
+
+# %%
+#|default_exp llm_runner.test_cosine
+
+# %%
+#|export
+import numpy as np
+import pytest
+
+# %%
+#|export
+class TestCosineTopK:
+    """Test llm_runner.cosine.run_cosine_topk on CPU."""
+
+    def test_basic_topk(self):
+        from llm_runner.cosine import run_cosine_topk
+        # Create simple embeddings where we know the answer
+        A = np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float32)
+        B = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float32)
+        result = run_cosine_topk(A, B, k=2, device="cpu")
+        assert result["indices"].shape == (2, 2)
+        assert result["scores"].shape == (2, 2)
+        # Row 0 of A is [1,0,0], should match B[0] first
+        assert result["indices"][0, 0] == 0
+        # Row 1 of A is [0,1,0], should match B[1] first
+        assert result["indices"][1, 0] == 1
+
+    def test_k_larger_than_candidates(self):
+        from llm_runner.cosine import run_cosine_topk
+        A = np.random.randn(5, 10).astype(np.float32)
+        B = np.random.randn(3, 10).astype(np.float32)
+        result = run_cosine_topk(A, B, k=10, device="cpu")
+        # k should be clamped to B.shape[0]
+        assert result["indices"].shape == (5, 3)
+        assert result["scores"].shape == (5, 3)
+
+    def test_scores_sorted_descending(self):
+        from llm_runner.cosine import run_cosine_topk
+        A = np.random.randn(3, 8).astype(np.float32)
+        B = np.random.randn(10, 8).astype(np.float32)
+        result = run_cosine_topk(A, B, k=5, device="cpu")
+        for i in range(3):
+            scores = result["scores"][i]
+            assert np.all(scores[:-1] >= scores[1:]), "Scores not sorted descending"
