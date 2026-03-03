@@ -1,0 +1,23 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %%
+#|default_exp const
+
+# %% [markdown]
+# # const
+
+# %%
+#|export
+from pathlib import Path
+
+pkg_path = Path(__file__).resolve().parent
+assets_path = pkg_path / "assets"
+store_path = pkg_path / "store"
+llm_models_config_path = assets_path / "llm_models.toml"
+adulib_cache_path = store_path / "adulib_cache"

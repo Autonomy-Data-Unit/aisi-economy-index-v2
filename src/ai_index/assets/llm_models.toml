@@ -1,0 +1,23 @@
+[api.defaults]
+model = "Qwen/Qwen2.5-7B-Instruct"
+max_new_tokens = 60
+
+[local.defaults]
+model = "Qwen/Qwen2.5-7B-Instruct"
+max_new_tokens = 60
+device = "cuda"
+dtype = "float16"
+backend = "transformers"
+batch_size = 128
+
+[sbatch.defaults]
+model = "Qwen/Qwen2.5-7B-Instruct"
+max_new_tokens = 60
+dtype = "float16"
+backend = "vllm"
+job_name = "llm_generate"
+time = "02:00:00"
+setup = false
+
+[sbatch."Qwen/Qwen2.5-7B-Instruct"]
+time = "00:30:00"
