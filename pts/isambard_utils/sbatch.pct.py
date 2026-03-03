@@ -65,13 +65,13 @@ def generate(sbatch_config: SbatchConfig, *,
     lines.append(f"#SBATCH --mem={sc.mem}")
     lines.append(f"#SBATCH --time={sc.time}")
     lines.append(f"#SBATCH --ntasks=1")
+    lines.append(f"#SBATCH --chdir={ic.project_dir}")
     if sc.array:
         lines.append(f"#SBATCH --array={sc.array}")
     lines.append("")
 
     # Shell setup
     lines.append("set -euo pipefail")
-    lines.append(f"cd {ic.project_dir}")
     lines.append("")
 
     # Module loading
