@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -20,8 +20,11 @@ from pathlib import Path
 pkg_path = Path(str(files("ai_index")))
 assets_path = pkg_path / "assets"
 store_path = pkg_path / "store"
+inputs_path = store_path / "inputs"
+
 llm_models_config_path = assets_path / "llm_models.toml"
 embed_models_config_path = assets_path / "embed_models.toml"
 adulib_cache_path = store_path / "adulib_cache"
-onet_store_path = store_path / "onet"
-adzuna_store_path = store_path / "adzuna"
+
+onet_store_path = inputs_path / "onet"
+adzuna_store_path = inputs_path / "adzuna"
