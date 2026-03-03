@@ -34,7 +34,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print)
     """
     import subprocess
     config = _get_config(config)
-    from .env import _aensure_uv, _aensure_venv
+    from .env import _aensure_uv, _aensure_venv, _aensure_cuda_torch
     from .transfer import aupload as async_rsync_upload, aupload_bytes
     import llm_runner
 
@@ -64,6 +64,10 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print)
         # 5. Install deps
         print_fn("runner setup: installing dependencies...")
         await _aensure_venv(config=config)
+
+        # 6. Ensure CUDA torch
+        print_fn("runner setup: ensuring CUDA torch...")
+        await _aensure_cuda_torch(config=config)
         print_fn("runner setup: done")
 
     except subprocess.CalledProcessError as e:
@@ -179,18 +183,16 @@ async def arun_remote(
 
     # 5. Submit SBATCH
     config_json = json.dumps(config_dict)
-    python_command = (
-        f"cd {ic.project_dir} && source .venv/bin/activate && "
-        f"PYTHONPATH={ic.project_dir}/src "
-        f"python -m llm_runner {operation} "
-        f"--manifest {manifest_remote} "
-        f"--outputs-dir {outputs_remote} "
-        f"--config '{config_json}'"
-    )
     sbatch_cfg = SbatchConfig(
         job_name=job_name,
         time=time,
-        python_command=python_command,
+        env_vars={"PYTHONPATH": f"{ic.project_dir}/src"},
+        command=(
+            f"python -m llm_runner {operation} "
+            f"--manifest {manifest_remote} "
+            f"--outputs-dir {outputs_remote} "
+            f"--config '{config_json}'"
+        ),
     )
     sbatch_script = generate_sbatch(sbatch_cfg, isambard_config=ic)
     print_fn(f"run_remote [{job_name}]: submitting job...")

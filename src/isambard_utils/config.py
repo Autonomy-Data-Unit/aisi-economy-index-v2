@@ -37,6 +37,7 @@ class IsambardConfig(BaseModel):
     default_time: str = "12:00:00"
     cuda_module: str = "cudatoolkit/24.11_12.6"
     python_version: str = "3.12"
+    torch_index_url: str = "https://download.pytorch.org/whl/cu126"
 
     @model_validator(mode="after")
     def _interpolate_paths(self):

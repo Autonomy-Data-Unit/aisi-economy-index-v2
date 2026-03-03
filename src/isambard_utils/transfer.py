@@ -159,21 +159,29 @@ async def aupload_tar_pipe(local_dir: str, remote_dir: str, *,
         remote_dir: Remote destination directory.
         config: Isambard configuration.
     """
+    import os
     config = _get_config(config)
     remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
     tar_cmd = ["tar", "cf", "-", "-C", local_dir, "."]
     ssh_cmd = ["ssh", remote, f"mkdir -p {remote_dir} && tar xf - -C {remote_dir}"]
 
-    tar_proc = await asyncio.create_subprocess_exec(
-        *tar_cmd, stdout=asyncio.subprocess.PIPE,
-    )
-    ssh_proc = await asyncio.create_subprocess_exec(
-        *ssh_cmd, stdin=tar_proc.stdout,
-    )
-    # Allow tar_proc to receive SIGPIPE if ssh_proc exits
-    tar_proc.stdout.close()
-    await ssh_proc.communicate()
-    await tar_proc.wait()
+    # Use an OS pipe so tar's stdout connects directly to ssh's stdin
+    read_fd, write_fd = os.pipe()
+    try:
+        tar_proc = await asyncio.create_subprocess_exec(
+            *tar_cmd, stdout=write_fd,
+        )
+        os.close(write_fd); write_fd = -1
+        ssh_proc = await asyncio.create_subprocess_exec(
+            *ssh_cmd, stdin=read_fd,
+        )
+        os.close(read_fd); read_fd = -1
+    except:
+        if write_fd >= 0: os.close(write_fd)
+        if read_fd >= 0: os.close(read_fd)
+        raise
+
+    await asyncio.gather(tar_proc.wait(), ssh_proc.wait())
 
     if ssh_proc.returncode != 0:
         raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
@@ -207,15 +215,23 @@ async def adownload_tar_pipe(remote_dir: str, local_dir: str, *,
     ssh_cmd = ["ssh", remote, f"tar cf - -C {remote_dir} ."]
     tar_cmd = ["tar", "xf", "-", "-C", local_dir]
 
-    ssh_proc = await asyncio.create_subprocess_exec(
-        *ssh_cmd, stdout=asyncio.subprocess.PIPE,
-    )
-    tar_proc = await asyncio.create_subprocess_exec(
-        *tar_cmd, stdin=ssh_proc.stdout,
-    )
-    ssh_proc.stdout.close()
-    await tar_proc.communicate()
-    await ssh_proc.wait()
+    # Use an OS pipe so ssh's stdout connects directly to tar's stdin
+    read_fd, write_fd = os.pipe()
+    try:
+        ssh_proc = await asyncio.create_subprocess_exec(
+            *ssh_cmd, stdout=write_fd,
+        )
+        os.close(write_fd); write_fd = -1
+        tar_proc = await asyncio.create_subprocess_exec(
+            *tar_cmd, stdin=read_fd,
+        )
+        os.close(read_fd); read_fd = -1
+    except:
+        if write_fd >= 0: os.close(write_fd)
+        if read_fd >= 0: os.close(read_fd)
+        raise
+
+    await asyncio.gather(ssh_proc.wait(), tar_proc.wait())
 
     if tar_proc.returncode != 0:
         raise subprocess.CalledProcessError(tar_proc.returncode, tar_cmd)

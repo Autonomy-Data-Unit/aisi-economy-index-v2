@@ -37,6 +37,7 @@ class SbatchConfig:
     pre_commands: list[str] = field(default_factory=list)
     python_script: str | None = None
     python_command: str | None = None
+    command: str | None = None
 
 # %%
 #|export
@@ -102,8 +103,10 @@ def generate(sbatch_config: SbatchConfig, *,
         lines.append(f'srun python "{sc.python_script}"')
     elif sc.python_command:
         lines.append(f'srun python -c {_shell_quote(sc.python_command)}')
+    elif sc.command:
+        lines.append(f'srun {sc.command}')
     else:
-        lines.append("# No python_script or python_command specified")
+        lines.append("# No command specified")
 
     lines.append("")
     return "\n".join(lines)
