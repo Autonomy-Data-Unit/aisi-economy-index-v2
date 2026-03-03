@@ -1,0 +1,50 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # nodes.{{ module_name }}
+#
+
+# %%
+from nblite import nbl_export; nbl_export();
+
+# %%
+#|default_exp nodes.{{ module_name }}
+#|export_as_func true
+
+# %%
+#|top_export
+# Top-level imports go here
+
+# %%
+#|set_func_signature
+def {{ module_name }}(in1: str, in2: int) -> {
+    "out1": str,
+    "out2": int,
+}:
+    """
+    """
+    ...
+
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dotenv import load_dotenv; load_dotenv()
+from dev_utils import set_node_func_args
+set_node_func_args(aggregate_soc_exposure)
+
+# %% [markdown]
+#
+# # Function body
+
+# %%
+#|export
+print("aggregate_soc_exposure: returning dummy data")
+{"exposure_scores": {"dummy": True}}  #|func_return_line

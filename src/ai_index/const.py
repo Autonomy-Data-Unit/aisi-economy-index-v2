@@ -3,9 +3,10 @@
 __all__ = ['adulib_cache_path', 'assets_path', 'embed_models_config_path', 'llm_models_config_path', 'pkg_path', 'store_path']
 
 # %% nbs/ai_index/const.ipynb 2
+from importlib.resources import files
 from pathlib import Path
 
-pkg_path = Path(__file__).resolve().parent
+pkg_path = Path(str(files("ai_index")))
 assets_path = pkg_path / "assets"
 store_path = pkg_path / "store"
 llm_models_config_path = assets_path / "llm_models.toml"
