@@ -18,7 +18,7 @@
 
 # %%
 #|set_func_signature
-def fetch_adzuna(ctx, print) -> {"adzuna_meta": dict}:
+def main(ctx, print) -> {"adzuna_meta": dict}:
     """Download raw Adzuna job ads from S3 to monthly parquets."""
     ...
 
@@ -29,7 +29,7 @@ def fetch_adzuna(ctx, print) -> {"adzuna_meta": dict}:
 # %%
 from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
-set_node_func_args(fetch_adzuna)
+set_node_func_args(main)
 
 # %%
 #|export

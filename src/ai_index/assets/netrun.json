@@ -49,7 +49,7 @@
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
-          "func": "ai_index.nodes.fetch_onet"
+          "func": "ai_index.nodes.fetch_onet.main"
         },
         "type": "node"
       },
@@ -63,8 +63,8 @@
           "description": "Download raw Adzuna job ads from S3 to monthly parquets",
           "ui": {
             "position": {
-              "x": 12,
-              "y": 250
+              "x": 0,
+              "y": 240
             },
             "descriptionExpanded": false,
             "portGroups": {
@@ -75,7 +75,7 @@
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
-          "func": "ai_index.nodes.fetch_adzuna"
+          "func": "ai_index.nodes.fetch_adzuna.main"
         },
         "type": "node"
       },
@@ -86,10 +86,10 @@
           "description": "Deduplicate Adzuna job ads by ID across months",
           "ui": {
             "position": {
-              "x": 400,
-              "y": 250
+              "x": 420,
+              "y": 225
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "portGroups": {
               "out:__all__": false,
               "in:__all__": false
@@ -98,7 +98,7 @@
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
-          "func": "ai_index.nodes.dedup_adzuna"
+          "func": "ai_index.nodes.dedup_adzuna.main"
         },
         "type": "node"
       }

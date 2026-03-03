@@ -19,7 +19,7 @@
 
 # %%
 #|set_func_signature
-def dedup_adzuna(adzuna_meta, ctx, print) -> {"dedup_meta": dict}:
+def main(adzuna_meta, ctx, print) -> {"dedup_meta": dict}:
     """Deduplicate Adzuna job ads by ID across months."""
     ...
 
@@ -30,7 +30,7 @@ def dedup_adzuna(adzuna_meta, ctx, print) -> {"dedup_meta": dict}:
 # %%
 from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
-set_node_func_args(dedup_adzuna)
+set_node_func_args(main)
 
 # %%
 #|export
