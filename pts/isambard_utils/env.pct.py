@@ -233,3 +233,115 @@ def check_setup(*, config: IsambardConfig | None = None) -> dict:
         - code_synced: whether project_dir contains pyproject.toml
     """
     return _run_sync(acheck_setup(config=config))
+
+# %% [markdown]
+# ## llm_runner deployment
+#
+# Deploy the `llm_runner` package as a standalone project on Isambard.
+# The runner has its own venv with minimal dependencies (no netrun, no ai_index).
+
+# %%
+#|export
+_RUNNER_PYPROJECT = """\
+[project]
+name = "llm-runner"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["numpy", "torch", "sentence-transformers", "transformers", "accelerate"]
+
+[project.optional-dependencies]
+api = ["adulib[llm]>=0.1"]
+vllm = ["vllm"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+sources = ["src"]
+packages = ["src/llm_runner"]
+"""
+
+# %%
+#|export
+async def asetup_runner(*, config: IsambardConfig | None = None,
+                         print_fn=print) -> None:
+    """Ensure llm_runner is installed on Isambard (idempotent, async).
+
+    Steps:
+        1. Create remote runner project directory
+        2. Rsync src/llm_runner/ to remote
+        3. Upload minimal pyproject.toml (if changed)
+        4. uv sync + torch CUDA reinstall
+
+    Args:
+        config: Isambard configuration.
+        print_fn: Print function for progress logging.
+    """
+    config = _get_config(config)
+    runner_dir = f"{config.project_dir}/llm_runner_env"
+
+    # 1. Create remote directory structure
+    await async_ssh_run(f"mkdir -p {runner_dir}/src", config=config)
+
+    # 2. Install uv if needed
+    await _aensure_uv(config=config)
+
+    # 3. Rsync llm_runner source code
+    import importlib.resources as resources
+    import os
+    # Find the local src/llm_runner directory relative to the project
+    # We look for it relative to the isambard_utils package location
+    local_runner_src = os.path.join(os.getcwd(), "src", "llm_runner")
+    if os.path.isdir(local_runner_src):
+        print_fn("runner setup: syncing llm_runner source...")
+        await async_rsync_upload(
+            local_runner_src + "/", f"{runner_dir}/src/llm_runner",
+            config=config, exclude=["__pycache__", "*.pyc"],
+        )
+    else:
+        raise FileNotFoundError(
+            f"Cannot find src/llm_runner at {local_runner_src}. "
+            "Run from the project root directory."
+        )
+
+    # 4. Upload pyproject.toml (check if changed via hash)
+    import hashlib
+    pyproject_hash = hashlib.md5(_RUNNER_PYPROJECT.encode()).hexdigest()[:12]
+    check = await async_ssh_run(
+        f"cat {runner_dir}/.pyproject_hash 2>/dev/null || echo ''",
+        config=config, check=False,
+    )
+    remote_hash = check.stdout.strip() if check.returncode == 0 else ""
+
+    if remote_hash != pyproject_hash:
+        print_fn("runner setup: uploading pyproject.toml...")
+        from isambard_utils.transfer import aupload_bytes
+        await aupload_bytes(_RUNNER_PYPROJECT.encode(), f"{runner_dir}/pyproject.toml",
+                            config=config)
+        await aupload_bytes(pyproject_hash.encode(), f"{runner_dir}/.pyproject_hash",
+                            config=config)
+
+    # 5. Create venv and sync deps
+    print_fn("runner setup: installing dependencies...")
+    cuda_index = "https://download.pytorch.org/whl/cu126"
+    script = f"""
+cd {runner_dir}
+module load cray-python/3.11.7 2>/dev/null || true
+uv sync --no-dev
+uv pip install torch --index-url {cuda_index} --reinstall
+""".strip()
+    await async_ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=600)
+    print_fn("runner setup: done")
+
+# %%
+#|export
+def setup_runner(*, config: IsambardConfig | None = None,
+                  print_fn=print) -> None:
+    """Ensure llm_runner is installed on Isambard (idempotent).
+
+    Args:
+        config: Isambard configuration.
+        print_fn: Print function for progress logging.
+    """
+    _run_sync(asetup_runner(config=config, print_fn=print_fn))

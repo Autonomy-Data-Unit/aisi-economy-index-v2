@@ -1,0 +1,102 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Cosine Top-K
+#
+# Compute cosine similarity between two sets of embeddings and return the top-K
+# most similar pairs. Supports GPU (torch) and CPU (numpy) paths.
+
+# %%
+#|default_exp cosine
+
+# %%
+#|export
+import numpy as np
+
+# %%
+#|export
+def run_cosine_topk(A: np.ndarray, B: np.ndarray, k: int = 5, *,
+                    device: str = "cuda", batch_size: int = 16384) -> dict:
+    """Compute top-K cosine similarity between rows of A and rows of B.
+
+    For each row in A, finds the k most similar rows in B.
+
+    Args:
+        A: Query embeddings, shape (n, d).
+        B: Candidate embeddings, shape (m, d).
+        k: Number of top matches per query.
+        device: "cuda" for GPU (torch) or "cpu" for numpy-only path.
+        batch_size: Rows of A to process per batch (GPU memory management).
+
+    Returns:
+        Dict with:
+            - "indices": int array of shape (n, k) — indices into B
+            - "scores": float array of shape (n, k) — cosine similarity scores
+    """
+    if device == "cpu":
+        return _cosine_topk_cpu(A, B, k)
+    return _cosine_topk_gpu(A, B, k, device=device, batch_size=batch_size)
+
+# %%
+#|export
+def _cosine_topk_cpu(A: np.ndarray, B: np.ndarray, k: int) -> dict:
+    """CPU-only cosine top-K using numpy."""
+    # L2 normalize
+    A_norm = A / (np.linalg.norm(A, axis=1, keepdims=True) + 1e-8)
+    B_norm = B / (np.linalg.norm(B, axis=1, keepdims=True) + 1e-8)
+
+    # Cosine similarity matrix: (n, m)
+    sim = A_norm @ B_norm.T
+
+    # Top-K per row
+    k = min(k, sim.shape[1])
+    if k == sim.shape[1]:
+        # Return all columns, just sort by descending score
+        sort_order = np.argsort(-sim, axis=1)
+        top_indices = sort_order
+        top_scores = np.take_along_axis(sim, sort_order, axis=1)
+    else:
+        # argpartition is O(n) but doesn't sort, so we sort the top-k after
+        top_indices = np.argpartition(-sim, k, axis=1)[:, :k]
+        top_scores = np.take_along_axis(sim, top_indices, axis=1)
+        sort_order = np.argsort(-top_scores, axis=1)
+        top_indices = np.take_along_axis(top_indices, sort_order, axis=1)
+        top_scores = np.take_along_axis(top_scores, sort_order, axis=1)
+
+    return {"indices": top_indices.astype(np.int64), "scores": top_scores.astype(np.float32)}
+
+# %%
+#|export
+def _cosine_topk_gpu(A: np.ndarray, B: np.ndarray, k: int, *,
+                     device: str = "cuda", batch_size: int = 16384) -> dict:
+    """GPU cosine top-K using torch."""
+    import torch
+
+    A_t = torch.from_numpy(A).to(device=device, dtype=torch.float32)
+    B_t = torch.from_numpy(B).to(device=device, dtype=torch.float32)
+
+    # L2 normalize
+    A_t = torch.nn.functional.normalize(A_t, dim=1)
+    B_t = torch.nn.functional.normalize(B_t, dim=1)
+
+    k = min(k, B_t.shape[0])
+    all_indices = []
+    all_scores = []
+
+    for start in range(0, A_t.shape[0], batch_size):
+        batch = A_t[start:start + batch_size]
+        sim = batch @ B_t.T  # (batch, m)
+        scores, indices = torch.topk(sim, k, dim=1)
+        all_indices.append(indices.cpu().numpy())
+        all_scores.append(scores.cpu().numpy())
+
+    return {
+        "indices": np.concatenate(all_indices, axis=0).astype(np.int64),
+        "scores": np.concatenate(all_scores, axis=0).astype(np.float32),
+    }

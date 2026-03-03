@@ -14,6 +14,11 @@ nbs_isambard_tests -> pts_isambard_tests
 
 nbs_dev -> lib_dev
 nbs_dev -> pts_dev
+
+nbs_examples -> pts_examples
+
+nbs_runner -> lib_runner
+nbs_runner -> pts_runner
 """
 
 [cl.nbs]
@@ -78,4 +83,26 @@ format = "percent"
 
 [cl.lib_dev]
 path = "src/dev_utils"
+format = "module"
+
+
+[cl.nbs_examples]
+path = "nbs/examples"
+format = "ipynb"
+
+[cl.pts_examples]
+path = "pts/examples"
+format = "percent"
+
+
+[cl.nbs_runner]
+path = "nbs/llm_runner"
+format = "ipynb"
+
+[cl.pts_runner]
+path = "pts/llm_runner"
+format = "percent"
+
+[cl.lib_runner]
+path = "src/llm_runner"
 format = "module"
