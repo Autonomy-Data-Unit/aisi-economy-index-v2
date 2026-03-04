@@ -28,7 +28,6 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
 # Retrieve input arguments
 
 # %%
-from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
 set_node_func_args()
 
