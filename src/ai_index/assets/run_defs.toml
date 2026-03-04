@@ -1,9 +1,12 @@
 [defaults]
 embedding_model = "voyage-4-lite"
 llm_model = "gpt-5.2"
-topk = 5
 sample_n = 0
 sample_seed = 42
+
+[defaults.compute_cosine_similarities]
+cosine_mode = "local"
+topk = 5
 
 [runs.baseline]
 # inherits all defaults

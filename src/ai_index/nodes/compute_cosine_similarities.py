@@ -8,9 +8,11 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
     import pandas as pd
     
     from ai_index.const import pipeline_store_path
+    from ai_index.utils import cosine_topk
     
     run_name = ctx.vars["run_name"]
     topk = int(ctx.vars["topk"])
+    cosine_mode = ctx.vars["cosine_mode"]
     
     store_dir = pipeline_store_path / run_name / ctx.node_name
     # Load O*NET embeddings
@@ -20,7 +22,7 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
     onet_soc_codes = onet_embed_meta["soc_codes"]
     onet_titles = onet_embed_meta["titles"]
     
-    print(f"compute_cosine_sim: loaded O*NET embeddings: {onet_role.shape}")
+    print(f"compute_cosine_similarities: loaded O*NET embeddings: {onet_role.shape}")
     def _merge_topk(role_indices, role_scores, task_indices, task_scores, k, soc_codes, titles):
         """Merge role and task top-K results for a batch of job ads.
     
@@ -65,7 +67,7 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
         if out_path.exists():
             existing = pd.read_parquet(out_path, columns=["job_id"])
             if len(existing) >= expected_count:
-                print(f"compute_cosine_sim: {year}/{filename} — {len(existing)} cached, skipping")
+                print(f"compute_cosine_similarities: {year}/{filename} — {len(existing)} cached, skipping")
                 month_metas.append({
                     "year": year,
                     "filename": filename,
@@ -80,43 +82,16 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
         job_role = job_data["role_embeddings"].astype(np.float32)
         job_task = job_data["task_embeddings"].astype(np.float32)
     
-        print(f"compute_cosine_sim: {year}/{filename} — computing top-{topk} for {len(job_ids)} ads")
+        print(f"compute_cosine_similarities: {year}/{filename} — computing top-{topk} for {len(job_ids)} ads (mode={cosine_mode})")
     
-        # Compute cosine similarity (dot product since vectors are L2-normalized)
-        # Process in batches to limit memory
-        batch_size = 8192
-        all_results = []
+        role_result = cosine_topk(job_role, onet_role, topk, mode=cosine_mode)
+        task_result = cosine_topk(job_task, onet_task, topk, mode=cosine_mode)
     
-        for b0 in range(0, len(job_ids), batch_size):
-            b1 = min(b0 + batch_size, len(job_ids))
-            jr = job_role[b0:b1]
-            jt = job_task[b0:b1]
-    
-            sim_r = jr @ onet_role.T  # (batch, n_occ)
-            sim_t = jt @ onet_task.T
-    
-            # Top-K
-            role_top_idx = np.argpartition(-sim_r, topk, axis=1)[:, :topk]
-            task_top_idx = np.argpartition(-sim_t, topk, axis=1)[:, :topk]
-    
-            # Get actual scores for top-K indices
-            role_top_scores = np.take_along_axis(sim_r, role_top_idx, axis=1)
-            task_top_scores = np.take_along_axis(sim_t, task_top_idx, axis=1)
-    
-            # Sort within top-K by score descending
-            r_order = np.argsort(-role_top_scores, axis=1)
-            t_order = np.argsort(-task_top_scores, axis=1)
-            role_top_idx = np.take_along_axis(role_top_idx, r_order, axis=1)
-            role_top_scores = np.take_along_axis(role_top_scores, r_order, axis=1)
-            task_top_idx = np.take_along_axis(task_top_idx, t_order, axis=1)
-            task_top_scores = np.take_along_axis(task_top_scores, t_order, axis=1)
-    
-            batch_results = _merge_topk(
-                role_top_idx, role_top_scores,
-                task_top_idx, task_top_scores,
-                topk, onet_soc_codes, onet_titles,
-            )
-            all_results.extend(batch_results)
+        all_results = _merge_topk(
+            role_result["indices"], role_result["scores"],
+            task_result["indices"], task_result["scores"],
+            topk, onet_soc_codes, onet_titles,
+        )
     
         # Build output DataFrame
         rows = []
@@ -134,7 +109,7 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
         df_out = pd.DataFrame(rows)
         out_dir.mkdir(parents=True, exist_ok=True)
         df_out.to_parquet(out_path, compression="snappy")
-        print(f"compute_cosine_sim: {year}/{filename} — saved {len(df_out)} results")
+        print(f"compute_cosine_similarities: {year}/{filename} — saved {len(df_out)} results")
     
         month_metas.append({
             "year": year,
@@ -144,7 +119,7 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
         })
     
     total = sum(m["row_count"] for m in month_metas)
-    print(f"compute_cosine_sim: {total} total ads matched across {len(month_metas)} months")
+    print(f"compute_cosine_similarities: {total} total ads matched across {len(month_metas)} months")
     candidates_meta = {
         "months": month_metas,
         "topk": topk,
