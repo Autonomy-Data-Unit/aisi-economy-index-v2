@@ -12,7 +12,6 @@ def main(candidates_meta, ads_manifest, ctx, print) -> {"filtered_meta": dict}:
     from ai_index.utils import llm_generate
     
     run_name = ctx.vars["run_name"]
-    execution_mode = ctx.vars["execution_mode"]
     llm_model = ctx.vars["llm_model"]
     
     MAX_KEEP = 5
@@ -134,11 +133,11 @@ def main(candidates_meta, ads_manifest, ctx, print) -> {"filtered_meta": dict}:
             prompt_indices.append(idx)
     
         # Call LLM in batches
-        print(f"llm_filter: {year}/{filename} — filtering {len(prompts)} ads with {llm_model} (mode={execution_mode})")
+        print(f"llm_filter: {year}/{filename} — filtering {len(prompts)} ads with {llm_model}")
         all_responses = []
         for b0 in range(0, len(prompts), LLM_BATCH_SIZE):
             batch = prompts[b0:b0 + LLM_BATCH_SIZE]
-            responses = llm_generate(batch, mode=execution_mode, model=llm_model)
+            responses = llm_generate(batch, model=llm_model)
             all_responses.extend(responses)
             if b0 + LLM_BATCH_SIZE < len(prompts):
                 print(f"  batch {b0//LLM_BATCH_SIZE + 1}: {len(all_responses)}/{len(prompts)}")

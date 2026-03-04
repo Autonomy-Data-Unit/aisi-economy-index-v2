@@ -1,7 +1,6 @@
 [defaults]
-execution_mode = "api"
-embedding_model = "BAAI/bge-large-en-v1.5"
-llm_model = "gpt-4o-mini"
+embedding_model = "voyage-4-lite"
+llm_model = "gpt-5.2"
 topk = 5
 sample_n = 0
 sample_seed = 42
@@ -9,13 +8,8 @@ sample_seed = 42
 [runs.baseline]
 # inherits all defaults
 
-[runs.bge_small]
-embedding_model = "BAAI/bge-small-en-v1.5"
+[runs.voyage_large]
+embedding_model = "voyage-4-large"
 
 [runs.dev]
 sample_n = 1000
-llm_model = "gpt-4o-mini"
-
-[runs.gemini]
-llm_model = "gemini-2.0-flash"
-topk = 10

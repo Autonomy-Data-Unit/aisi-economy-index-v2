@@ -41,7 +41,6 @@ from ai_index.const import pipeline_store_path
 from ai_index.utils import embed
 
 run_name = ctx.vars["run_name"]
-execution_mode = ctx.vars["execution_mode"]
 embedding_model = ctx.vars["embedding_model"]
 
 store_dir = pipeline_store_path / run_name / ctx.node_name
@@ -115,9 +114,9 @@ for month_info in ads_manifest["months"]:
     role_texts, task_texts = _build_ad_texts(df_new)
     new_ids = df_new["id"].astype(str).values
 
-    print(f"embed_job_ads: {year}/{filename} — embedding {len(df_new)} ads with {embedding_model} (mode={execution_mode})")
-    new_role = embed(role_texts, mode=execution_mode, model=embedding_model)
-    new_task = embed(task_texts, mode=execution_mode, model=embedding_model)
+    print(f"embed_job_ads: {year}/{filename} — embedding {len(df_new)} ads with {embedding_model}")
+    new_role = embed(role_texts, model=embedding_model)
+    new_task = embed(task_texts, model=embedding_model)
 
     # L2-normalize
     new_role = new_role / np.maximum(np.linalg.norm(new_role, axis=1, keepdims=True), 1e-12)

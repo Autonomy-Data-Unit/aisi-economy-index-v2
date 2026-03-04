@@ -8,15 +8,24 @@ from pathlib import Path
 from .const import llm_models_config_path, embed_models_config_path
 
 # %% nbs/ai_index/utils.ipynb 3
-def _load_model_config(config_path: Path, mode: str, model: str | None) -> dict:
-    """Load config: {mode}.defaults -> {mode}."{model}" """
+def _load_model_config(config_path: Path, model_key: str) -> tuple[str, dict]:
+    """Load config for a named model key.
+
+    Looks up cfg["models"][model_key], reads its mode, merges
+    cfg["defaults"][mode] with the model entry (minus 'mode' key).
+    Returns (mode, merged_dict).
+    """
     with open(config_path, "rb") as f:
         cfg = tomllib.load(f)
-    mode_cfg = cfg.get(mode, {})
-    result = dict(mode_cfg.get("defaults", {}))
-    if model and model in mode_cfg:
-        result.update(mode_cfg[model])
-    return result
+    models = cfg.get("models", {})
+    if model_key not in models:
+        available = ", ".join(sorted(models.keys()))
+        raise ValueError(f"Unknown model key {model_key!r}. Available: {available}")
+    entry = dict(models[model_key])
+    mode = entry.pop("mode")
+    defaults = dict(cfg.get("defaults", {}).get(mode, {}))
+    defaults.update(entry)
+    return mode, defaults
 
 # %% nbs/ai_index/utils.ipynb 4
 # Keys that belong to run_remote/arun_remote (orchestration), not to the
@@ -28,15 +37,12 @@ _RUN_REMOTE_KEYS = {
     "output_transfer", "isambard_config", "print_fn",
 }
 
-def _resolve_model_args(config_path, mode, model, kwargs):
-    """Resolve config + kwargs into (model, cfg) tuple."""
-    cfg = _load_model_config(config_path, mode, model)
+def _resolve_model_args(config_path, model_key, kwargs):
+    """Resolve config + kwargs into (mode, model_name, cfg) tuple."""
+    mode, cfg = _load_model_config(config_path, model_key)
     cfg.update(kwargs)
-    if model is None:
-        model = cfg.pop("model")
-    else:
-        cfg.pop("model", None)
-    return model, cfg
+    model_name = cfg.pop("model")
+    return mode, model_name, cfg
 
 def _split_remote_kwargs(cfg):
     """Pop run_remote keys from cfg and return them as a separate dict."""
@@ -45,32 +51,31 @@ def _split_remote_kwargs(cfg):
 def llm_generate(
     prompts: list[str],
     *,
-    mode: str = "api",
-    model: str | None = None,
+    model: str,
     **kwargs,
 ) -> list[str]:
-    """Generate LLM responses using api, local, or sbatch mode.
+    """Generate LLM responses using a named model key from llm_models.toml.
 
-    Config is loaded from llm_models.toml ({mode}.defaults -> {mode}."{model}"),
-    then any explicit **kwargs override config values.
+    The model key determines the execution mode (api/local/sbatch).
+    Any explicit **kwargs override config values.
     """
-    model, cfg = _resolve_model_args(llm_models_config_path, mode, model, kwargs)
+    mode, model_name, cfg = _resolve_model_args(llm_models_config_path, model, kwargs)
 
     if mode in ("api", "local"):
         from llm_runner.llm import run_llm_generate
         if mode == "api":
             cfg["backend"] = "api"
-        return run_llm_generate(prompts, model_name=model, **cfg)
+        return run_llm_generate(prompts, model_name=model_name, **cfg)
 
     elif mode == "sbatch":
         from isambard_utils.orchestrate import run_remote
         remote_kw = _split_remote_kwargs(cfg)
-        cfg["model_name"] = model
+        cfg["model_name"] = model_name
         return run_remote(
             "llm_generate",
             inputs={"prompts": prompts},
             config_dict=cfg,
-            required_models=[model],
+            required_models=[model_name],
             **remote_kw,
         )["responses"]
 
@@ -83,8 +88,7 @@ import asyncio
 async def allm_generate(
     prompts: list[str],
     *,
-    mode: str = "api",
-    model: str | None = None,
+    model: str,
     **kwargs,
 ) -> list[str]:
     """Async version of llm_generate.
@@ -92,23 +96,23 @@ async def allm_generate(
     For api/local modes, runs the sync run_llm_generate in a thread.
     For sbatch mode, uses the native async arun_remote.
     """
-    model, cfg = _resolve_model_args(llm_models_config_path, mode, model, kwargs)
+    mode, model_name, cfg = _resolve_model_args(llm_models_config_path, model, kwargs)
 
     if mode in ("api", "local"):
         from llm_runner.llm import run_llm_generate
         if mode == "api":
             cfg["backend"] = "api"
-        return await asyncio.to_thread(run_llm_generate, prompts, model_name=model, **cfg)
+        return await asyncio.to_thread(run_llm_generate, prompts, model_name=model_name, **cfg)
 
     elif mode == "sbatch":
         from isambard_utils.orchestrate import arun_remote
         remote_kw = _split_remote_kwargs(cfg)
-        cfg["model_name"] = model
+        cfg["model_name"] = model_name
         return (await arun_remote(
             "llm_generate",
             inputs={"prompts": prompts},
             config_dict=cfg,
-            required_models=[model],
+            required_models=[model_name],
             **remote_kw,
         ))["responses"]
 
@@ -121,39 +125,38 @@ import numpy as np
 def embed(
     texts: list[str],
     *,
-    mode: str = "local",
-    model: str | None = None,
+    model: str,
     **kwargs,
 ) -> np.ndarray:
-    """Embed texts using local SentenceTransformer, cloud API (adulib), or sbatch.
+    """Embed texts using a named model key from embed_models.toml.
 
-    Config is loaded from embed_models.toml ({mode}.defaults -> {mode}."{model}"),
-    then any explicit **kwargs override config values.
+    The model key determines the execution mode (api/local/sbatch).
+    Any explicit **kwargs override config values.
 
     Returns:
         numpy array of shape (len(texts), embedding_dim).
     """
-    model, cfg = _resolve_model_args(embed_models_config_path, mode, model, kwargs)
+    mode, model_name, cfg = _resolve_model_args(embed_models_config_path, model, kwargs)
 
     if mode == "local":
         from llm_runner.embed import run_embeddings
-        return run_embeddings(texts, model_name=model, **cfg)
+        return run_embeddings(texts, model_name=model_name, **cfg)
 
     elif mode == "api":
         from adulib.llm import batch_embeddings
         batch_size = cfg.pop("batch_size", 1000)
-        embeddings, _ = batch_embeddings(model, input=texts, batch_size=batch_size, **cfg)
+        embeddings, _ = batch_embeddings(model_name, input=texts, batch_size=batch_size, **cfg)
         return np.array(embeddings)
 
     elif mode == "sbatch":
         from isambard_utils.orchestrate import run_remote
         remote_kw = _split_remote_kwargs(cfg)
-        cfg["model_name"] = model
+        cfg["model_name"] = model_name
         return run_remote(
             "embed",
             inputs={"texts": texts},
             config_dict=cfg,
-            required_models=[model],
+            required_models=[model_name],
             **remote_kw,
         )["embeddings"]
 
@@ -164,8 +167,7 @@ def embed(
 async def aembed(
     texts: list[str],
     *,
-    mode: str = "local",
-    model: str | None = None,
+    model: str,
     **kwargs,
 ) -> np.ndarray:
     """Async version of embed.
@@ -174,27 +176,27 @@ async def aembed(
     For api mode, uses adulib's native async_batch_embeddings.
     For sbatch mode, uses arun_remote.
     """
-    model, cfg = _resolve_model_args(embed_models_config_path, mode, model, kwargs)
+    mode, model_name, cfg = _resolve_model_args(embed_models_config_path, model, kwargs)
 
     if mode == "local":
         from llm_runner.embed import run_embeddings
-        return await asyncio.to_thread(run_embeddings, texts, model_name=model, **cfg)
+        return await asyncio.to_thread(run_embeddings, texts, model_name=model_name, **cfg)
 
     elif mode == "api":
         from adulib.llm import async_batch_embeddings
         batch_size = cfg.pop("batch_size", 1000)
-        embeddings, _ = await async_batch_embeddings(model, input=texts, batch_size=batch_size, **cfg)
+        embeddings, _ = await async_batch_embeddings(model_name, input=texts, batch_size=batch_size, **cfg)
         return np.array(embeddings)
 
     elif mode == "sbatch":
         from isambard_utils.orchestrate import arun_remote
         remote_kw = _split_remote_kwargs(cfg)
-        cfg["model_name"] = model
+        cfg["model_name"] = model_name
         return (await arun_remote(
             "embed",
             inputs={"texts": texts},
             config_dict=cfg,
-            required_models=[model],
+            required_models=[model_name],
             **remote_kw,
         ))["embeddings"]
 

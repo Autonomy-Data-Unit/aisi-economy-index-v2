@@ -8,34 +8,6 @@
         "$env": "ADZUNA_S3_PREFIX"
       },
       "type": "str"
-    },
-    "run_name": {
-      "value": "baseline",
-      "type": "str"
-    },
-    "sample_n": {
-      "value": "0",
-      "type": "int"
-    },
-    "sample_seed": {
-      "value": "42",
-      "type": "int"
-    },
-    "execution_mode": {
-      "value": "api",
-      "type": "str"
-    },
-    "embedding_model": {
-      "value": "BAAI/bge-large-en-v1.5",
-      "type": "str"
-    },
-    "llm_model": {
-      "value": "gpt-4o-mini",
-      "type": "str"
-    },
-    "topk": {
-      "value": "5",
-      "type": "int"
     }
   },
   "storage": {

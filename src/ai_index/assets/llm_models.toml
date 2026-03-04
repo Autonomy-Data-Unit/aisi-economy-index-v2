@@ -1,16 +1,15 @@
-[api.defaults]
-model = "Qwen/Qwen2.5-7B-Instruct"
+# Defaults
 
-[local.defaults]
-model = "Qwen/Qwen2.5-7B-Instruct"
+[defaults.api]
+
+[defaults.local]
 max_new_tokens = 60
 device = "cuda"
 dtype = "float16"
 backend = "transformers"
 batch_size = 128
 
-[sbatch.defaults]
-model = "Qwen/Qwen2.5-7B-Instruct"
+[defaults.sbatch]
 max_new_tokens = 60
 dtype = "float16"
 backend = "vllm"
@@ -18,5 +17,17 @@ job_name = "llm_generate"
 time = "02:00:00"
 setup = false
 
-[sbatch."Qwen/Qwen2.5-7B-Instruct"]
+# Models
+
+[models."gpt-5.2"]
+mode = "api"
+model = "openai/gpt-5.2"
+
+[models.qwen-7b-local]
+mode = "local"
+model = "Qwen/Qwen2.5-7B-Instruct"
+
+[models.qwen-7b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen2.5-7B-Instruct"
 time = "00:30:00"

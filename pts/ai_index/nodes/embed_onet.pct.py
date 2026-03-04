@@ -38,7 +38,6 @@ from ai_index.const import pipeline_store_path
 from ai_index.utils import embed
 
 run_name = ctx.vars["run_name"]
-execution_mode = ctx.vars["execution_mode"]
 embedding_model = ctx.vars["embedding_model"]
 
 store_dir = pipeline_store_path / run_name / ctx.node_name
@@ -57,10 +56,10 @@ else:
     task_texts = onet_desc["task_texts"]
     soc_codes = np.array(onet_desc["soc_codes"])
 
-    print(f"embed_onet: embedding {len(role_texts)} occupations with {embedding_model} (mode={execution_mode})")
+    print(f"embed_onet: embedding {len(role_texts)} occupations with {embedding_model}")
 
-    role_embeddings = embed(role_texts, mode=execution_mode, model=embedding_model)
-    task_embeddings = embed(task_texts, mode=execution_mode, model=embedding_model)
+    role_embeddings = embed(role_texts, model=embedding_model)
+    task_embeddings = embed(task_texts, model=embedding_model)
 
     # L2-normalize
     role_embeddings = role_embeddings / np.maximum(np.linalg.norm(role_embeddings, axis=1, keepdims=True), 1e-12)
