@@ -7,7 +7,6 @@ import asyncio
 import builtins
 import importlib
 import inspect
-import os
 import sys
 from collections import namedtuple
 from importlib import resources
@@ -27,24 +26,13 @@ def _load_net_config() -> NetConfig:
 
 def _resolve_node_vars(config: NetConfig) -> dict:
     """Resolve node variables from config into a plain dict (with type casting)."""
-    resolved = {}
-    for key, var in config.node_vars.items():
-        val = var.value
-        # Handle $env references if not already resolved by NetConfig
-        if isinstance(val, dict) and "$env" in val:
-            val = os.environ.get(val["$env"], val.get("default", ""))
-        # Cast to declared type
-        try:
-            if var.type == "int":
-                val = int(val)
-            elif var.type == "float":
-                val = float(val)
-            elif var.type == "bool":
-                val = str(val).lower() in ("true", "1", "yes") if not isinstance(val, bool) else val
-        except (ValueError, TypeError):
-            pass
-        resolved[key] = val
-    return resolved
+    resolved_config = config.resolve_env_vars()
+    if not resolved_config.node_vars:
+        return {}
+    return {
+        name: var.resolve_value()
+        for name, var in resolved_config.node_vars.items()
+    }
 
 # %% nbs/dev_utils/utils.ipynb 6
 def _resolve_node_name(config: NetConfig, bare_name: str) -> str:
