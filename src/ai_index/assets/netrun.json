@@ -4,14 +4,13 @@
   },
   "node_vars": {
     "data_year": {
-      "value": {
-        "$env": "DATA_YEAR"
-      },
+      "value": "2025",
       "type": "str"
     },
     "adzuna_s3_prefix": {
       "value": {
-        "$env": "ADZUNA_S3_PREFIX"
+        "$env": "ADZUNA_S3_PREFIX",
+        "default": "adu-project-data/aisi-economy-index/adzuna2025"
       },
       "type": "str"
     }

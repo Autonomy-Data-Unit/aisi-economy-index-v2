@@ -17,6 +17,7 @@ dependencies = [
     "pandas>=2.0",
     "pyarrow>=10.0",
     "nest-asyncio>=1.6",
+    "boto3>=1.42.60",
 ]
 
 [dependency-groups]

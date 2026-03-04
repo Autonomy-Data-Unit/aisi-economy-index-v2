@@ -1,6 +1,5 @@
 [api.defaults]
 model = "Qwen/Qwen2.5-7B-Instruct"
-max_new_tokens = 60
 
 [local.defaults]
 model = "Qwen/Qwen2.5-7B-Instruct"
