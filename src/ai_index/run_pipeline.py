@@ -10,7 +10,6 @@ from importlib import resources
 from pathlib import Path
 
 from netrun.core import Net, NetConfig
-from netrun.net.config._nodes import NodeVariable
 
 # %% nbs/ai_index/run_pipeline.ipynb 3
 def _load_run_defs(run_defs_path: Path) -> dict:
@@ -19,14 +18,12 @@ def _load_run_defs(run_defs_path: Path) -> dict:
         return tomllib.load(f)
 
 # %% nbs/ai_index/run_pipeline.ipynb 4
-def _apply_run_defs(config: NetConfig, run_defs: dict, run_name: str) -> None:
-    """Apply run definition overrides to a NetConfig in place.
+def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
+    """Resolve run_defs into (global_node_vars, per_node_vars) dicts.
 
-    1. Merge defaults with the selected run's overrides
-    2. For each global var: override config.node_vars[name].value
-    3. For each per-node var (subtable): override node.execution_config.node_vars[name].value
-    4. Set config.node_vars["run_name"].value = run_name
-    5. Validate: every var name in TOML must correspond to a declared node_var
+    Merges [defaults] with [runs.<run_name>]. Subtables are per-node overrides,
+    scalar values are global vars. Returns dicts compatible with
+    NetConfig.from_file(global_node_vars=..., node_vars=...).
     """
     defaults = dict(run_defs.get("defaults", {}))
     runs = run_defs.get("runs", {})
@@ -37,95 +34,39 @@ def _apply_run_defs(config: NetConfig, run_defs: dict, run_name: str) -> None:
 
     run_overrides = dict(runs[run_name])
 
-    # Collect per-node overrides from defaults and run (subtables = dicts)
-    default_node_overrides = {}
+    # Split defaults into globals vs per-node
     default_globals = {}
+    default_node = {}
     for k, v in defaults.items():
         if isinstance(v, dict):
-            default_node_overrides[k] = v
+            default_node[k] = v
         else:
             default_globals[k] = v
 
-    run_node_overrides = {}
+    # Split run overrides into globals vs per-node
     run_globals = {}
+    run_node = {}
     for k, v in run_overrides.items():
         if isinstance(v, dict):
-            run_node_overrides[k] = v
+            run_node[k] = v
         else:
             run_globals[k] = v
 
-    # Merge globals: defaults <- run overrides
+    # Merge: defaults <- run overrides
     merged_globals = {**default_globals, **run_globals}
+    merged_globals["run_name"] = run_name
+
+    # Convert values to strings for NodeVariable compatibility
+    global_node_vars = {k: str(v) for k, v in merged_globals.items()}
 
     # Merge per-node: defaults <- run overrides
-    all_node_names = set(default_node_overrides) | set(run_node_overrides)
-    merged_node_overrides = {}
+    all_node_names = set(default_node) | set(run_node)
+    per_node_vars = {}
     for node_name in all_node_names:
-        merged_node_overrides[node_name] = {
-            **default_node_overrides.get(node_name, {}),
-            **run_node_overrides.get(node_name, {}),
-        }
+        merged = {**default_node.get(node_name, {}), **run_node.get(node_name, {})}
+        per_node_vars[node_name] = {k: str(v) for k, v in merged.items()}
 
-    # Build lookup of declared global var names
-    declared_global_vars = set()
-    if config.node_vars:
-        declared_global_vars = set(config.node_vars.keys())
-
-    # Build lookup of declared per-node var names
-    declared_node_vars: dict[str, set[str]] = {}
-    if config.graph and config.graph.nodes:
-        for node in config.graph.nodes:
-            if node.execution_config and node.execution_config.node_vars:
-                declared_node_vars[node.name] = set(node.execution_config.node_vars.keys())
-
-    # Apply global overrides
-    for var_name, var_value in merged_globals.items():
-        if var_name not in declared_global_vars:
-            raise ValueError(
-                f"run_defs.toml: unknown global var {var_name!r}. "
-                f"Declared: {sorted(declared_global_vars)}"
-            )
-        config.node_vars[var_name].value = str(var_value)
-
-    # Apply per-node overrides
-    for node_name, node_vars in merged_node_overrides.items():
-        # Find the node in the config
-        node = None
-        if config.graph and config.graph.nodes:
-            for n in config.graph.nodes:
-                if n.name == node_name:
-                    node = n
-                    break
-        if node is None:
-            raise ValueError(f"run_defs.toml: unknown node {node_name!r}")
-
-        if node.execution_config is None:
-            from netrun.net.config._nodes import NodeExecutionConfig
-            node.execution_config = NodeExecutionConfig()
-        if node.execution_config.node_vars is None:
-            node.execution_config.node_vars = {}
-
-        declared = declared_node_vars.get(node_name, set())
-        for var_name, var_value in node_vars.items():
-            if var_name not in declared and var_name not in declared_global_vars:
-                raise ValueError(
-                    f"run_defs.toml: unknown var {var_name!r} for node {node_name!r}. "
-                    f"Declared node vars: {sorted(declared)}, global vars: {sorted(declared_global_vars)}"
-                )
-            if var_name in node.execution_config.node_vars:
-                node.execution_config.node_vars[var_name].value = str(var_value)
-            else:
-                # Create a new per-node override, inheriting type from global if available
-                var_type = "str"
-                if config.node_vars and var_name in config.node_vars:
-                    var_type = config.node_vars[var_name].type
-                node.execution_config.node_vars[var_name] = NodeVariable(
-                    value=str(var_value), type=var_type
-                )
-
-    # Set run_name
-    if config.node_vars and "run_name" in config.node_vars:
-        config.node_vars["run_name"].value = run_name
+    return global_node_vars, per_node_vars
 
 # %% nbs/ai_index/run_pipeline.ipynb 5
 async def run_pipeline_async(run_name: str | None = None):
@@ -133,13 +74,18 @@ async def run_pipeline_async(run_name: str | None = None):
     from .const import run_defs_path
 
     config_path = resources.files("ai_index.assets") / "netrun.json"
-    config = NetConfig.from_file(str(config_path))
-    config.project_root_override = str(Path.cwd())
 
-    # Load and apply run definitions
+    # Load and resolve run definitions
     run_name = run_name or os.environ.get("RUN_NAME", "baseline")
     run_defs = _load_run_defs(run_defs_path)
-    _apply_run_defs(config, run_defs, run_name)
+    global_vars, node_vars = _resolve_run_defs(run_defs, run_name)
+
+    config = NetConfig.from_file(
+        str(config_path),
+        global_node_vars=global_vars,
+        node_vars=node_vars,
+    )
+    config.project_root_override = str(Path.cwd())
     print(f"run_pipeline: using run definition {run_name!r}")
 
     async with Net(config) as net:

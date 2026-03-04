@@ -1,17 +1,27 @@
 [defaults]
-embedding_model = "voyage-4-lite"
-llm_model = "gpt-5.2"
 sample_n = 0
 sample_seed = 42
+
+[defaults.embed_onet]
+embedding_model = "voyage-4-lite"
+
+[defaults.embed_job_ads]
+embedding_model = "voyage-4-lite"
 
 [defaults.compute_cosine_similarities]
 cosine_mode = "local"
 topk = 5
 
+[defaults.llm_filter_candidates]
+llm_model = "gpt-5.2"
+
 [runs.baseline]
 # inherits all defaults
 
 [runs.voyage_large]
+[runs.voyage_large.embed_onet]
+embedding_model = "voyage-4-large"
+[runs.voyage_large.embed_job_ads]
 embedding_model = "voyage-4-large"
 
 [runs.dev]
