@@ -9,9 +9,14 @@ def main(dedup_meta, ctx, print) -> {"ads_manifest": dict}:
     
     sample_n = int(ctx.vars["sample_n"])
     sample_seed = int(ctx.vars["sample_seed"])
+    years_filter = ctx.vars.get("years", "")
     # Build list of (year, month_file, row_count) from dedup_meta
+    # Filter to requested years (empty string = all)
+    requested_years = {y.strip() for y in years_filter.split(",")} if years_filter else None
     month_entries = []
     for year, year_info in dedup_meta["years"].items():
+        if requested_years and year not in requested_years:
+            continue
         row_counts = year_info.get("row_counts", {})
         for filename, count in sorted(row_counts.items()):
             month_entries.append((year, filename, count))

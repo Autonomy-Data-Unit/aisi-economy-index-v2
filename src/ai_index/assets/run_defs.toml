@@ -1,27 +1,14 @@
 [defaults]
+years = "2025"
+sample_n = 0
 sample_seed = 42
-
-[defaults.embed_onet]
-embedding_model = "text-embedding-3-small"
-
-[defaults.embed_job_ads]
-embedding_model = "text-embedding-3-small"
-
-[defaults.compute_cosine_similarities]
-cosine_mode = "local"
+embedding_model = "text-embedding-3-large"
+cosine_mode = "api"
 topk = 5
-
-[defaults.llm_filter_candidates]
 llm_model = "gpt-5.2"
 
 [runs.baseline]
 # inherits all defaults
 
 [runs.test]
-[runs.test.embed_onet]
-embedding_model = "text-embedding-3-small"
-[runs.test.embed_job_ads]
-embedding_model = "text-embedding-3-small"
-
-[runs.dev]
-sample_n = 1000
+sample_n = 10

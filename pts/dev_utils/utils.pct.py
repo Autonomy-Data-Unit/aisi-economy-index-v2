@@ -36,22 +36,56 @@ from netrun.net.config._nodes import NodeVariable
 
 # %%
 #|export
-def _load_net_config() -> NetConfig:
-    """Load the pipeline NetConfig from ai_index assets."""
+def _load_net_config(run_name: str | None = None) -> NetConfig:
+    """Load the pipeline NetConfig from ai_index assets, with run_defs injected.
+
+    Args:
+        run_name: Which run definition to use for filling node vars.
+            Defaults to RUN_NAME env var, then "baseline".
+    """
+    import os
+    from ai_index.const import run_defs_path
+    from ai_index.run_pipeline import _load_run_defs, _resolve_run_defs
+
     config_path = resources.files("ai_index.assets") / "netrun.json"
-    config = NetConfig.from_file(str(config_path))
+    run_name = run_name or os.environ.get("RUN_NAME", "baseline")
+    run_defs = _load_run_defs(run_defs_path)
+    global_vars, node_vars = _resolve_run_defs(run_defs, run_name)
+
+    config = NetConfig.from_file(
+        str(config_path),
+        global_node_vars=global_vars,
+        node_vars=node_vars,
+    )
     return config
 
 
 def _get_merged_node_vars(config: NetConfig, node_name: str) -> dict[str, NodeVariable]:
-    """Get merged global + per-node NodeVariable dict for a specific node."""
+    """Get merged global + per-node NodeVariable dict for a specific node.
+
+    Respects inherit semantics: if a per-node var has inherit=True and no value,
+    the global var is used. If it has inherit=True with a value, the value
+    overrides but type/options come from the global var.
+    """
     resolved_config = config.resolve_env_vars()
     merged = dict(resolved_config.node_vars or {})
     if resolved_config.graph:
         for node in resolved_config.graph.nodes:
             if node.name == node_name:
                 if node.execution_config and node.execution_config.node_vars:
-                    merged.update(node.execution_config.node_vars)
+                    for name, var in node.execution_config.node_vars.items():
+                        if var.inherit and name in merged:
+                            if var.value is not None:
+                                # Override value, keep global type/options
+                                global_var = merged[name]
+                                merged[name] = NodeVariable(
+                                    value=var.value,
+                                    type=global_var.type,
+                                    options=global_var.options,
+                                )
+                            # else: inherit everything from global (keep merged[name] as-is)
+                        else:
+                            merged[name] = var
                 break
     return merged
 
@@ -79,7 +113,7 @@ def _resolve_node_name(config: NetConfig, bare_name: str) -> str:
         ValueError: If the name cannot be found, or matches multiple nodes.
     """
     # Resolve the graph to get all flattened node names
-    resolved = config.graph.resolve(config)
+    resolved = config.graph.resolve(net_config=config)
     all_names = [n.name for n in resolved.nodes]
 
     # Exact match — return as-is
@@ -111,7 +145,7 @@ def _get_node_func(config: NetConfig, node_name: str):
     Looks up the node's ``factory_args.func`` dotted path from the resolved
     graph config, imports the module, and returns the function object.
     """
-    resolved = config.graph.resolve(config)
+    resolved = config.graph.resolve(net_config=config)
     node_map = {n.name: n for n in resolved.nodes}
     if node_name not in node_map:
         raise ValueError(f"Node '{node_name}' not found in graph.")
@@ -134,7 +168,7 @@ async def _get_input_salvo(config: NetConfig, node_name: str) -> dict[str, list]
     Returns:
         dict mapping port_name -> list of packet values.
     """
-    async with Net(config) as net:
+    async with Net(config, run_startup_nodes=False) as net:
         cached = net.get_cached_input_salvos(node_name)
         if cached:
             print(f"set_node_func_args: using cached inputs for '{node_name}' ({len(cached)} cached run(s))")
@@ -143,10 +177,7 @@ async def _get_input_salvo(config: NetConfig, node_name: str) -> dict[str, list]
         print(f"set_node_func_args: no cache for '{node_name}', running upstream nodes...")
         salvos = await net.run_to_targets(node_name)
         if not salvos:
-            raise RuntimeError(
-                f"No input salvos produced for node '{node_name}'. "
-                f"Check that the node exists and has connected upstream nodes."
-            )
+            return {}  # startup node with no input ports
         return salvos[0].packets  # extract dict from TargetInputSalvo
 
 

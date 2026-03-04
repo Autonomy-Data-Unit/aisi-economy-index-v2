@@ -17,11 +17,26 @@
     },
     "sample_seed": {
       "type": "int"
+    },
+    "embedding_model": {
+      "type": "str"
+    },
+    "llm_model": {
+      "type": "str"
+    },
+    "cosine_mode": {
+      "type": "str"
+    },
+    "topk": {
+      "type": "int"
+    },
+    "years": {
+      "type": "str"
     }
   },
   "storage": {
     "cache": {
-      "enabled": true,
+      "enabled": false,
       "include_all_nodes": true,
       "storage_path": ".cache/netrun"
     }
@@ -55,7 +70,12 @@
         "name": "fetch_adzuna",
         "description": "Download raw Adzuna job ads from S3 to monthly parquets.",
         "execution_config": {
-          "run_on_startup": true
+          "run_on_startup": true,
+          "node_vars": {
+            "years": {
+              "inherit": true
+            }
+          }
         },
         "extra": {
           "ui": {
@@ -111,6 +131,13 @@
       {
         "name": "sample_ads",
         "description": "Sample job ads for processing (or pass through all if sample_n=0).",
+        "execution_config": {
+          "node_vars": {
+            "years": {
+              "inherit": true
+            }
+          }
+        },
         "extra": {
           "ui": {
             "position": {
@@ -130,7 +157,9 @@
         "description": "Embed O*NET occupation descriptions with the configured embedding model.",
         "execution_config": {
           "node_vars": {
-            "embedding_model": {}
+            "embedding_model": {
+              "inherit": true
+            }
           }
         },
         "extra": {
@@ -170,7 +199,9 @@
         "description": "Embed job ad texts with per-month incremental caching.",
         "execution_config": {
           "node_vars": {
-            "embedding_model": {}
+            "embedding_model": {
+              "inherit": true
+            }
           }
         },
         "extra": {
@@ -193,9 +224,11 @@
         "description": "Compute top-K cosine similarity between job ads and O*NET occupations.",
         "execution_config": {
           "node_vars": {
-            "cosine_mode": {},
+            "cosine_mode": {
+              "inherit": true
+            },
             "topk": {
-              "type": "int"
+              "inherit": true
             }
           }
         },
@@ -218,7 +251,9 @@
         "description": "LLM negative selection to filter cosine similarity candidates.",
         "execution_config": {
           "node_vars": {
-            "llm_model": {}
+            "llm_model": {
+              "inherit": true
+            }
           }
         },
         "extra": {

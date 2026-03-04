@@ -279,15 +279,19 @@ class ApiLLM:
 
         async def _call(prompt: str) -> str:
             response_text, _cache_hit, _call_log = await async_single(
-                self.model_name,
-                system_message or "",
                 prompt,
+                model=self.model_name,
+                system=system_message,
                 max_tokens=max_new_tokens,
             )
             return response_text
 
         async def _run_all():
-            results = await batch_executor(_call, prompts, max_concurrent=self.max_concurrent)
+            results = await batch_executor(
+                _call,
+                batch_args=[(p,) for p in prompts],
+                concurrency_limit=self.max_concurrent,
+            )
             return results
 
         try:

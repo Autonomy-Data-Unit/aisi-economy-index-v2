@@ -43,6 +43,7 @@ import pyarrow.parquet as pq
 from ai_index.const import adzuna_store_path
 
 s3_prefix = ctx.vars["adzuna_s3_prefix"]
+years_filter = ctx.vars.get("years", "")
 
 # Parse bucket and key prefix from s3_prefix (format: "bucket/key/prefix")
 bucket_name, _, key_prefix = s3_prefix.partition("/")
@@ -59,6 +60,12 @@ for page in paginator.paginate(Bucket=bucket_name, Prefix=f"{key_prefix}/year=",
             years.add(m.group(1))
 years = sorted(years)
 print(f"fetch_adzuna: discovered {len(years)} year(s) in S3: {years}")
+
+# Filter to requested years (empty string = all)
+if years_filter:
+    requested = {y.strip() for y in years_filter.split(",")}
+    years = [y for y in years if y in requested]
+    print(f"fetch_adzuna: filtered to {len(years)} year(s): {years}")
 
 adzuna_meta = {"years": {}}
 

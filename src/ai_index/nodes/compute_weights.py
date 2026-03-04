@@ -46,7 +46,7 @@ def main(filtered_meta, ctx, print) -> {"weighted_codes_meta": dict}:
             codes = row["kept_soc_codes"]
             scores = row["kept_scores"]
     
-            if not codes:
+            if len(codes) == 0:
                 continue
     
             total = sum(scores)

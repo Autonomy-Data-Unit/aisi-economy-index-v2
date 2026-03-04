@@ -23,6 +23,7 @@ import tomllib
 from importlib import resources
 from pathlib import Path
 
+from dotenv import load_dotenv
 from netrun.core import Net, NetConfig
 
 # %%
@@ -88,6 +89,7 @@ def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
 #|export
 async def run_pipeline_async(run_name: str | None = None):
     """Load and run the full pipeline, returning output queue results."""
+    load_dotenv()
     from ai_index.const import run_defs_path
 
     config_path = resources.files("ai_index.assets") / "netrun.json"

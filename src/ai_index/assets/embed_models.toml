@@ -1,7 +1,7 @@
 # Defaults
 
 [defaults.api]
-batch_size = 1000
+batch_size = 200
 
 [defaults.local]
 device = "cuda"
@@ -20,6 +20,10 @@ setup = false
 [models."text-embedding-3-small"]
 mode = "api"
 model = "text-embedding-3-small"
+
+[models."text-embedding-3-large"]
+mode = "api"
+model = "text-embedding-3-large"
 
 [models.bge-large-local]
 mode = "local"

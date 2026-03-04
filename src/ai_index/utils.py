@@ -5,7 +5,10 @@ __all__ = ['acosine_topk', 'aembed', 'allm_generate', 'cosine_topk', 'embed', 'l
 # %% nbs/ai_index/utils.ipynb 2
 import tomllib
 from pathlib import Path
-from .const import llm_models_config_path, embed_models_config_path
+from .const import llm_models_config_path, embed_models_config_path, adulib_cache_path
+
+from adulib.caching import set_default_cache_path
+set_default_cache_path(adulib_cache_path)
 
 # %% nbs/ai_index/utils.ipynb 3
 def _load_model_config(config_path: Path, model_key: str) -> tuple[str, dict]:
@@ -212,13 +215,15 @@ def cosine_topk(
     mode: str = "local",
     **kwargs,
 ) -> dict:
-    """Compute top-K cosine similarity (local or sbatch).
+    """Compute top-K cosine similarity (api/local/sbatch).
 
     Returns:
         Dict with "indices" (n, k) and "scores" (n, k) arrays.
     """
-    if mode == "local":
+    if mode in ("api", "local"):
         from llm_runner.cosine import run_cosine_topk
+        if mode == "api":
+            kwargs.setdefault("device", "cpu")
         return run_cosine_topk(A, B, k, **kwargs)
 
     elif mode == "sbatch":
@@ -248,10 +253,12 @@ async def acosine_topk(
 ) -> dict:
     """Async version of cosine_topk.
 
-    For local mode, runs in a thread. For sbatch, uses arun_remote.
+    For api/local mode, runs in a thread. For sbatch, uses arun_remote.
     """
-    if mode == "local":
+    if mode in ("api", "local"):
         from llm_runner.cosine import run_cosine_topk
+        if mode == "api":
+            kwargs.setdefault("device", "cpu")
         return await asyncio.to_thread(run_cosine_topk, A, B, k, **kwargs)
 
     elif mode == "sbatch":

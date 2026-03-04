@@ -16,8 +16,16 @@ def main(onet_tables, ctx, print) -> {"onet_desc": dict}:
         # Load the core occupation table
         occ_data = onet_tables["Occupation Data"]
         task_stmts = onet_tables["Task Statements"]
+        task_ratings = onet_tables["Task Ratings"]
         skills = onet_tables["Skills"]
         work_acts = onet_tables["Work Activities"]
+    
+        # Merge task text with ratings (statements have no Scale ID/Data Value)
+        task_stmts = task_stmts.merge(
+            task_ratings[["O*NET-SOC Code", "Task ID", "Scale ID", "Data Value"]],
+            on=["O*NET-SOC Code", "Task ID"],
+            how="inner",
+        )
     
         # Build role_text: Title - Description
         occ = occ_data[["O*NET-SOC Code", "Title", "Description"]].copy()
