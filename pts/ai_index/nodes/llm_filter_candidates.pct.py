@@ -43,7 +43,7 @@ from ai_index.const import pipeline_store_path
 from ai_index.utils import llm_generate
 
 run_name = ctx.vars["run_name"]
-execution_mode = ctx.vars.get("execution_mode", "api")
+execution_mode = ctx.vars["execution_mode"]
 llm_model = ctx.vars["llm_model"]
 
 MAX_KEEP = 5

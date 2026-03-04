@@ -23,8 +23,7 @@
     },
     "execution_mode": {
       "value": {
-        "$env": "EXECUTION_MODE",
-        "default": "api"
+        "$env": "EXECUTION_MODE"
       },
       "type": "str"
     },

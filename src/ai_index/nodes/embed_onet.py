@@ -8,7 +8,7 @@ def main(onet_desc, ctx, print) -> {"onet_embed_meta": dict}:
     from ai_index.utils import embed
     
     run_name = ctx.vars["run_name"]
-    execution_mode = ctx.vars.get("execution_mode", "api")
+    execution_mode = ctx.vars["execution_mode"]
     embedding_model = ctx.vars["embedding_model"]
     
     store_dir = pipeline_store_path / run_name / ctx.node_name

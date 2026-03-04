@@ -42,7 +42,7 @@ import pyarrow.parquet as pq
 
 from ai_index.const import adzuna_store_path
 
-s3_prefix = ctx.vars.get("adzuna_s3_prefix", "adu-project-data/aisi-economy-index/adzuna2025")
+s3_prefix = ctx.vars["adzuna_s3_prefix"]
 
 # Parse bucket and key prefix from s3_prefix (format: "bucket/key/prefix")
 bucket_name, _, key_prefix = s3_prefix.partition("/")
