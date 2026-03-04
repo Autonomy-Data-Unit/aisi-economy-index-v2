@@ -5,10 +5,40 @@
   "node_vars": {
     "adzuna_s3_prefix": {
       "value": {
-        "$env": "ADZUNA_S3_PREFIX",
-        "default": "adu-project-data/aisi-economy-index/adzuna2025"
+        "$env": "ADZUNA_S3_PREFIX"
       },
       "type": "str"
+    },
+    "run_name": {
+      "value": "baseline",
+      "type": "str"
+    },
+    "sample_n": {
+      "value": "0",
+      "type": "int"
+    },
+    "sample_seed": {
+      "value": "42",
+      "type": "int"
+    },
+    "execution_mode": {
+      "value": {
+        "$env": "EXECUTION_MODE",
+        "default": "api"
+      },
+      "type": "str"
+    },
+    "embedding_model": {
+      "value": "BAAI/bge-large-en-v1.5",
+      "type": "str"
+    },
+    "llm_model": {
+      "value": "gpt-4o-mini",
+      "type": "str"
+    },
+    "topk": {
+      "value": "5",
+      "type": "int"
     }
   },
   "storage": {
@@ -28,20 +58,6 @@
         "execution_config": {
           "run_on_startup": true
         },
-        "extra": {
-          "description": "Download and extract O*NET 30.0 database",
-          "ui": {
-            "position": {
-              "x": 12,
-              "y": 12
-            },
-            "descriptionExpanded": false,
-            "portGroups": {
-              "out:__all__": false,
-              "in:__all__": false
-            }
-          }
-        },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.fetch_onet.main"
@@ -54,20 +70,6 @@
         "execution_config": {
           "run_on_startup": true
         },
-        "extra": {
-          "description": "Download raw Adzuna job ads from S3 to monthly parquets",
-          "ui": {
-            "position": {
-              "x": 0,
-              "y": 240
-            },
-            "descriptionExpanded": false,
-            "portGroups": {
-              "out:__all__": false,
-              "in:__all__": false
-            }
-          }
-        },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.fetch_adzuna.main"
@@ -77,23 +79,81 @@
       {
         "name": "dedup_adzuna",
         "description": "Deduplicate Adzuna job ads by ID across months.",
-        "extra": {
-          "description": "Deduplicate Adzuna job ads by ID across months",
-          "ui": {
-            "position": {
-              "x": 420,
-              "y": 225
-            },
-            "descriptionExpanded": true,
-            "portGroups": {
-              "out:__all__": false,
-              "in:__all__": false
-            }
-          }
-        },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.dedup_adzuna.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "build_onet_desc",
+        "description": "Build role and task description texts for O*NET occupations.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.build_onet_desc.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "sample_ads",
+        "description": "Sample job ads for processing (or pass through all if sample_n=0).",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.sample_ads.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "embed_onet",
+        "description": "Embed O*NET occupation descriptions with the configured embedding model.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_onet.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "bc_ads_manifest",
+        "description": "Broadcast ads_manifest to embedding and LLM filter nodes.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.bc_ads_manifest.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "embed_job_ads",
+        "description": "Embed job ad texts with per-month incremental caching.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_job_ads.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "compute_cosine_sim",
+        "description": "Compute top-K cosine similarity between job ads and O*NET occupations.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.compute_cosine_sim.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "llm_filter_candidates",
+        "description": "LLM negative selection to filter cosine similarity candidates.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.llm_filter_candidates.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "compute_weights",
+        "description": "Normalize kept candidate scores to per-job occupation weights.",
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.compute_weights.main"
         },
         "type": "node"
       }
@@ -102,13 +162,47 @@
       {
         "source_str": "fetch_adzuna.adzuna_meta",
         "target_str": "dedup_adzuna.adzuna_meta"
+      },
+      {
+        "source_str": "fetch_onet.onet_tables",
+        "target_str": "build_onet_desc.onet_tables"
+      },
+      {
+        "source_str": "dedup_adzuna.dedup_meta",
+        "target_str": "sample_ads.dedup_meta"
+      },
+      {
+        "source_str": "build_onet_desc.onet_desc",
+        "target_str": "embed_onet.onet_desc"
+      },
+      {
+        "source_str": "sample_ads.ads_manifest",
+        "target_str": "bc_ads_manifest.ads_manifest"
+      },
+      {
+        "source_str": "bc_ads_manifest.ads_manifest_embed",
+        "target_str": "embed_job_ads.ads_manifest"
+      },
+      {
+        "source_str": "bc_ads_manifest.ads_manifest_llm",
+        "target_str": "llm_filter_candidates.ads_manifest"
+      },
+      {
+        "source_str": "embed_onet.onet_embed_meta",
+        "target_str": "compute_cosine_sim.onet_embed_meta"
+      },
+      {
+        "source_str": "embed_job_ads.job_embed_meta",
+        "target_str": "compute_cosine_sim.job_embed_meta"
+      },
+      {
+        "source_str": "compute_cosine_sim.candidates_meta",
+        "target_str": "llm_filter_candidates.candidates_meta"
+      },
+      {
+        "source_str": "llm_filter_candidates.filtered_meta",
+        "target_str": "compute_weights.filtered_meta"
       }
-    ],
-    "extra": {
-      "ui": {
-        "nodeFontSize": 18,
-        "nodeTitleFontSize": 12
-      }
-    }
+    ]
   }
 }

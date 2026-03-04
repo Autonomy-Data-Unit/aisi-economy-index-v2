@@ -28,3 +28,6 @@ adulib_cache_path = store_path / "adulib_cache"
 
 onet_store_path = inputs_path / "onet"
 adzuna_store_path = inputs_path / "adzuna"
+
+pipeline_store_path = store_path / "pipeline"
+run_defs_path = assets_path / "run_defs.toml"

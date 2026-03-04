@@ -1,0 +1,20 @@
+[defaults]
+embedding_model = "BAAI/bge-large-en-v1.5"
+llm_model = "gpt-4o-mini"
+topk = 5
+sample_n = 0
+sample_seed = 42
+
+[runs.baseline]
+# inherits all defaults
+
+[runs.bge_small]
+embedding_model = "BAAI/bge-small-en-v1.5"
+
+[runs.dev]
+sample_n = 1000
+llm_model = "gpt-4o-mini"
+
+[runs.gemini]
+llm_model = "gemini-2.0-flash"
+topk = 10

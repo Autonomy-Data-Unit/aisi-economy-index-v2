@@ -4,16 +4,143 @@ __all__ = ['main', 'run_pipeline_async']
 
 # %% nbs/ai_index/run_pipeline.ipynb 2
 import asyncio
+import os
+import tomllib
 from importlib import resources
 from pathlib import Path
+
 from netrun.core import Net, NetConfig
+from netrun.net.config._nodes import NodeVariable
 
 # %% nbs/ai_index/run_pipeline.ipynb 3
-async def run_pipeline_async():
+def _load_run_defs(run_defs_path: Path) -> dict:
+    """Load run definitions from TOML file."""
+    with open(run_defs_path, "rb") as f:
+        return tomllib.load(f)
+
+# %% nbs/ai_index/run_pipeline.ipynb 4
+def _apply_run_defs(config: NetConfig, run_defs: dict, run_name: str) -> None:
+    """Apply run definition overrides to a NetConfig in place.
+
+    1. Merge defaults with the selected run's overrides
+    2. For each global var: override config.node_vars[name].value
+    3. For each per-node var (subtable): override node.execution_config.node_vars[name].value
+    4. Set config.node_vars["run_name"].value = run_name
+    5. Validate: every var name in TOML must correspond to a declared node_var
+    """
+    defaults = dict(run_defs.get("defaults", {}))
+    runs = run_defs.get("runs", {})
+
+    if run_name not in runs:
+        available = ", ".join(sorted(runs.keys()))
+        raise ValueError(f"Unknown run name {run_name!r}. Available: {available}")
+
+    run_overrides = dict(runs[run_name])
+
+    # Collect per-node overrides from defaults and run (subtables = dicts)
+    default_node_overrides = {}
+    default_globals = {}
+    for k, v in defaults.items():
+        if isinstance(v, dict):
+            default_node_overrides[k] = v
+        else:
+            default_globals[k] = v
+
+    run_node_overrides = {}
+    run_globals = {}
+    for k, v in run_overrides.items():
+        if isinstance(v, dict):
+            run_node_overrides[k] = v
+        else:
+            run_globals[k] = v
+
+    # Merge globals: defaults <- run overrides
+    merged_globals = {**default_globals, **run_globals}
+
+    # Merge per-node: defaults <- run overrides
+    all_node_names = set(default_node_overrides) | set(run_node_overrides)
+    merged_node_overrides = {}
+    for node_name in all_node_names:
+        merged_node_overrides[node_name] = {
+            **default_node_overrides.get(node_name, {}),
+            **run_node_overrides.get(node_name, {}),
+        }
+
+    # Build lookup of declared global var names
+    declared_global_vars = set()
+    if config.node_vars:
+        declared_global_vars = set(config.node_vars.keys())
+
+    # Build lookup of declared per-node var names
+    declared_node_vars: dict[str, set[str]] = {}
+    if config.graph and config.graph.nodes:
+        for node in config.graph.nodes:
+            if node.execution_config and node.execution_config.node_vars:
+                declared_node_vars[node.name] = set(node.execution_config.node_vars.keys())
+
+    # Apply global overrides
+    for var_name, var_value in merged_globals.items():
+        if var_name not in declared_global_vars:
+            raise ValueError(
+                f"run_defs.toml: unknown global var {var_name!r}. "
+                f"Declared: {sorted(declared_global_vars)}"
+            )
+        config.node_vars[var_name].value = str(var_value)
+
+    # Apply per-node overrides
+    for node_name, node_vars in merged_node_overrides.items():
+        # Find the node in the config
+        node = None
+        if config.graph and config.graph.nodes:
+            for n in config.graph.nodes:
+                if n.name == node_name:
+                    node = n
+                    break
+        if node is None:
+            raise ValueError(f"run_defs.toml: unknown node {node_name!r}")
+
+        if node.execution_config is None:
+            from netrun.net.config._nodes import NodeExecutionConfig
+            node.execution_config = NodeExecutionConfig()
+        if node.execution_config.node_vars is None:
+            node.execution_config.node_vars = {}
+
+        declared = declared_node_vars.get(node_name, set())
+        for var_name, var_value in node_vars.items():
+            if var_name not in declared and var_name not in declared_global_vars:
+                raise ValueError(
+                    f"run_defs.toml: unknown var {var_name!r} for node {node_name!r}. "
+                    f"Declared node vars: {sorted(declared)}, global vars: {sorted(declared_global_vars)}"
+                )
+            if var_name in node.execution_config.node_vars:
+                node.execution_config.node_vars[var_name].value = str(var_value)
+            else:
+                # Create a new per-node override, inheriting type from global if available
+                var_type = "str"
+                if config.node_vars and var_name in config.node_vars:
+                    var_type = config.node_vars[var_name].type
+                node.execution_config.node_vars[var_name] = NodeVariable(
+                    value=str(var_value), type=var_type
+                )
+
+    # Set run_name
+    if config.node_vars and "run_name" in config.node_vars:
+        config.node_vars["run_name"].value = run_name
+
+# %% nbs/ai_index/run_pipeline.ipynb 5
+async def run_pipeline_async(run_name: str | None = None):
     """Load and run the full pipeline, returning output queue results."""
+    from .const import run_defs_path
+
     config_path = resources.files("ai_index.assets") / "netrun.json"
     config = NetConfig.from_file(str(config_path))
     config.project_root_override = str(Path.cwd())
+
+    # Load and apply run definitions
+    run_name = run_name or os.environ.get("RUN_NAME", "baseline")
+    run_defs = _load_run_defs(run_defs_path)
+    _apply_run_defs(config, run_defs, run_name)
+    print(f"run_pipeline: using run definition {run_name!r}")
 
     async with Net(config) as net:
         made_progress = True
@@ -28,7 +155,7 @@ async def run_pipeline_async():
 
     return results
 
-# %% nbs/ai_index/run_pipeline.ipynb 4
+# %% nbs/ai_index/run_pipeline.ipynb 6
 def main():
     """Sync entry point for the run-pipeline CLI command."""
     asyncio.run(run_pipeline_async())
