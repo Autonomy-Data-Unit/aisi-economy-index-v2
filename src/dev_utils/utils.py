@@ -5,6 +5,7 @@ __all__ = ['set_node_func_args']
 # %% nbs/dev_utils/utils.ipynb 2
 import asyncio
 import builtins
+import importlib
 import inspect
 import os
 import sys
@@ -87,6 +88,25 @@ def _resolve_node_name(config: NetConfig, bare_name: str) -> str:
     )
 
 # %% nbs/dev_utils/utils.ipynb 8
+def _get_node_func(config: NetConfig, node_name: str):
+    """Import and return the Python function for a node.
+
+    Looks up the node's ``factory_args.func`` dotted path from the resolved
+    graph config, imports the module, and returns the function object.
+    """
+    resolved = config.graph.resolve(config)
+    node_map = {n.name: n for n in resolved.nodes}
+    if node_name not in node_map:
+        raise ValueError(f"Node '{node_name}' not found in graph.")
+    node = node_map[node_name]
+    func_path = node.factory_args.get("func")
+    if not func_path:
+        raise ValueError(f"Node '{node_name}' has no 'func' in factory_args.")
+    module_path, _, attr_name = func_path.rpartition(".")
+    mod = importlib.import_module(module_path)
+    return getattr(mod, attr_name)
+
+# %% nbs/dev_utils/utils.ipynb 10
 async def _get_input_salvo(config: NetConfig, node_name: str) -> dict[str, list]:
     """Get input salvo for a node — from cache if available, otherwise by running upstream.
 
@@ -120,22 +140,26 @@ def _run_async(coro):
         pass
     return asyncio.run(coro)
 
-# %% nbs/dev_utils/utils.ipynb 10
+# %% nbs/dev_utils/utils.ipynb 12
 _SPECIAL_PARAMS = frozenset({"ctx", "print"})
 
 
-def set_node_func_args(func, *, node_name=None, return_args=False):
+def set_node_func_args(node_name: str | None = None, *, return_args=False):
     """Populate the caller's namespace with the inputs a pipeline node would receive.
 
     Loads input data for a node from the netrun cache (or by running upstream
     nodes via ``Net.run_to_targets``) and injects the values into the caller's
     global namespace so that subsequent notebook cells can use them directly.
 
+    The node's function is looked up from the graph config via its
+    ``factory_args.func`` import path, then inspected to determine which
+    special parameters (``ctx``, ``print``) it expects.
+
     Args:
-        func: The node function defined via ``#|set_func_signature``. Used to
-            infer the node name (from ``func.__name__``) and to determine which
-            parameters are input ports vs special (``ctx``, ``print``).
-        node_name: Explicit node name override. If None, uses ``func.__name__``.
+        node_name: The node name (e.g. ``"fetch_onet"``). Bare names are
+            resolved against subgraph-prefixed names automatically. If omitted,
+            the name is inferred from the current Jupyter notebook filename
+            via ``ipynbname``.
         return_args: If True, return the arguments as a namedtuple instead of
             setting them in the caller's globals.
 
@@ -146,14 +170,30 @@ def set_node_func_args(func, *, node_name=None, return_args=False):
     Example::
 
         from dev_utils import set_node_func_args
-        set_node_func_args(llm_filter_candidates)
-        # => candidates, job_ads, ctx, print are now available as globals
+        set_node_func_args()  # infers node name from notebook filename
+        # => adzuna_meta, ctx, print are now available as globals
     """
-    name = node_name or func.__name__
+    inferred = node_name is None
+    if inferred:
+        import ipynbname
+        node_name = ipynbname.name()
+
     config = _load_net_config()
 
     # Resolve bare name to prefixed name (e.g. "embed_onet" -> "matching.embed_onet")
-    name = _resolve_node_name(config, name)
+    try:
+        name = _resolve_node_name(config, node_name)
+    except ValueError as e:
+        if inferred:
+            raise ValueError(
+                f"Node name '{node_name}' was inferred from the notebook filename "
+                f"but no matching node was found in the graph. "
+                f"Pass the node name explicitly if it differs from the notebook name."
+            ) from e
+        raise
+
+    # Import the node's function to inspect its signature
+    func = _get_node_func(config, name)
 
     # Retrieve input salvo (cached or computed)
     salvo = _run_async(_get_input_salvo(config, name))

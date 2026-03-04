@@ -29,7 +29,7 @@ def main(ctx, print) -> {"onet_tables": dict}:
 # %%
 from dotenv import load_dotenv; load_dotenv()
 from dev_utils import set_node_func_args
-set_node_func_args(main)
+set_node_func_args()
 
 # %%
 #|export

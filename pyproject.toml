@@ -28,6 +28,7 @@ dev = [
     "netrun[cli]>=0.4.1",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "ipynbname>=2025.8.0.0",
 ]
 
 [tool.uv.sources]

@@ -78,6 +78,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipynbname" },
     { name = "jupyterlab" },
     { name = "nblite" },
     { name = "netrun", extra = ["cli"] },
@@ -105,6 +106,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ipynbname", specifier = ">=2025.8.0.0" },
     { name = "jupyterlab", specifier = ">=4.5.3" },
     { name = "nblite", specifier = ">=1.1.12" },
     { name = "netrun", extras = ["cli"], git = "https://github.com/lukastk/netrun?subdirectory=netrun" },
@@ -1050,6 +1052,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ca/8d/b68b728e2d06b9e0051019640a40a9eb7a88fcd82c2e1b5ce70bef5ff044/ipykernel-7.2.0.tar.gz", hash = "sha256:18ed160b6dee2cbb16e5f3575858bc19d8f1fe6046a9a680c708494ce31d909e", size = 176046, upload-time = "2026-02-06T16:43:27.403Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/b9/e73d5d9f405cba7706c539aa8b311b49d4c2f3d698d9c12f815231169c71/ipykernel-7.2.0-py3-none-any.whl", hash = "sha256:3bbd4420d2b3cc105cbdf3756bfc04500b1e52f090a90716851f3916c62e1661", size = 118788, upload-time = "2026-02-06T16:43:25.149Z" },
+]
+
+[[package]]
+name = "ipynbname"
+version = "2025.8.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ipykernel" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/e9/e791d0ec7125a41c5625dc348ee28c2e335bd79ff8b31e9971333f129337/ipynbname-2025.8.0.0.tar.gz", hash = "sha256:dcc8367c64c4a9f0baa6acea3e509fd6696bf5d81c9abceb386e2ad6efcac935", size = 4374, upload-time = "2025-08-17T16:43:28.581Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/93/aece384e71b25385bd6a176f09865ee52faa7bda8221acafff8753f3f30a/ipynbname-2025.8.0.0-py3-none-any.whl", hash = "sha256:66f6249ff26d99b0057db2aac5ced4ca8a2ccaad067b9a66d17cfc1725207966", size = 4534, upload-time = "2025-08-17T16:43:27.219Z" },
 ]
 
 [[package]]
