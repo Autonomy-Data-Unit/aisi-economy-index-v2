@@ -44,7 +44,7 @@ run_name = ctx.vars["run_name"]
 execution_mode = ctx.vars.get("execution_mode", "api")
 embedding_model = ctx.vars["embedding_model"]
 
-store_dir = pipeline_store_path / run_name / "embed_job_ads"
+store_dir = pipeline_store_path / run_name / ctx.node_name
 
 # %%
 #|export

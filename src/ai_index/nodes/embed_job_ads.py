@@ -14,7 +14,7 @@ def main(ads_manifest, ctx, print) -> {"job_embed_meta": dict}:
     execution_mode = ctx.vars.get("execution_mode", "api")
     embedding_model = ctx.vars["embedding_model"]
     
-    store_dir = pipeline_store_path / run_name / "embed_job_ads"
+    store_dir = pipeline_store_path / run_name / ctx.node_name
     def _build_ad_texts(df):
         """Build role_text and task_text from job ad DataFrame columns."""
         title = df["title"].fillna("").astype(str)

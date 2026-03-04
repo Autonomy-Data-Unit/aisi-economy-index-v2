@@ -45,7 +45,7 @@ def main(dedup_meta, ctx, print) -> {"ads_manifest": dict}:
         alloc[top_indices] += 1
     
         print(f"sample_ads: sampling {sample_n} ads (seed={sample_seed})")
-        store_dir = pipeline_store_path / "sample_ads"
+        store_dir = pipeline_store_path / ctx.node_name
         manifest = {"months": [], "total_ads": int(alloc.sum()), "sample_n": sample_n, "sample_seed": sample_seed}
     
         for i, (year, filename, count) in enumerate(month_entries):

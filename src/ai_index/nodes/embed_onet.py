@@ -11,7 +11,7 @@ def main(onet_desc, ctx, print) -> {"onet_embed_meta": dict}:
     execution_mode = ctx.vars.get("execution_mode", "api")
     embedding_model = ctx.vars["embedding_model"]
     
-    store_dir = pipeline_store_path / run_name / "embed_onet"
+    store_dir = pipeline_store_path / run_name / ctx.node_name
     output_path = store_dir / "onet_embeddings.npz"
     if output_path.exists():
         print(f"embed_onet: loading cached embeddings from {output_path}")

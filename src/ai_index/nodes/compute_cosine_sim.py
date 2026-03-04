@@ -12,7 +12,7 @@ def main(onet_embed_meta, job_embed_meta, ctx, print) -> {"candidates_meta": dic
     run_name = ctx.vars["run_name"]
     topk = int(ctx.vars["topk"])
     
-    store_dir = pipeline_store_path / run_name / "compute_cosine_sim"
+    store_dir = pipeline_store_path / run_name / ctx.node_name
     # Load O*NET embeddings
     onet_data = np.load(onet_embed_meta["store_path"])
     onet_role = onet_data["role_embeddings"].astype(np.float32)

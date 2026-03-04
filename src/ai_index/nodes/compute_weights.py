@@ -9,7 +9,7 @@ def main(filtered_meta, ctx, print) -> {"weighted_codes_meta": dict}:
     from ai_index.const import pipeline_store_path
     
     run_name = ctx.vars["run_name"]
-    store_dir = pipeline_store_path / run_name / "compute_weights"
+    store_dir = pipeline_store_path / run_name / ctx.node_name
     month_metas = []
     
     for month_info in filtered_meta["months"]:

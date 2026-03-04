@@ -38,7 +38,7 @@ import pandas as pd
 from ai_index.const import pipeline_store_path
 
 run_name = ctx.vars["run_name"]
-store_dir = pipeline_store_path / run_name / "build_onet_desc"
+store_dir = pipeline_store_path / run_name / ctx.node_name
 output_path = store_dir / "onet_descriptions.parquet"
 
 # %%

@@ -47,7 +47,7 @@ execution_mode = ctx.vars.get("execution_mode", "api")
 llm_model = ctx.vars["llm_model"]
 
 MAX_KEEP = 5
-store_dir = pipeline_store_path / run_name / "llm_filter_candidates"
+store_dir = pipeline_store_path / run_name / ctx.node_name
 
 # %%
 #|export

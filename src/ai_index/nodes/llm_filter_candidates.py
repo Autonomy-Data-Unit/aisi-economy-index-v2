@@ -16,7 +16,7 @@ def main(candidates_meta, ads_manifest, ctx, print) -> {"filtered_meta": dict}:
     llm_model = ctx.vars["llm_model"]
     
     MAX_KEEP = 5
-    store_dir = pipeline_store_path / run_name / "llm_filter_candidates"
+    store_dir = pipeline_store_path / run_name / ctx.node_name
     PROMPT_TEMPLATE = """You ONLY output one JSON object.
     No English. No sentences. No explanation.
     

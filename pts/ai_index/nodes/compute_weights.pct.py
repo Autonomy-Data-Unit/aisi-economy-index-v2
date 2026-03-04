@@ -39,7 +39,7 @@ import pandas as pd
 from ai_index.const import pipeline_store_path
 
 run_name = ctx.vars["run_name"]
-store_dir = pipeline_store_path / run_name / "compute_weights"
+store_dir = pipeline_store_path / run_name / ctx.node_name
 
 # %%
 #|export

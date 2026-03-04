@@ -43,7 +43,7 @@ from ai_index.const import pipeline_store_path
 run_name = ctx.vars["run_name"]
 topk = int(ctx.vars["topk"])
 
-store_dir = pipeline_store_path / run_name / "compute_cosine_sim"
+store_dir = pipeline_store_path / run_name / ctx.node_name
 
 # %%
 #|export
