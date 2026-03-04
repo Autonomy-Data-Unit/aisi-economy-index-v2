@@ -124,28 +124,154 @@ The old pipeline (now superseded by the DAG above) had four stages:
 - **isambard_utils** - Isambard HPC interaction (SSH, rsync, Slurm, env setup)
 - **adulib[llm]** - LLM API abstraction (used in api execution mode)
 
+## Running the Pipeline
+
+The pipeline is run via `run_pipeline_async(run_name)` (or the `run-pipeline` CLI entry point). The flow:
+
+1. Load `.env` via `dotenv`
+2. Load `run_defs.toml` — `_load_run_defs()` parses the TOML file
+3. Resolve run definition — `_resolve_run_defs(run_defs, run_name)` merges `[defaults]` with `[runs.<run_name>]`, producing `(global_node_vars, per_node_vars)` dicts. Scalar values become global node vars; subtable dicts become per-node overrides.
+4. Load netrun config — `NetConfig.from_file(netrun.json, global_node_vars=..., node_vars=...)` injects the resolved values into the graph's unfilled `NodeVariable` placeholders
+5. Execute — `async with Net(config) as net:` starts the net, then loops `run_until_blocked()` until no progress
+
+Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`.
+
+### Key files
+- `pts/ai_index/run_pipeline.pct.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
+- `src/ai_index/assets/run_defs.toml` — Run definitions
+- `src/ai_index/assets/netrun.json` — Pipeline graph with unfilled node_var placeholders
+
+## Configuration Files
+
+### `run_defs.toml` — Run definitions
+
+Defines named pipeline configurations. `[defaults]` provides base values; `[runs.<name>]` overrides them. All values are injected as netrun global node_vars (accessible via `ctx.vars` in nodes).
+
+```toml
+[defaults]
+years = "2025"           # Comma-delimited year filter ("" = all years)
+sample_n = 0             # 0 = full run, N = sample N ads
+sample_seed = 42
+embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
+cosine_mode = "api"      # "api", "local", or "sbatch"
+topk = 5                 # Top-K candidates for cosine similarity
+llm_model = "gpt-5.2"   # Key into llm_models.toml
+
+[runs.baseline]          # Inherits all defaults
+[runs.test]              # Quick test (10 ads, otherwise defaults)
+sample_n = 10
+[runs.test_api]          # API mode test
+[runs.test_local]        # Local GPU mode test
+[runs.test_sbatch]       # Isambard sbatch mode test
+```
+
+### `embed_models.toml` — Embedding model configs
+
+Model-key-based lookup. Callers pass a model key (e.g., `embed(texts, model="bge-large-local")`), and the config resolves the execution mode and parameters.
+
+```toml
+[defaults.api]           # Defaults for mode="api"
+batch_size = 200
+[defaults.local]         # Defaults for mode="local"
+device = "cuda"
+dtype = "float16"
+batch_size = 64
+[defaults.sbatch]        # Defaults for mode="sbatch"
+dtype = "float16"
+batch_size = 64
+job_name = "embed"
+time = "01:00:00"
+setup = false
+
+[models."text-embedding-3-large"]
+mode = "api"
+model = "text-embedding-3-large"
+[models.bge-large-local]
+mode = "local"
+model = "BAAI/bge-large-en-v1.5"
+[models.bge-large-sbatch]
+mode = "sbatch"
+model = "BAAI/bge-large-en-v1.5"
+```
+
+Resolution: `_load_model_config(config_path, model_key)` looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with the model entry, returns `(mode, merged_dict)`.
+
+### `llm_models.toml` — LLM model configs
+
+Same structure as `embed_models.toml`. Model keys map to execution modes and model parameters.
+
+```toml
+[defaults.api]           # (empty — no special defaults)
+[defaults.local]
+max_new_tokens = 60
+device = "cuda"
+dtype = "float16"
+backend = "transformers"
+batch_size = 128
+[defaults.sbatch]
+max_new_tokens = 60
+dtype = "float16"
+backend = "vllm"
+job_name = "llm_generate"
+time = "02:00:00"
+setup = false
+
+[models."gpt-5.2"]
+mode = "api"
+model = "openai/gpt-5.2"
+[models.qwen-7b-local]
+mode = "local"
+model = "Qwen/Qwen2.5-7B-Instruct"
+[models.qwen-7b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen2.5-7B-Instruct"
+time = "00:30:00"
+```
+
+### `isambard_config.toml` — HPC cluster config
+
+Configures the Isambard AI Phase 2 cluster connection. Symlinked from `src/isambard_utils/assets/config.toml`.
+
+```toml
+[isambard]
+project_dir = "/projects/a5u/ai-index-v2"
+hf_cache_dir = "{project_dir}/hf_cache"
+partition = "workq"
+default_gpus = 1
+default_cpus = 16
+default_mem = "80G"
+default_time = "12:00:00"
+cuda_module = "cudatoolkit/24.11_12.6"
+python_version = "3.12"
+```
+
+### `netrun.json` — Pipeline graph
+
+Defines the DAG, node_var placeholders, and cache settings. Global node_vars are declared with types but no values (filled at runtime by run_defs). Per-node vars use `"inherit": true` to pull from globals.
+
+Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+
 ## Execution Modes
 
-The 4 matching pipeline GPU nodes (`embed_onet`, `embed_job_ads`, `compute_cosine_similarity`, `llm_filter_candidates`) support configurable execution via the `execution_mode` node_var (env: `EXECUTION_MODE`, default: `local`):
+Execution mode is determined per-model via the `mode` field in `embed_models.toml` / `llm_models.toml`. The pipeline's `embedding_model`, `llm_model`, and `cosine_mode` node_vars select which model config (and therefore which mode) to use.
 
 | Mode | Description |
 |------|-------------|
-| `local` | Direct CUDA on current machine |
-| `deploy` | Functionally identical to local (pipeline runs on Isambard directly) |
+| `api` | No GPU needed: embeddings via OpenAI API, cosine sim via numpy, LLM via `adulib.llm.async_single` |
+| `local` | Direct CUDA on current machine (sentence-transformers, torch) |
 | `sbatch` | Orchestrate from local: serialize inputs, submit SBATCH job to Isambard, wait, download results |
-| `api` | No GPU needed: embeddings via sentence-transformers on CPU, cosine sim via numpy, LLM via `adulib.llm.async_single` |
 
 ### Node structure pattern
 
-Each GPU node follows this pattern:
-1. **sbatch guard** (`maybe_run_remote()`) — if sbatch mode, handles full remote lifecycle and returns
-2. **mode-aware body** — reads `execution_mode` from `ctx.vars`, sets `device` accordingly
-3. For `compute_cosine_similarity`: api mode uses numpy-only CPU path (no torch import)
-4. For `llm_filter_candidates`: api mode uses `adulib.llm.async_single()` + `batch_executor`
+GPU nodes (`embed_onet`, `embed_job_ads`, `compute_cosine_similarities`, `llm_filter_candidates`) follow this pattern:
+1. Read model key from `ctx.vars` (e.g., `embedding_model`)
+2. Call utility function with model key — mode is resolved from the TOML config
+3. For sbatch mode: `maybe_run_remote()` guard handles the full remote lifecycle
 
 ### Key files
-- `pts/ai_index/utils.pct.py` — `ExecutionMode` type, `serialize_node_data`/`deserialize_node_data`, `maybe_run_remote()` guard, `_run_sbatch()` orchestration
-- `test_matching_pipeline.py` — Synthetic CPU test of all 4 matching nodes
+- `pts/ai_index/utils.pct.py` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`, `maybe_run_remote()`, `serialize_node_data`/`deserialize_node_data`
+- `src/ai_index/assets/embed_models.toml` — Embedding model configs
+- `src/ai_index/assets/llm_models.toml` — LLM model configs
 
 ## Isambard HPC
 

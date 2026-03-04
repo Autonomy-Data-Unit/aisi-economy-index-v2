@@ -12,3 +12,21 @@ llm_model = "gpt-5.2"
 
 [runs.test]
 sample_n = 10
+
+[runs.test_api]
+sample_n = 10
+embedding_model = "text-embedding-3-large"
+cosine_mode = "api"
+llm_model = "gpt-5.2"
+
+[runs.test_local]
+sample_n = 10
+embedding_model = "bge-large-local"
+cosine_mode = "local"
+llm_model = "qwen-7b-local"
+
+[runs.test_sbatch]
+sample_n = 10
+embedding_model = "bge-large-sbatch"
+cosine_mode = "sbatch"
+llm_model = "qwen-7b-sbatch"
