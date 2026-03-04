@@ -26,9 +26,10 @@ import sys
 from collections import namedtuple
 from importlib import resources
 from pathlib import Path
-from types import SimpleNamespace
 
 from netrun.core import Net, NetConfig
+from netrun.net._net._context import NodeExecutionContext
+from netrun.net.config._nodes import NodeVariable
 
 # %% [markdown]
 # ## Config loading
@@ -42,15 +43,17 @@ def _load_net_config() -> NetConfig:
     return config
 
 
-def _resolve_node_vars(config: NetConfig) -> dict:
-    """Resolve node variables from config into a plain dict (with type casting)."""
+def _get_merged_node_vars(config: NetConfig, node_name: str) -> dict[str, NodeVariable]:
+    """Get merged global + per-node NodeVariable dict for a specific node."""
     resolved_config = config.resolve_env_vars()
-    if not resolved_config.node_vars:
-        return {}
-    return {
-        name: var.resolve_value()
-        for name, var in resolved_config.node_vars.items()
-    }
+    merged = dict(resolved_config.node_vars or {})
+    if resolved_config.graph:
+        for node in resolved_config.graph.nodes:
+            if node.name == node_name:
+                if node.execution_config and node.execution_config.node_vars:
+                    merged.update(node.execution_config.node_vars)
+                break
+    return merged
 
 # %% [markdown]
 # ## Node name resolution
@@ -228,7 +231,12 @@ def set_node_func_args(node_name: str | None = None, *, return_args=False):
     # Add special parameters based on what the function signature expects
     sig = inspect.signature(func)
     if "ctx" in sig.parameters:
-        args["ctx"] = SimpleNamespace(vars=_resolve_node_vars(config))
+        node_vars = _get_merged_node_vars(config, name)
+        args["ctx"] = NodeExecutionContext(
+            epoch_id="dev-0",
+            node_name=name,
+            _node_vars=node_vars,
+        )
     if "print" in sig.parameters:
         args["print"] = builtins.print
 
