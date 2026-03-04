@@ -269,9 +269,35 @@ GPU nodes (`embed_onet`, `embed_job_ads`, `compute_cosine_similarities`, `llm_fi
 3. For sbatch mode: `maybe_run_remote()` guard handles the full remote lifecycle
 
 ### Key files
-- `pts/ai_index/utils.pct.py` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`, `maybe_run_remote()`, `serialize_node_data`/`deserialize_node_data`
+- `pts/ai_index/utils.pct.py` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
 - `src/ai_index/assets/embed_models.toml` — Embedding model configs
 - `src/ai_index/assets/llm_models.toml` — LLM model configs
+
+## `ai_index.utils` — Pipeline utilities
+
+Model-key-based utility functions used by pipeline nodes. Each function resolves its execution mode from the TOML config, so callers only pass a model key.
+
+### Model config resolution
+- `_load_model_config(config_path, model_key)` — looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with model entry, returns `(mode, merged_dict)`
+- `_resolve_model_args(config_path, model_key, kwargs)` — calls `_load_model_config`, merges `kwargs`, pops `model` name, returns `(mode, model_name, cfg)`
+
+### Public functions
+- **`embed(texts, *, model, **kwargs) -> np.ndarray`** — Embed texts. Routes by mode:
+  - `api`: `adulib.llm.batch_embeddings` (litellm → OpenAI/Gemini/etc.)
+  - `local`: `llm_runner.embed.run_embeddings` (sentence-transformers, CUDA)
+  - `sbatch`: `isambard_utils.orchestrate.run_remote("embed", ...)`
+- **`aembed(texts, *, model, **kwargs) -> np.ndarray`** — Async version of `embed`
+- **`llm_generate(prompts, *, model, **kwargs) -> list[str]`** — Generate LLM responses. Routes by mode:
+  - `api`: `llm_runner.llm.run_llm_generate` with `backend="api"` (adulib → litellm)
+  - `local`: `llm_runner.llm.run_llm_generate` with `backend="transformers"` (CUDA)
+  - `sbatch`: `isambard_utils.orchestrate.run_remote("llm_generate", ...)`
+- **`allm_generate(prompts, *, model, **kwargs) -> list[str]`** — Async version
+- **`cosine_topk(A, B, k, *, mode, **kwargs) -> dict`** — Top-K cosine similarity. Returns `{"indices": (n,k), "scores": (n,k)}`. Routes by mode:
+  - `api`/`local`: `llm_runner.cosine.run_cosine_topk` (api uses `device="cpu"`)
+  - `sbatch`: `isambard_utils.orchestrate.run_remote("cosine_topk", ...)`
+- **`acosine_topk(A, B, k, *, mode, **kwargs) -> dict`** — Async version
+
+Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls.
 
 ## Isambard HPC
 
@@ -283,11 +309,24 @@ The `isambard_utils` package automates interaction with the Isambard HPC cluster
 
 ### isambard_utils modules
 - `config` — `IsambardConfig` pydantic model, loads from `config.toml` + `.env`
-- `ssh` — SSH command execution via subprocess
-- `transfer` — rsync upload/download, SSH pipe for small data
-- `slurm` — Slurm job submit/status/wait/cancel/log
-- `env` — Remote environment bootstrap (uv, venv, code sync)
-- `sbatch` — SBATCH script generation from `SbatchConfig`
+- `ssh` — SSH command execution via subprocess (`run`/`arun` sync/async pairs)
+- `transfer` — rsync upload/download, tar+SSH pipes. Three transfer modes: DIRECT (ephemeral stream), UPLOAD (content-hashed rsync), COMPRESSED (tar.gz stream)
+- `slurm` — Slurm job submit/status/wait/cancel/log. Returns `SlurmJob` dataclass
+- `env` — Remote environment bootstrap (ensure uv, create venv, install CUDA torch)
+- `sbatch` — SBATCH script generation from `SbatchConfig` dataclass
+- `models` — HuggingFace model pre-caching (`ensure_model`/`aensure_model`) + compute-node model loading (`load_embedding_model`, `load_llm`)
+- `orchestrate` — High-level remote execution: `run_remote`/`arun_remote` + `setup_runner`/`asetup_runner`
+
+### Remote execution flow (`arun_remote`)
+
+The `orchestrate` module handles the full sbatch lifecycle:
+1. **Setup** — deploy `llm_runner` to Isambard (idempotent)
+2. **Pre-cache models** — download HuggingFace models to login node cache
+3. **Transfer inputs** — serialize + upload via chosen transfer mode
+4. **Submit SBATCH** — generate script, submit via `slurm.asubmit`
+5. **Poll** — wait for Slurm job completion
+6. **Download outputs** — retrieve + deserialize results
+7. **Cleanup** — remove work directory (cache preserved)
 
 ### Running integration tests
 ```bash

@@ -29,6 +29,13 @@ model = "text-embedding-3-large"
 mode = "local"
 model = "BAAI/bge-large-en-v1.5"
 
+[models.gemini-embed]
+mode = "api"
+model = "gemini/gemini-embedding-001"
+batch_size = 10
+retry_delay = 65
+max_retries = 20
+
 [models.bge-large-sbatch]
 mode = "sbatch"
 model = "BAAI/bge-large-en-v1.5"
