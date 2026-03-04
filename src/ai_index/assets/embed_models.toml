@@ -17,13 +17,9 @@ setup = false
 
 # Models
 
-[models.voyage-4-lite]
+[models."text-embedding-3-small"]
 mode = "api"
-model = "voyage-4-lite"
-
-[models.voyage-4-large]
-mode = "api"
-model = "voyage-4-large"
+model = "text-embedding-3-small"
 
 [models.bge-large-local]
 mode = "local"
