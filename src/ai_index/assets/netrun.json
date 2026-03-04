@@ -22,9 +22,7 @@
       "type": "int"
     },
     "execution_mode": {
-      "value": {
-        "$env": "EXECUTION_MODE"
-      },
+      "value": "api",
       "type": "str"
     },
     "embedding_model": {
