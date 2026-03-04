@@ -2,37 +2,39 @@
 
 def main(ctx, print) -> {"onet_tables": dict}:
     """Download and extract O*NET 30.0 database."""
+    import tempfile
     from zipfile import ZipFile
     
     import pandas as pd
     
     from ai_index.const import onet_store_path
     
-    zip_path = onet_store_path / "db_30_0_text.zip"
+    extract_dir = onet_store_path / "db_30_0_text"
     
-    # Download if not present
-    if not zip_path.exists():
+    # Download and extract if not present
+    if not extract_dir.exists():
         import requests
         url = "https://www.onetcenter.org/dl_files/database/db_30_0_text.zip"
         print(f"fetch_onet: downloading from {url}...")
-        zip_path.parent.mkdir(parents=True, exist_ok=True)
-        resp = requests.get(url, stream=True)
-        resp.raise_for_status()
-        with open(zip_path, "wb") as fh:
+        onet_store_path.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+            tmp_path = tmp.name
+            resp = requests.get(url, stream=True)
+            resp.raise_for_status()
             for chunk in resp.iter_content(8192):
-                fh.write(chunk)
-        print(f"fetch_onet: downloaded {zip_path.stat().st_size / 1e6:.1f} MB")
+                tmp.write(chunk)
+        print(f"fetch_onet: extracting to {extract_dir}...")
+        with ZipFile(tmp_path) as z:
+            z.extractall(onet_store_path)
+        import os
+        os.remove(tmp_path)
+        print(f"fetch_onet: extracted {len(list(extract_dir.glob('*.txt')))} files")
     
     # Read all .txt files into dict of DataFrames
     onet_tables = {}
-    with ZipFile(zip_path) as z:
-        for info in z.infolist():
-            if not info.filename.endswith(".txt"):
-                continue
-            key = info.filename.replace("db_30_0_text/", "").replace(".txt", "")
-            onet_tables[key] = pd.read_csv(
-                z.open(info.filename), sep="\t", header=0, encoding="utf-8", dtype=str
-            )
+    for txt_file in sorted(extract_dir.glob("*.txt")):
+        key = txt_file.stem
+        onet_tables[key] = pd.read_csv(txt_file, sep="\t", header=0, encoding="utf-8", dtype=str)
     
     onet_tables.pop("Read Me", None)
     print(f"fetch_onet: loaded {len(onet_tables)} tables from O*NET 30.0")
