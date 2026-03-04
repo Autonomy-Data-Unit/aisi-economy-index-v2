@@ -23,7 +23,7 @@
     }
   },
   "max_epochs": 1,
-  "project_root": "../../../",
+  "project_root_override": "../../../",
   "graph": {
     "nodes": [
       {
