@@ -134,7 +134,7 @@ def _run_async(coro):
 _SPECIAL_PARAMS = frozenset({"ctx", "print"})
 
 
-def set_node_func_args(node_name: str | None = None, *, return_args=False):
+def set_node_func_args(node_name: str | None = None, *, return_args=False, load_env=True):
     """Populate the caller's namespace with the inputs a pipeline node would receive.
 
     Loads input data for a node from the netrun cache (or by running upstream
@@ -152,6 +152,8 @@ def set_node_func_args(node_name: str | None = None, *, return_args=False):
             via ``ipynbname``.
         return_args: If True, return the arguments as a namedtuple instead of
             setting them in the caller's globals.
+        load_env: If True (default), load ``.env`` via dotenv before resolving
+            the netrun config. Set to False if env is already configured.
 
     Returns:
         If ``return_args`` is True, a namedtuple whose fields are the function
@@ -163,6 +165,10 @@ def set_node_func_args(node_name: str | None = None, *, return_args=False):
         set_node_func_args()  # infers node name from notebook filename
         # => adzuna_meta, ctx, print are now available as globals
     """
+    if load_env:
+        from dotenv import load_dotenv
+        load_dotenv()
+
     inferred = node_name is None
     if inferred:
         import ipynbname
