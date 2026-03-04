@@ -20,7 +20,6 @@ def _load_net_config() -> NetConfig:
     """Load the pipeline NetConfig from ai_index assets."""
     config_path = resources.files("ai_index.assets") / "netrun.json"
     config = NetConfig.from_file(str(config_path))
-    config.project_root_override = str(Path.cwd())
     return config
 
 
