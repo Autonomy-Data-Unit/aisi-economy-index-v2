@@ -1,0 +1,194 @@
+{
+  "generated_at": "2026-03-05T13:36:03",
+  "llm_model": "DeepSeek-R1-Distill-Qwen-32B",
+  "prompt_hash_sha256": "d7b7f401cab205f2e374ca73078dd696be03fb172e97f3b505ce6e79455a8a67",
+  "jsonl_base_dir": "/projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/prod/llm_negative_selection/deepseek/bge_large",
+  "npz_base_dir": "/projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/prod/llm_negative_selection/bge_large",
+  "select_for_rerun_flags": [
+    "it_drift",
+    "managerial_drift",
+    "empty_final",
+    "final_not_subset",
+    "missing_context"
+  ],
+  "max_final_expected": 3,
+  "schema_counts": {},
+  "anomaly_counts": {},
+  "it_kept_label_share": 0.09819168173598554,
+  "global": {
+    "jobs": 8426,
+    "avg_candidates_before": 7.772015191075243,
+    "avg_candidates_after": 2.625207690481842,
+    "drop_rate": 0.6622230366332249,
+    "empty_final_percent": 0.0,
+    "final_gt_max_percent": 0.0,
+    "final_has_dupes_percent": 0.0,
+    "final_not_subset_percent": 0.0,
+    "missing_context_percent": 0.0,
+    "ctx_full_text_is_title_only_percent": 0.0,
+    "it_drift_jobs": 109,
+    "it_drift_percent": 1.2936150011868028,
+    "managerial_drift_jobs": 695,
+    "managerial_drift_percent": 8.248279136007595,
+    "selected_for_rerun_jobs": 773,
+    "selected_for_rerun_percent": 9.173985283645859,
+    "before_count_percentiles": {
+      "p05": 6,
+      "p25": 7,
+      "p50": 8,
+      "p75": 9,
+      "p95": 10
+    },
+    "after_count_percentiles": {
+      "p05": 2,
+      "p25": 2,
+      "p50": 3,
+      "p75": 3,
+      "p95": 3
+    }
+  },
+  "per_month": {
+    "adzuna_month14": {
+      "jobs": 8426,
+      "avg_candidates_before": 7.772015191075243,
+      "avg_candidates_after": 2.625207690481842,
+      "drop_rate": 0.6622230366332249,
+      "empty_final_percent": 0.0,
+      "final_gt_max_percent": 0.0,
+      "final_has_dupes_percent": 0.0,
+      "final_not_subset_percent": 0.0,
+      "missing_context_percent": 0.0,
+      "ctx_full_text_is_title_only_percent": 0.0,
+      "it_drift_jobs": 109,
+      "it_drift_percent": 1.2936150011868028,
+      "managerial_drift_jobs": 695,
+      "managerial_drift_percent": 8.248279136007595,
+      "selected_for_rerun_jobs": 773,
+      "selected_for_rerun_percent": 9.173985283645859,
+      "before_count_percentiles": {
+        "p05": 6,
+        "p25": 7,
+        "p50": 8,
+        "p75": 9,
+        "p95": 10
+      },
+      "after_count_percentiles": {
+        "p05": 2,
+        "p25": 2,
+        "p50": 3,
+        "p75": 3,
+        "p95": 3
+      }
+    }
+  },
+  "top_kept_occupations_top25": [
+    [
+      "Information Technology Project Managers",
+      406
+    ],
+    [
+      "Software Developers",
+      392
+    ],
+    [
+      "Sales Managers",
+      360
+    ],
+    [
+      "Customer Service Representatives",
+      341
+    ],
+    [
+      "Computer Systems Engineers/Architects",
+      295
+    ],
+    [
+      "Personal Care Aides",
+      293
+    ],
+    [
+      "Chefs and Head Cooks",
+      279
+    ],
+    [
+      "Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop",
+      262
+    ],
+    [
+      "Stockers and Order Fillers",
+      260
+    ],
+    [
+      "Financial Managers",
+      260
+    ],
+    [
+      "Home Health Aides",
+      253
+    ],
+    [
+      "Secretaries and Administrative Assistants, Except Legal, Medical, and Executive",
+      247
+    ],
+    [
+      "Food Service Managers",
+      245
+    ],
+    [
+      "Retail Salespersons",
+      235
+    ],
+    [
+      "Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products",
+      233
+    ],
+    [
+      "Accountants and Auditors",
+      223
+    ],
+    [
+      "Human Resources Specialists",
+      221
+    ],
+    [
+      "Human Resources Managers",
+      220
+    ],
+    [
+      "Marketing Managers",
+      207
+    ],
+    [
+      "Tutors",
+      200
+    ],
+    [
+      "Web Developers",
+      196
+    ],
+    [
+      "Mental Health and Substance Abuse Social Workers",
+      195
+    ],
+    [
+      "Nursing Assistants",
+      186
+    ],
+    [
+      "Healthcare Social Workers",
+      184
+    ],
+    [
+      "Cooks, Institution and Cafeteria",
+      180
+    ]
+  ],
+  "outputs": {
+    "report_txt": "/lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_DRIFT_REPORT.txt",
+    "audit_summary_json": "/lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_AUDIT_SUMMARY.json",
+    "anomalies_jsonl": "/lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_ANOMALIES.jsonl",
+    "random_samples_json": "/lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_RANDOM_SAMPLES.jsonl",
+    "second_pass_rerun_jsonl": "/lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_SECOND_PASS_RERUN.jsonl",
+    "second_pass_job_ids_json": "/lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_SECOND_PASS_JOB_IDS.json"
+  }
+}

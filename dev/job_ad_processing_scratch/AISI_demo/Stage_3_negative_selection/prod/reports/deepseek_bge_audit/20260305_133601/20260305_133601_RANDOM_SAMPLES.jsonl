@@ -1,0 +1,1123 @@
+{
+  "generated_at": "2026-03-05T13:36:03",
+  "random_seed": 7,
+  "samples_any": [
+    {
+      "job_id": "3207286278",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Team Leader - Care",
+      "domain": "Healthcare",
+      "sector": "Social work Jobs",
+      "desc": "[Healthcare] We are seeking a Team Leader to lead our care team, providing guidance and support to our care workers.",
+      "tasks": "[Healthcare] Lead and manage a team of care workers Develop and implement care plans for clients Conduct regular team meetings and performance reviews Ensure compliance with care standards and regulations Recruit and train new team members Leadership Communication Problem-solving Time management Team management",
+      "full_ad": "ABOUT THE ROLE A Golden Hello is just one of the ways we’ll reward you when you join Barchester in this role. As a Team Leader at a Barchester care home, you’ll help to make our residents’ lives stimulating and fulfilling so that we can deliver the person-centred care and support they deserve. Always focusing on respecting our residents’ independence, privacy, dignity and choice, you’ll lead and supervise our Carers and Senior Carers with the support of a Registered Nurse or Care Practitioner. We’ll rely on you to make sure individual care plans are followed to the letter so that we can achieve the highest standards. You’ll also ensure each r ...[truncated]",
+      "kept": [
+        "Healthcare Social Workers",
+        "Personal Care Aides",
+        "Medical and Health Services Managers"
+      ],
+      "candidates": [
+        "Healthcare Social Workers",
+        "Spa Managers",
+        "Personal Care Aides",
+        "Medical and Health Services Managers",
+        "Recreation Workers",
+        "First-Line Supervisors of Personal Service Workers",
+        "Patient Representatives",
+        "Psychiatric Aides",
+        "Home Health Aides"
+      ]
+    },
+    {
+      "job_id": "3210228674",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": true,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Retail Senior Team Member",
+      "domain": "Retail",
+      "sector": "Retail Jobs",
+      "desc": "[Retail] We are seeking a Retail Senior Team Member to join our team.",
+      "tasks": "[Retail] Provide exceptional customer service to customers Process transactions and handle customer payments Maintain a clean and organized store environment Assist with visual merchandising and store displays Support sales floor operations Communication Problem-solving Time management Teamwork Sales",
+      "full_ad": "Location 83 High Street Harborne B17 9NR About You already know you can trust Greggs for a top-notch breakfast and lunch, but did you know we’re also bringing evening meals to the Nation With exciting new products ready to launch in the evenings, we need some great people to serve them If you’re a bit of a night-owl, or have other day commitments, you could be just the person we need to keep our loyal customers fed with a tasty Greggs in the evening. Pay £9.87 per hour, paid weekly Contract type Permanent About you This 20 hour a week vacancy has arisen to support evening trade in the shop. We’re looking for you to be available between the ho ...[truncated]",
+      "kept": [
+        "Retail Salespersons",
+        "First-Line Supervisors of Retail Sales Workers"
+      ],
+      "candidates": [
+        "Retail Salespersons",
+        "Stockers and Order Fillers",
+        "Cashiers",
+        "Order Clerks",
+        "Customer Service Representatives",
+        "First-Line Supervisors of Retail Sales Workers",
+        "First-Line Supervisors of Non-Retail Sales Workers",
+        "Wholesale and Retail Buyers, Except Farm Products",
+        "Retail Loss Prevention Specialists"
+      ]
+    },
+    {
+      "job_id": "3214046881",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Strategy& Deals - Manager - Financial Services - London",
+      "domain": "Financial Services",
+      "sector": "Accounting & Finance Jobs",
+      "desc": "[Financial Services] We are seeking a Strategy& Deals Manager to join our Financial Services team in London.",
+      "tasks": "[Financial Services] Develop and execute strategic plans to drive business growth and expansion Manage and lead cross-functional teams to deliver deals and projects Analyze market trends and competitor activity to inform business decisions Build and maintain relationships with key stakeholders and clients Identify and pursue new business opportunities Strategic planning Leadership Project management Communication Business development",
+      "full_ad": "In Deals we solve the important problems that stand in the way of value being created, sustained, realised or protected for our clients - working together to aid responsible recovery and growth. We put together major mergers and acquisitions and resolve business crises - from international take-over bids to financial crime investigations and cases of insolvency. Our teams work on iconic deals with national and global clients as well as operating and investing in businesses, new ventures and entrepreneurs in our local market and communities. It’s both a responsibility and a privilege to guide our clients through moments that matter deeply to t ...[truncated]",
+      "kept": [
+        "Financial Managers",
+        "Investment Fund Managers",
+        "Business Intelligence Analysts"
+      ],
+      "candidates": [
+        "Financial Managers",
+        "Investment Fund Managers",
+        "Advertising and Promotions Managers",
+        "Business Intelligence Analysts",
+        "Marketing Managers",
+        "Securities, Commodities, and Financial Services Sales Agents",
+        "Fundraising Managers"
+      ]
+    },
+    {
+      "job_id": "3216154684",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Retail Customer Service (CSM) 30hrs",
+      "domain": "Retail",
+      "sector": "Retail Jobs",
+      "desc": "[Retail] Retail Customer Service Representative",
+      "tasks": "[Retail] Respond to customer inquiries via phone, email, or in-person Resolve customer complaints and issues in a professional manner Process customer transactions and handle returns Maintain a clean and organized store environment Work collaboratively with sales team to meet sales goals Excellent communication and interpersonal skills Problem-solving and conflict resolution skills Time management and organizational skills Basic math skills and accuracy with handling cash and credit transactions Ability to work in a fast-paced environment",
+      "full_ad": "At Entain, our Customer Service Managers are great listeners, part of their local community, we help everyone be part of the entertainment we provide. We keep it real. Bring your character to a Retail Customer Service Manager role and you can be yourself, building relationships with our customers and making sure that they enjoy our products and services responsibly. With flexibility, energy and great customer focus, we’ll support you to build a great career. What do you need to be successful? You must be 18 years old or over to work in one of our betting shops. Passion for delivering great customer service The ability to build positive relati ...[truncated]",
+      "kept": [
+        "Retail Salespersons",
+        "Customer Service Representatives"
+      ],
+      "candidates": [
+        "Retail Salespersons",
+        "Customer Service Representatives",
+        "First-Line Supervisors of Retail Sales Workers",
+        "Cashiers",
+        "Stockers and Order Fillers",
+        "Wholesale and Retail Buyers, Except Farm Products",
+        "Retail Loss Prevention Specialists"
+      ]
+    },
+    {
+      "job_id": "3171957724",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Frontend Engineer",
+      "domain": "Software Development",
+      "sector": "IT Jobs",
+      "desc": "[Software Development] We are seeking a skilled Frontend Engineer to join our team. The ideal candidate will have experience with modern web technologies and a passion for building scalable and user-friendly interfaces.",
+      "tasks": "[Software Development] Design and develop visually appealing and user-friendly interfaces Collaborate with cross-functional teams to identify and prioritize project requirements Write clean, modular, and well-documented code Troubleshoot and debug issues in the frontend of web applications Stay up-to-date with the latest frontend technologies and trends JavaScript HTML/CSS React Angular TypeScript",
+      "full_ad": "Company Description We believe in the power of ingenuity to build a positive human future in a technology-driven world. As strategies, technologies and innovation collide, we create opportunity from complexity. Our diverse teams of experts combine innovative thinking and breakthrough use of technologies to progress further, faster. Our clients adapt and transform, and together we achieve enduring results. An innovation and transformation consultancy, we are over 3,200 specialists in consumer, defence and security, energy and utilities, financial services, government, health and life sciences, manufacturing, and transport. Our people are strat ...[truncated]",
+      "kept": [
+        "Web Developers",
+        "Software Developers",
+        "Software Quality Assurance Analysts and Testers"
+      ],
+      "candidates": [
+        "Web Developers",
+        "Software Developers",
+        "Software Quality Assurance Analysts and Testers",
+        "Electrical and Electronic Engineering Technologists and Technicians",
+        "Graphic Designers",
+        "Robotics Engineers",
+        "Validation Engineers",
+        "Microsystems Engineers"
+      ]
+    },
+    {
+      "job_id": "3203660367",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Frontend Engineer - Angular - Remote",
+      "domain": "Software Development",
+      "sector": "IT Jobs",
+      "desc": "[Software Development] We are seeking a skilled Frontend Engineer to join our team. The ideal candidate will have experience with Angular and be able to work independently.",
+      "tasks": "[Software Development] Develop and maintain high-quality frontend code for web applications Collaborate with cross-functional teams to design and implement new features Troubleshoot and resolve frontend-related issues Optimize application performance and user experience Stay up-to-date with the latest Angular and web development trends Angular JavaScript HTML/CSS TypeScript Git",
+      "full_ad": "I'm currently working with a global business that are looking for a Frontend Software Engineer to join their team. If successful you will be using the latest technologies to create and deliver data analytics and intelligence to their clients. For their products they use a variety of technologies with the key frameworks being Django to provide the back-end/API and Angular for the web-based user interface. You will have a deep understanding of Angular and be excited by the prospect of expanding your knowledge to be able to contribute to back-end development tasks. Django experience is not essential. They take a data-driven approach to risk that ...[truncated]",
+      "kept": [
+        "Web Developers",
+        "Software Developers",
+        "Web Administrators"
+      ],
+      "candidates": [
+        "Web Developers",
+        "Software Developers",
+        "Web Administrators",
+        "Software Quality Assurance Analysts and Testers",
+        "Computer Programmers",
+        "Validation Engineers",
+        "Robotics Engineers",
+        "Desktop Publishers",
+        "Microsystems Engineers"
+      ]
+    },
+    {
+      "job_id": "3201063343",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Customer Delivery Driver",
+      "domain": "Logistics",
+      "sector": "Logistics & Warehouse Jobs",
+      "desc": "[Logistics] We are seeking a Customer Delivery Driver to join our team. As a Customer Delivery Driver, you will be responsible for delivering packages to customers in a timely and efficient manner.",
+      "tasks": "[Logistics] Deliver packages to customers in a timely and efficient manner Operate a company vehicle safely and follow all traffic laws Manage delivery routes and schedules to ensure timely delivery Communicate with customers to resolve any delivery issues Maintain accurate records of deliveries and customer interactions Valid driver's license Excellent communication and customer service skills Ability to work independently and manage time effectively Basic computer skills and knowledge of GPS navigation Physical stamina to lift and carry packages",
+      "full_ad": "Job Advert To be employed in this role you must have held a full driving licence for at least one year, and be able to drive a 3.5 ton automatic van. You must also have no more than six points on your licence and pass a basic level safeguarding check. About the Role A great customer experience. That's what our drivers are out to deliver. From loading up, fuelling and checking the van for the next route, or giving a customer a call so they know what time their shopping will arrive, everything we do is with our customers in mind. Join our growing delivery team, and you'll be the face of Asda for our home shopping customers. You're in the drivin ...[truncated]",
+      "kept": [
+        "Driver/Sales Workers",
+        "Couriers and Messengers",
+        "Logisticians"
+      ],
+      "candidates": [
+        "Driver/Sales Workers",
+        "Dispatchers, Except Police, Fire, and Ambulance",
+        "Couriers and Messengers",
+        "Shuttle Drivers and Chauffeurs",
+        "Logisticians",
+        "Bus Drivers, Transit and Intercity"
+      ]
+    },
+    {
+      "job_id": "3219698214",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Travel Consultant Apprenticeship",
+      "domain": "Travel and Tourism",
+      "sector": "Travel Jobs",
+      "desc": "[Travel and Tourism] Join our team as a Travel Consultant Apprentice and gain hands-on experience in the travel industry.",
+      "tasks": "[Travel and Tourism] Assist in the preparation of travel itineraries and documentation Provide customer service to clients via phone, email, and in-person Research and stay up-to-date on travel industry trends and developments Collaborate with colleagues to resolve customer complaints and issues Maintain accurate records and databases of client information Excellent communication and customer service skills Strong organizational and time management skills Ability to work in a fast-paced environment Basic knowledge of travel industry software and systems Proficiency in Microsoft Office Suite",
+      "full_ad": "Whilst beginning to learn about the business and how we operate, you will be provided with ongoing training and support to help develop your customer service and selling skills. You will learn how to adapt to working within a fast paced sales environment, gain travel product knowledge and develop confidence and flair which will enable you to meet customer’s needs. This apprenticeship is perfect to develop your passion for travel. Working in the sales division requires hard work, excellent customer service skills and a firm grasp on product knowledge. With a positive and results driven attitude, you will recommend a range of holiday experience ...[truncated]",
+      "kept": [
+        "Travel Agents",
+        "Reservation and Transportation Ticket Agents and Travel Clerks",
+        "Travel Guides"
+      ],
+      "candidates": [
+        "Travel Agents",
+        "Reservation and Transportation Ticket Agents and Travel Clerks",
+        "Travel Guides",
+        "Tour Guides and Escorts",
+        "Customer Service Representatives",
+        "Passenger Attendants"
+      ]
+    },
+    {
+      "job_id": "3190519979",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Car Parking Officer (NON VETTING)",
+      "domain": "Transportation",
+      "sector": "Customer Services Jobs",
+      "desc": "[Transportation] We are seeking a Car Parking Officer to join our team.",
+      "tasks": "[Transportation] Manage car parking operations, including issuing parking permits and fines Monitor and control car parking areas to ensure compliance with parking regulations Provide customer service and respond to customer queries Maintain accurate records of parking transactions and incidents Enforce parking regulations and issue fines as necessary Customer Service Communication Time Management Problem Solving Attention to Detail",
+      "full_ad": "Delivering a range of car parking services. You will carry out a range of car park management duties to a high standard ensuring a high quality service is delivered. You will: Assist and advise the public, staff and visitors with their parking needs. Deal with queries and resolve problems. Efficiently operate and use car parking systems. Ensure a professional image is presented at all times. To succeed in this role you will need: A professional approach with sound judgement and integrity Excellent customer service skills Good communication skills Be computer literate Enjoy working on your own initiative and as part of a team To be educated to ...[truncated]",
+      "kept": [
+        "Parking Attendants",
+        "Traffic Technicians"
+      ],
+      "candidates": [
+        "Parking Attendants",
+        "Automotive and Watercraft Service Attendants",
+        "Traffic Technicians",
+        "Dispatchers, Except Police, Fire, and Ambulance",
+        "Compliance Officers",
+        "First-Line Supervisors of Material-Moving Machine and Vehicle Operators",
+        "Shuttle Drivers and Chauffeurs",
+        "First-Line Supervisors of Personal Service Workers"
+      ]
+    },
+    {
+      "job_id": "3208827504",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Sales Assistant",
+      "domain": "Sales",
+      "sector": "Sales Jobs",
+      "desc": "[Sales] We are seeking a Sales Assistant to join our team. The successful candidate will be responsible for supporting our sales team in achieving sales targets and providing excellent customer service.",
+      "tasks": "[Sales] Respond to customer inquiries and resolve any issues in a timely and professional manner Maintain accurate records of customer interactions and sales data Assist in preparing sales reports and presentations Develop and maintain relationships with existing and potential customers Provide product information and demonstrations to customers Excellent communication and interpersonal skills Strong problem-solving and analytical skills Ability to work in a fast-paced environment Basic computer skills and proficiency in Microsoft Office Sales and customer service experience",
+      "full_ad": "No previous experience in sales required - Sales Assistant Are you looking for full time work in Leicester? Do you have experience talking to customers face to face? Want a role that offers fantastic financial rewards, opportunities to travel abroad and career progression? Our client is on the lookout for ambitious job seekers to start as Sales Assistants with their Leicester team. The Sales Assistants will be representing clients locally, nationally and internationally. This is the perfect opportunity for someone looking to start their career in sales. This is an exciting opportunity to get a foot in the door with a company who provide a uni ...[truncated]",
+      "kept": [
+        "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products",
+        "Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products"
+      ],
+      "candidates": [
+        "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products",
+        "Customer Service Representatives",
+        "Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products",
+        "Sales Engineers",
+        "Parts Salespersons",
+        "Real Estate Sales Agents",
+        "Advertising Sales Agents",
+        "Retail Salespersons"
+      ]
+    },
+    {
+      "job_id": "3218077265",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Registered Learning Disability / Mental Health Nurse (RNLD / RMN)",
+      "domain": "Healthcare",
+      "sector": "Healthcare & Nursing Jobs",
+      "desc": "[Healthcare] We are seeking a Registered Learning Disability / Mental Health Nurse (RNLD / RMN) to join our team.",
+      "tasks": "[Healthcare] Assess and develop care plans for individuals with learning disabilities and mental health needs Provide high-quality nursing care to individuals with complex needs Collaborate with multidisciplinary teams to deliver person-centred care Conduct risk assessments and implement safety plans Maintain accurate and up-to-date records Nursing skills Communication skills Assessment and planning skills Teamwork and collaboration skills Record-keeping skills",
+      "full_ad": "We are looking for aRegistered Mental Health Nurse (RMN)/Learning Disability Nurse (RNLD)with a passion for delivering outstanding care. Youll be working42hours a week(days and nights)at Cygnet Wast Hills.Located in Kings Norton, Birmingham. Cygnet Wast Hills provides assessment and treatment for individuals with autism, learning disabilities and complex needs. The service consists of three wards providing different levels of support depending on the individual, The House, The Annexe and The Lodge. At Cygnet, our perks go way beyond pension schemes and excellent professional development. Youll also enjoy shopping, travel and leisure discounts ...[truncated]",
+      "kept": [
+        "Licensed Practical and Licensed Vocational Nurses",
+        "Advanced Practice Psychiatric Nurses",
+        "Acute Care Nurses"
+      ],
+      "candidates": [
+        "Licensed Practical and Licensed Vocational Nurses",
+        "Advanced Practice Psychiatric Nurses",
+        "Acute Care Nurses",
+        "Mental Health Counselors",
+        "Mental Health and Substance Abuse Social Workers",
+        "Registered Nurses",
+        "Nurse Practitioners",
+        "Orderlies"
+      ]
+    },
+    {
+      "job_id": "3204587434",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Kitchen Team",
+      "domain": "Hospitality & Catering",
+      "sector": "Hospitality & Catering Jobs",
+      "desc": "[Hospitality & Catering] We are seeking a skilled and enthusiastic Kitchen Team member to join our team.",
+      "tasks": "[Hospitality & Catering] Prepare and cook food to a high standard Maintain a clean and hygienic kitchen environment Work effectively as part of a team to deliver excellent customer service Manage kitchen inventory and supplies Maintain accurate records of food preparation and stock levels Food preparation and cooking skills Time management and organization Teamwork and communication Attention to detail and hygiene Basic math skills",
+      "full_ad": "This is your chance to grab a pizza the action. Learn new tricks, earn some dough, make new friends, eat more pizza. Find your place in our family Why you’ll love this job Life in our kitchens is never dull Develop yourself, feel supported, discover talents you didn’t even know you had. The atmosphere is electric as you chop, slice, grate and help our chefs whip up the taste sensations our customers go crazy for. The best thing is? You don’t need any experience. We’ll train you up to be a full-on pizza pro It’s not all about the dough. Here’s the deal - you'll earn between £9.79 - £10.28 per hour (dependent on location) once you've completed ...[truncated]",
+      "kept": [
+        "Chefs and Head Cooks",
+        "Cooks, Institution and Cafeteria",
+        "Food Preparation Workers"
+      ],
+      "candidates": [
+        "Chefs and Head Cooks",
+        "Cooks, Institution and Cafeteria",
+        "Food Preparation Workers",
+        "Food Service Managers",
+        "Cooks, Restaurant",
+        "First-Line Supervisors of Food Preparation and Serving Workers",
+        "Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop",
+        "Dining Room and Cafeteria Attendants and Bartender Helpers",
+        "Waiters and Waitresses"
+      ]
+    },
+    {
+      "job_id": "3181474353",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Head of Marketing",
+      "domain": "Marketing",
+      "sector": "PR",
+      "desc": "[Marketing] We are seeking a Head of Marketing to lead our marketing efforts and develop a comprehensive marketing strategy to drive business growth.",
+      "tasks": "[Marketing] Develop and implement a marketing strategy to achieve business objectives Lead a team of marketing professionals to execute marketing campaigns Manage marketing budget and resources Analyze market trends and competitor activity Collaborate with cross-functional teams to drive business growth Marketing strategy Team leadership Budget management Market analysis Communication",
+      "full_ad": "Head of Marketing role reporting directly to the CEO Responsibility for building, leading and developing a small team Fast growth brand and exciting job opportunity with the community at its heart Day to day responsibilities of the Head of Marketing include: Reporting directly to the CEO, develop the marketing strategy, vision and evolution of the brand Building a deep understanding of the audience and community Creating key insights and using the learning to drive growth and engagement Use a data-centric approach to identify opportunities that increase engagement and market share The go-to-market strategy going brand awareness, lead generati ...[truncated]",
+      "kept": [
+        "Marketing Managers",
+        "Advertising and Promotions Managers",
+        "Search Marketing Strategists"
+      ],
+      "candidates": [
+        "Marketing Managers",
+        "Market Research Analysts and Marketing Specialists",
+        "Advertising and Promotions Managers",
+        "Search Marketing Strategists",
+        "General and Operations Managers",
+        "Chief Executives"
+      ]
+    },
+    {
+      "job_id": "3207923174",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": true,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Agile Consultant - Financial Services",
+      "domain": "Financial Services",
+      "sector": "IT Jobs",
+      "desc": "[Financial Services] We are seeking an Agile Consultant to join our Financial Services team. The ideal candidate will have experience in Agile methodologies and be able to lead teams to deliver high-quality software solutions.",
+      "tasks": "[Financial Services] Lead Agile teams to deliver high-quality software solutions Develop and implement Agile methodologies and frameworks Collaborate with cross-functional teams to identify and prioritize project requirements Provide coaching and training to team members on Agile principles and practices Analyze project metrics and provide data-driven insights to improve team performance Agile methodologies Project management Leadership Communication Data analysis",
+      "full_ad": "Company Description About us We believe in the power of ingenuity to build a positive human future in a technology-driven world. As strategies, technologies and innovation collide, we create opportunity from complexity. Our diverse teams of experts combine innovative thinking and breakthrough use of technologies to progress further, faster. Our clients adapt and transform, and together we achieve enduring results. An innovation and transformation consultancy, we are over 3,200 specialists in consumer, defence and security, energy and utilities, financial services, government, health and life sciences, manufacturing, and transport. Our people ...[truncated]",
+      "kept": [
+        "Financial Managers",
+        "Information Technology Project Managers"
+      ],
+      "candidates": [
+        "Financial Quantitative Analysts",
+        "Financial Managers",
+        "Software Developers",
+        "Information Technology Project Managers",
+        "Investment Fund Managers",
+        "Personal Financial Advisors",
+        "Business Intelligence Analysts"
+      ]
+    },
+    {
+      "job_id": "3192355423",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Customer Assistant (30 hours)",
+      "domain": "Retail",
+      "sector": "Retail Jobs",
+      "desc": "[Retail] We are seeking a Customer Assistant to join our retail team.",
+      "tasks": "[Retail] Provide excellent customer service to our customers Process transactions and handle customer payments Maintain a clean and organized store environment Restock shelves and merchandise as needed Assist with visual merchandising and store displays Communication Teamwork Problem-solving Time management Basic math skills",
+      "full_ad": "Customer Assistant (30 hours)  Location Store — {amount} miles away T Grove, Brook Park West CO16 9FY Clacton  Experience Level Entry Level £10.10 up to £11.40 per hour - This isn’t stacking shelves. This is feeding families. As a Customer Assistant at Lidl, no shift is the same and you get out what you put in. Starting at 5am some days to set up the store bakery for the day or finishing at 11pm on others to close the store and ensure the store is ready for another day of customers, you’ll keep moving and keep business booming. Every day is different, so you won’t just be working deliveries or working on the till; you’ll be doing all of it an ...[truncated]",
+      "kept": [
+        "Retail Salespersons",
+        "Cashiers",
+        "Customer Service Representatives"
+      ],
+      "candidates": [
+        "Retail Salespersons",
+        "Stockers and Order Fillers",
+        "Cashiers",
+        "Order Clerks",
+        "Customer Service Representatives",
+        "Locker Room, Coatroom, and Dressing Room Attendants",
+        "New Accounts Clerks",
+        "First-Line Supervisors of Retail Sales Workers",
+        "Wholesale and Retail Buyers, Except Farm Products"
+      ]
+    },
+    {
+      "job_id": "3208847832",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": true,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Patch & Vulnerability Specialists - SC CLEARED",
+      "domain": "Information Technology",
+      "sector": "IT Jobs",
+      "desc": "[Information Technology] We are seeking a highly skilled Patch & Vulnerability Specialist to join our team.",
+      "tasks": "[Information Technology] Identify and analyze potential security vulnerabilities in software and systems Develop and implement effective patch management strategies Collaborate with cross-functional teams to resolve security issues Conduct regular security audits and risk assessments Stay up-to-date with emerging threats and technologies Vulnerability assessment and management Patch management Security auditing Risk assessment Cybersecurity",
+      "full_ad": "I am recruiting for a Patch & Vulnerability Specialist to work on a remote basis with occasional travel to Leeds, London or Exeter. ACTIVE SC CLEARANCE IS ESSENTIAL. The role falls inside IR35 so you will need to work through an umbrella company for the duration of the contract. You will assist with patching of the client's server estate. The estate includes Windows (2008 through to 2016), Linux (Oracle Linux, Ubuntu, Scientific Linux, RedHat and CentOS), VMware vCenter and ESXi and HP-UX servers. You must have extensive experience working in patch management for a large estate. Experience in using patch management tooling (such as ManageEngi ...[truncated]",
+      "kept": [
+        "Information Security Engineers",
+        "Information Security Analysts",
+        "Security Managers"
+      ],
+      "candidates": [
+        "Information Security Engineers",
+        "Information Security Analysts",
+        "Security Managers",
+        "Security Management Specialists",
+        "Computer and Information Systems Managers",
+        "Software Developers",
+        "Software Quality Assurance Analysts and Testers",
+        "Computer Systems Engineers/Architects"
+      ]
+    },
+    {
+      "job_id": "3188292505",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Corporate Solicitor",
+      "domain": "Law",
+      "sector": "Legal Jobs",
+      "desc": "[Law] We are seeking a Corporate Solicitor to join our team. The successful candidate will be responsible for providing legal advice to our clients and supporting the development of our business.",
+      "tasks": "[Law] Providing legal advice to clients on corporate matters Drafting and reviewing contracts and agreements Conducting due diligence on potential business transactions Advising on corporate governance and compliance Representing the company in court or tribunal proceedings Contract law Corporate governance Legal research Communication Problem-solving",
+      "full_ad": "My client is currently looking to appoint an experienced Corporate Solicitor to join their West Yorkshire, Leeds office. The successful candidate will be responsible for running their own caseload of Company/Commercial files with minimal supervision as well as getting involved in business development and networking opportunities. Main duties will include: • Dealing with Mergers and Acquisitions• Providing Company advice• Providing Partnership advice• Registration of Companies• Advising on commercial contracts• Drafting a variety of commercial documents such as articles of association, shareholders agreements, partnership agreements, sale/purc ...[truncated]",
+      "kept": [
+        "Lawyers",
+        "Paralegals and Legal Assistants"
+      ],
+      "candidates": [
+        "Lawyers",
+        "Paralegals and Legal Assistants",
+        "Financial Examiners",
+        "Law Teachers, Postsecondary",
+        "Labor Relations Specialists",
+        "Correspondence Clerks",
+        "Legal Secretaries and Administrative Assistants",
+        "Loan Interviewers and Clerks"
+      ]
+    },
+    {
+      "job_id": "3218967435",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Onsite Coordinator",
+      "domain": "Sales",
+      "sector": "Sales Jobs",
+      "desc": "[Sales] We are seeking an Onsite Coordinator to join our team. The Onsite Coordinator will be responsible for coordinating and supporting the sales team in the field.",
+      "tasks": "[Sales] Coordinate and schedule sales team meetings and appointments Manage and maintain sales team's calendar and schedules Provide administrative support to the sales team Maintain accurate records and reports Communicate with customers and internal stakeholders Communication Time management Organization Customer service Microsoft Office",
+      "full_ad": "Onsite Coordinator – Lutterworth, Leicester Hours of work; working 4 on 4 off £12.00phr working on a Temp to Perm basis Overview Reporting to the Onsite Account Manager, our Onsite Account Coordinators are responsible for supporting an existing account whilst working alongside established an onsite team. General Supporting account manager with daily site management Manage day-to-day fulfilment Assisting in running inductions and supporting new starters Meeting new starters and guide site tours Working on candidate attraction through various forms of advertising and social media Screening of candidates for interview Liaise and update branch wi ...[truncated]",
+      "kept": [
+        "Secretaries and Administrative Assistants, Except Legal, Medical, and Executive",
+        "Office Machine Operators, Except Computer",
+        "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products"
+      ],
+      "candidates": [
+        "Sales Managers",
+        "Administrative Services Managers",
+        "Secretaries and Administrative Assistants, Except Legal, Medical, and Executive",
+        "Executive Secretaries and Executive Administrative Assistants",
+        "Office Machine Operators, Except Computer",
+        "First-Line Supervisors of Non-Retail Sales Workers",
+        "Helpers--Installation, Maintenance, and Repair Workers",
+        "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products",
+        "First-Line Supervisors of Retail Sales Workers"
+      ]
+    },
+    {
+      "job_id": "3185836714",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Senior Lettings Negotiator",
+      "domain": "Real Estate",
+      "sector": "Property Jobs",
+      "desc": "[Real Estate] We are seeking a Senior Lettings Negotiator to join our team, responsible for managing the lettings process from initial viewings to move-in.",
+      "tasks": "[Real Estate] Negotiate with potential tenants to secure lettings Manage viewings and showings of properties Maintain accurate records of lettings activity Develop and maintain relationships with clients and tenants Meet sales targets and KPIs Excellent communication and negotiation skills Strong customer service skills Ability to work under pressure and meet deadlines Knowledge of property law and regulations Proficient in CRM software",
+      "full_ad": "Senior Lettings Negotiator - Estate Agency Competitive Basic Salary – On Target Earnings (Uncapped Commission) – Career Progression - Company Car or Car Allowance A fantastic opportunity to join our hugely successful, award winning lettings team in our flagship Lettings office in Norwich. This position offers fantastic career progression, excellent rewards & great earning potential. If you currently work in sales or have a track record of being hard working, self-driven, working to targets, customer focused and would thrive working in a fast paced competitive environment then please get in touch. Full training will be provided but the success ...[truncated]",
+      "kept": [
+        "Real Estate Brokers",
+        "Real Estate Sales Agents",
+        "Property, Real Estate, and Community Association Managers"
+      ],
+      "candidates": [
+        "Real Estate Brokers",
+        "Real Estate Sales Agents",
+        "Property, Real Estate, and Community Association Managers",
+        "Appraisers of Personal and Business Property",
+        "Appraisers and Assessors of Real Estate",
+        "Loan Interviewers and Clerks",
+        "Counter and Rental Clerks"
+      ]
+    },
+    {
+      "job_id": "3211957782",
+      "month": "adzuna_month14",
+      "flags": {
+        "it_drift": false,
+        "managerial_drift": false,
+        "empty_final": false,
+        "final_gt_max": false,
+        "final_has_dupes": false,
+        "final_not_subset": false,
+        "missing_context": false,
+        "ctx_full_text_is_title_only": false
+      },
+      "title": "Fintech/Payments Lawyer WFH",
+      "domain": "Finance/Law",
+      "sector": "Legal Jobs",
+      "desc": "[Finance/Law] Fintech/Payments Lawyer",
+      "tasks": "[Finance/Law] Drafting and reviewing contracts and agreements Providing legal advice on fintech and payments regulations Conducting due diligence on new business partnerships Developing and implementing compliance programs Analyzing and interpreting regulatory changes Contract law Regulatory compliance Legal research Communication Analytical skills",
+      "full_ad": "Take the next step in your career with the leading global alternative legal service provider. Don’t compromise. Over twenty years ago, Axiom started a movement to change the face of the legal industry. Today we continue to break boundaries with a combination of top-tier legal talent and globally recognized F500 clients. Trusted by the leading brands around the world, Axiomites gain access to the highest quality legal work while maintaining control over what and how much work they take on. Axiom puts its people first, attracting those who are thoughtful, caring and collaborative. We strive for excellence in everything we do and value integrity ...[truncated]",
+      "kept": [
+        "Lawyers",
+        "Paralegals and Legal Assistants"
+      ],
+      "candidates": [
+        "Financial Examiners",
+        "Lawyers",
+        "Credit Analysts",
+        "Paralegals and Legal Assistants",
+        "Financial Managers",
+        "Bill and Account Collectors",
+        "Credit Authorizers, Checkers, and Clerks",
+        "Loan Officers"
+      ]
+    }
+  ],
+  "samples_by_stratum": {
+    "drift": [
+      {
+        "job_id": "3185325470",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Finance Assistant",
+        "domain": "Accounting & Finance",
+        "sector": "Accounting & Finance Jobs",
+        "desc": "[Accounting & Finance] We are seeking a highly organized and detail-oriented Finance Assistant to join our team.",
+        "tasks": "[Accounting & Finance] Maintain accurate and up-to-date financial records and reports Assist with budgeting and forecasting Process invoices and payments Perform financial analysis and data entry Provide administrative support to the finance team Excel Financial analysis Data entry Accounting software Communication",
+        "full_ad": "Sheridan Maine are excited to be working on an exclusive basis to recruit for an Accounts Assistant to join their Finance team on a 12 month fixed term contract. Key responsibilities will include: • Posting purchase ledger invoices • Creditor statement reconciliations • Raising purchase orders • Payment runs • Bank reconciliations • Petty Cash • Supplier statement reconciliations • Updating the Cashflow and Cashflow analysis • Allocation of payments • Revenue reporting • Credit card and expense analysis The ideal candidate will have relevant experience gained from a similar role, with excellent interpersonal skills and intermediate Excel know ...[truncated]",
+        "kept": [
+          "Budget Analysts",
+          "Accountants and Auditors",
+          "Financial Managers"
+        ],
+        "candidates": [
+          "Budget Analysts",
+          "Accountants and Auditors",
+          "Financial Managers",
+          "Bookkeeping, Accounting, and Auditing Clerks",
+          "File Clerks",
+          "New Accounts Clerks",
+          "Human Resources Assistants, Except Payroll and Timekeeping"
+        ]
+      },
+      {
+        "job_id": "3220561110",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "General Operative",
+        "domain": "Manufacturing",
+        "sector": "Manufacturing Jobs",
+        "desc": "[Manufacturing] We are seeking a General Operative to join our team in a fast-paced manufacturing environment.",
+        "tasks": "[Manufacturing] Perform a variety of tasks as assigned by supervisors or team leaders Maintain a clean and safe working environment Operate machinery and equipment as required Assist in the production process Meet production targets and deadlines Basic math skills Good communication skills Ability to work in a team Basic computer skills Physical stamina",
+        "full_ad": "Our client is a leading manufacturer of construction products to a global market. due to continued growth they are looking to recruit additional warehouse staff to meet demand at their production facility in Netherton / Dudley. Applicants will be required to feed production lines with empty boxes, remove full boxes from production line, operate press machines, palletise and move boxes to warehouse. Other basic duties will be required on an ad-hoc basis. Hours will be 6.45pm to 05.15am Monday to Thursday Hourly rate £13.50 Applicants must be physically fit due to nature of t he role and be able to lift up to 20 KG. Job Types: Full-time, Perman ...[truncated]",
+        "kept": [
+          "First-Line Supervisors of Production and Operating Workers",
+          "Team Assemblers",
+          "Helpers--Production Workers"
+        ],
+        "candidates": [
+          "First-Line Supervisors of Production and Operating Workers",
+          "Team Assemblers",
+          "Helpers--Production Workers",
+          "Machine Feeders and Offbearers",
+          "Separating, Filtering, Clarifying, Precipitating, and Still Machine Setters, Operators, and Tenders",
+          "Industrial Production Managers",
+          "Production, Planning, and Expediting Clerks",
+          "Manufacturing Engineers",
+          "First-Line Supervisors of Material-Moving Machine and Vehicle Operators"
+        ]
+      },
+      {
+        "job_id": "3211578472",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Senior Mortgage Consultant",
+        "domain": "Finance",
+        "sector": "Accounting & Finance Jobs",
+        "desc": "[Finance] We are seeking a Senior Mortgage Consultant to join our team. The ideal candidate will have a strong background in mortgage lending and excellent communication skills.",
+        "tasks": "[Finance] Originate and process mortgage applications Analyze credit reports and financial information Develop and present loan proposals to clients Collaborate with cross-functional teams to close deals Stay up-to-date with industry regulations and changes Mortgage lending expertise Strong communication and negotiation skills Analytical and problem-solving skills Time management and organization skills Knowledge of industry regulations",
+        "full_ad": "We’re looking for a highly motivated Mortgage Advisor to join our fantastic team in Wolverhampton. The Mortgage Advisor will work closely with an established Estate Agency team to help customers purchase their dream home whilst taking care of all their mortgage and protection needs. What’s in it for you? Excellent internal progression to support your career aspirations Lucrative earning potential and uncapped commission Abundance of lead opportunities Supportive and rewarding environment Industry leading training and development Central Admin Support and agile IT tools to help you succeed All expenses paid trips for top achievers Competitive ...[truncated]",
+        "kept": [
+          "Loan Officers",
+          "Credit Analysts",
+          "Financial Managers"
+        ],
+        "candidates": [
+          "Loan Officers",
+          "Loan Interviewers and Clerks",
+          "Credit Analysts",
+          "Credit Counselors",
+          "Financial Managers",
+          "New Accounts Clerks"
+        ]
+      },
+      {
+        "job_id": "3200059472",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "PMO Analyst - Capital Markets",
+        "domain": "Finance",
+        "sector": "IT Jobs",
+        "desc": "[Finance] We are seeking a PMO Analyst to join our Capital Markets team.",
+        "tasks": "[Finance] Develop and maintain project management plans, schedules, and resource allocation plans Coordinate with cross-functional teams to ensure project deliverables are met Analyze project data to identify trends and areas for improvement Create and track project dashboards and reports Identify and mitigate project risks Project Management Data Analysis Communication Risk Management Microsoft Office",
+        "full_ad": "Role Description Reporting to the Portfolio PMO, the PMO Analyst role provides information and quality analysis services to key delivery projects and programmes within the Capital Markets PMO remit. Working closely with Project and Portfolio PMOs, and PMO Support teams, the PMO Analyst role is responsible for collation, calculation and evaluation of Capital Markets change project and programme management information (MI), in line with LSEG's relevant process and standards. The role acts as a key quality support function, monitoring the quality of project and portfolio management information. The role also provides project management and gover ...[truncated]",
+        "kept": [
+          "Management Analysts",
+          "Budget Analysts"
+        ],
+        "candidates": [
+          "Management Analysts",
+          "Information Technology Project Managers",
+          "Financial Managers",
+          "Budget Analysts",
+          "Computer and Information Systems Managers",
+          "Credit Analysts",
+          "Financial Quantitative Analysts",
+          "Loan Officers",
+          "New Accounts Clerks"
+        ]
+      },
+      {
+        "job_id": "3186956602",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Cyber Security Analyst Degree Level Apprentice",
+        "domain": "IT and Technology",
+        "sector": "IT Jobs",
+        "desc": "[IT and Technology] Degree Level Apprentice in Cyber Security Analyst",
+        "tasks": "[IT and Technology] Monitor and analyze network traffic for potential security threats Implement and maintain security protocols to protect against cyber-attacks Conduct vulnerability assessments and penetration testing Collaborate with IT teams to identify and resolve security issues Develop and implement incident response plans Cyber security analysis Network security Threat detection Incident response Security protocols",
+        "full_ad": "Employer description: We [RPC Containers Ltd] are a leading global design and engineering Company in plastic products, with over 300 operations in 34 countries covering 5 continents. From New York to Brazil, Italy to Hong Kong and even Rushden to Glasgow; our factories and offices can be found all over the ; Overview: We are now looking for an eager candidate to join us as a Cyber Degree ;As a Cyber Security Analyst Apprentice, during your Degree Apprenticeship you will be responsible for ensuring the technologies within the infrastructure of the company meet the needs of the business and are best in class for that ;You will ensure that the t ...[truncated]",
+        "kept": [
+          "Information Security Analysts",
+          "Information Security Engineers",
+          "Security Management Specialists"
+        ],
+        "candidates": [
+          "Information Security Analysts",
+          "Information Security Engineers",
+          "Security Management Specialists",
+          "Computer Network Support Specialists",
+          "Security Managers",
+          "Computer Systems Analysts",
+          "First-Line Supervisors of Security Workers"
+        ]
+      },
+      {
+        "job_id": "3193608801",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Trainee Lettings Negotiator",
+        "domain": "Real Estate",
+        "sector": "Sales Jobs",
+        "desc": "[Real Estate] We are seeking a Trainee Lettings Negotiator to join our team. As a Trainee Lettings Negotiator, you will be responsible for assisting in the day-to-day running of the lettings department, including viewing properties, negotiating rentals, and maintaining accurate records.",
+        "tasks": "[Real Estate] Assist in the day-to-day running of the lettings department View properties with potential tenants Negotiate rentals with landlords and tenants Maintain accurate records of lettings activity Provide excellent customer service to clients Communication Negotiation Time management Customer service Data entry",
+        "full_ad": "Join the U.K's largest independent property services group as a Lettings Negotiator, where no two days are the same, and where you can deliver exceptional service to both landlords and tenants. Benefits of being a Lettings Negotiator - £20,000 to £25,000 complete on-target earnings - Performance Related Bonus of £500 to £750 for your first 2 months of employment, whilst you build your pipeline (amount dependent on experience) - Uncapped commission scheme - A Company Car or a monthly Car Allowance - Enrolment onto fully-funded training course that will earn a Level 3 Award in Property and Housing Management (including ARLA) - Career progressio ...[truncated]",
+        "kept": [
+          "Real Estate Sales Agents",
+          "Real Estate Brokers",
+          "Property, Real Estate, and Community Association Managers"
+        ],
+        "candidates": [
+          "Real Estate Sales Agents",
+          "Real Estate Brokers",
+          "Property, Real Estate, and Community Association Managers",
+          "Counter and Rental Clerks",
+          "Paralegals and Legal Assistants",
+          "Loan Interviewers and Clerks",
+          "Residential Advisors",
+          "Title Examiners, Abstractors, and Searchers"
+        ]
+      },
+      {
+        "job_id": "3183992949",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Workplace Consultant - Home Based",
+        "domain": "Human Resources",
+        "sector": "Sales Jobs",
+        "desc": "[Human Resources] We are seeking a highly motivated and experienced Workplace Consultant to join our team. As a Workplace Consultant, you will be responsible for providing expert advice and guidance to clients on how to optimize their workplace and improve employee engagement.",
+        "tasks": "[Human Resources] Conduct workplace assessments to identify areas for improvement Develop and implement strategies to improve employee engagement and productivity Collaborate with clients to understand their business needs and goals Provide training and coaching to employees on workplace best practices Analyze data to measure the effectiveness of implemented strategies Communication Problem-solving Project management Data analysis Leadership",
+        "full_ad": "Mbf are working with a national Financial Planning & Employee Benefits organisation to recruit a Workplace Consultant. The client is Chartered & have won multiple awards, they have offices across the UK and are at an exciting stage of growth. They are now seeking to recruit a Workplace Consultant to deliver Employee Benefit presentations to client's employees. You will proactively consult with the relevant Corporate Financial Planners/Desktop Consultant to develop new business opportunities and generate/maintain relationships and expectations. The business needs an individual who is excellent at producing and delivering influential presentati ...[truncated]",
+        "kept": [
+          "Human Resources Specialists",
+          "Human Resources Managers",
+          "Industrial-Organizational Psychologists"
+        ],
+        "candidates": [
+          "Human Resources Specialists",
+          "Human Resources Managers",
+          "Industrial-Organizational Psychologists",
+          "Human Resources Assistants, Except Payroll and Timekeeping",
+          "Management Analysts",
+          "Training and Development Specialists",
+          "Compensation, Benefits, and Job Analysis Specialists",
+          "Labor Relations Specialists"
+        ]
+      },
+      {
+        "job_id": "3213989222",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Customer Onboarding Specialist",
+        "domain": "IT",
+        "sector": "IT Jobs",
+        "desc": "[IT] We are seeking a Customer Onboarding Specialist to join our team. The ideal candidate will be responsible for ensuring a seamless onboarding experience for our customers.",
+        "tasks": "[IT] Develop and implement onboarding processes and procedures Collaborate with cross-functional teams to ensure a smooth onboarding experience Communicate with customers to gather information and resolve any issues Create and deliver onboarding materials and training Monitor and analyze onboarding metrics to identify areas for improvement Communication Project Management Customer Service Process Improvement Time Management",
+        "full_ad": "This is a full-time role. As OurCompany's Customer Onboarding Specialist, you'll help OurCompany and its customers succeed through the following Improve user activation and feature adoption: Help our users accomplish their goals with OurCompany. We use Intercom to answer questions, provide guidance, and collect feedback via live chat and email. Organize customer feedback for the team and champion the customer's voice. We take this extremely seriously and rely on the customer feedback-loop to shape product direction and roadmap. Create product guides, documentation and video tutorials (like this one) that educate people about features and what ...[truncated]",
+        "kept": [
+          "Information Technology Project Managers",
+          "Training and Development Managers"
+        ],
+        "candidates": [
+          "Information Technology Project Managers",
+          "Training and Development Managers",
+          "Training and Development Specialists",
+          "Computer Network Architects",
+          "First-Line Supervisors of Helpers, Laborers, and Material Movers, Hand",
+          "Customer Service Representatives",
+          "New Accounts Clerks",
+          "Human Resources Specialists",
+          "Shipping, Receiving, and Inventory Clerks",
+          "Stockers and Order Fillers"
+        ]
+      },
+      {
+        "job_id": "3208279532",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Sister/Charge Nurse - Medical Ward",
+        "domain": "Healthcare",
+        "sector": "Healthcare & Nursing Jobs",
+        "desc": "[Healthcare] We are seeking a Sister/Charge Nurse to lead our medical ward team.",
+        "tasks": "[Healthcare] Provide high-quality patient care and management Supervise and coordinate the work of nursing staff Develop and implement nursing care plans Maintain accurate patient records and reports Collaborate with other healthcare professionals Leadership Communication Time Management Problem-Solving Nursing Care",
+        "full_ad": "Sister/Charge Nurse - Medical Ward Location - The Lister Hospital (SW1W 8RH) This role is a 37.5 hours per week Monday - Sunday to cover rotation, you will need to be flexible to work days, nights and weekends. This role offers a competitive salary, this will be dependent on experience  Benefits (pension, health cover, flexible benefits and excellent career development) About the Role: Level 5 ward is a 13 bedded acute medical unit. The post holder should be able to support the ward manager in the leadership of the unit both clinically and managerially. The post holder ensures they act as a role model to staff, support the ward manager in the ...[truncated]",
+        "kept": [
+          "Registered Nurses",
+          "Medical and Health Services Managers",
+          "Acute Care Nurses"
+        ],
+        "candidates": [
+          "Registered Nurses",
+          "Licensed Practical and Licensed Vocational Nurses",
+          "Medical and Health Services Managers",
+          "Acute Care Nurses",
+          "Nursing Assistants",
+          "Orderlies",
+          "Nurse Anesthetists",
+          "Critical Care Nurses",
+          "Nurse Midwives"
+        ]
+      },
+      {
+        "job_id": "3218987512",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": true,
+          "managerial_drift": false,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Service Engineer (CCTV / Access Control / Intruder)",
+        "domain": "Security and Surveillance",
+        "sector": "Engineering Jobs",
+        "desc": "[Security and Surveillance] We are seeking a Service Engineer to join our team to provide technical support and maintenance for CCTV, Access Control, and Intruder systems.",
+        "tasks": "[Security and Surveillance] Troubleshoot and repair CCTV, Access Control, and Intruder systems Perform routine maintenance and servicing of security systems Install and commission new security systems Provide technical support to customers and internal teams Conduct site surveys to identify security system requirements Technical knowledge of CCTV, Access Control, and Intruder systems Strong problem-solving and analytical skills Excellent communication and customer service skills Ability to work at heights and in confined spaces Basic electrical knowledge",
+        "full_ad": "Service Engineer (CCTV / Access Control / Intruder) Slough (Commutable Reading, Wokingham, Bracknell, Windsor, West London) £32,000 - £36,000  Training  Overtime  Door-to-door  Local Patch Are you a Service Engineer from a Security Systems background looking for a fantastic opportunity to join a nationally renowned company who offer unlimited overtime, door to door pay and generous bonuses to maximise your earnings? On offer is a home days-based role, covering a local patch where you will receive both internal and external training to further your skill set. This industry-leading company specialise in the Installation and Servicing of a varie ...[truncated]",
+        "kept": [
+          "Security and Fire Alarm Systems Installers",
+          "Telecommunications Equipment Installers and Repairers, Except Line Installers",
+          "Audiovisual Equipment Installers and Repairers"
+        ],
+        "candidates": [
+          "Security Guards",
+          "Security Management Specialists",
+          "Security and Fire Alarm Systems Installers",
+          "Telecommunications Equipment Installers and Repairers, Except Line Installers",
+          "First-Line Supervisors of Security Workers",
+          "Information Security Engineers",
+          "Telecommunications Engineering Specialists",
+          "Electrical and Electronics Repairers, Powerhouse, Substation, and Relay",
+          "Audiovisual Equipment Installers and Repairers"
+        ]
+      },
+      {
+        "job_id": "3209709121",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Kitchen Team Member",
+        "domain": "Hospitality & Catering",
+        "sector": "Hospitality & Catering Jobs",
+        "desc": "[Hospitality & Catering] We are seeking a friendly and enthusiastic Kitchen Team Member to join our team!",
+        "tasks": "[Hospitality & Catering] Prepare and cook food to a high standard Maintain a clean and hygienic kitchen environment Work effectively as part of a team to deliver excellent customer service Restock and rotate stock as required Maintain accurate records of food preparation and stock levels Food preparation and cooking skills Teamwork and communication skills Time management and organization skills Attention to detail and hygiene standards Basic math skills",
+        "full_ad": "Kitchen Team Member RESTAURANT NAME: Hampton Inn Table Table LOCATION: Salisbury (SP1 3GU) HOURS: 25 hours a week - Kitchen porter role/ Kitchen hand SALARY: Up to £10.00 per hour At Table Table, we do restaurant jobs differently. Award-winning training. All the support you need. And brilliant career prospects. It's about giving our own people a great experience, so they create the relaxed, warm atmosphere and freshly cooked food that our guests love. The heart of our restaurants is our kitchen. Serving up succulent steaks. Juicy burgers. Even tasty meat-free dishes. All cooked and plated with skill, care and a passion for great cooking. Your ...[truncated]",
+        "kept": [
+          "Cooks, Institution and Cafeteria",
+          "Food Preparation Workers",
+          "Chefs and Head Cooks"
+        ],
+        "candidates": [
+          "Cooks, Institution and Cafeteria",
+          "Food Preparation Workers",
+          "Chefs and Head Cooks",
+          "Food Service Managers",
+          "Cooks, Restaurant",
+          "Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop",
+          "First-Line Supervisors of Food Preparation and Serving Workers",
+          "Dining Room and Cafeteria Attendants and Bartender Helpers",
+          "Waiters and Waitresses",
+          "Food Servers, Nonrestaurant"
+        ]
+      },
+      {
+        "job_id": "3216553822",
+        "month": "adzuna_month14",
+        "flags": {
+          "it_drift": false,
+          "managerial_drift": true,
+          "empty_final": false,
+          "final_gt_max": false,
+          "final_has_dupes": false,
+          "final_not_subset": false,
+          "missing_context": false,
+          "ctx_full_text_is_title_only": false
+        },
+        "title": "Sr SAP Security Analyst",
+        "domain": "IT",
+        "sector": "IT Jobs",
+        "desc": "[IT] We are seeking a highly skilled Sr SAP Security Analyst to join our team.",
+        "tasks": "[IT] Analyze and identify security vulnerabilities in SAP systems Develop and implement security policies and procedures Collaborate with cross-functional teams to ensure security compliance Monitor and respond to security incidents Conduct regular security audits and risk assessments SAP security Security analysis Risk management Compliance Incident response",
+        "full_ad": "Sr SAP Security Analyst 71739BR Technology & Engineering Operations & Technology Responsibilities Role Title: Sr. SAP Security Analyst Location: London Division: Operations & Technology Reporting to: Manager, Governance Risk & Compliance NBCUniversal owns and operates over 20 different businesses across 30 countries including a valuable portfolio of news and entertainment television networks, a premier motion picture company, significant television production operations, a leading television stations group, world-renowned theme parks and a premium ad-supported streaming service. Here you can be your authentic self. As a company uniquely posit ...[truncated]",
+        "kept": [
+          "Information Security Analysts",
+          "Information Security Engineers",
+          "Security Management Specialists"
+        ],
+        "candidates": [
+          "Information Security Analysts",
+          "Information Security Engineers",
+          "Security Management Specialists",
+          "Security Managers",
+          "Software Quality Assurance Analysts and Testers",
+          "Compensation, Benefits, and Job Analysis Specialists",
+          "Human Resources Specialists"
+        ]
+      }
+    ],
+    "empty_final": [],
+    "final_not_subset": [],
+    "missing_context": []
+  }
+}

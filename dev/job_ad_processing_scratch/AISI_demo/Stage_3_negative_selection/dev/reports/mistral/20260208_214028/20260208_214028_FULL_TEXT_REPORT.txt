@@ -1,0 +1,798 @@
+==========================================================================================
+DEEPSEEK FULL REPORT + OVERLAP PLOTS
+==========================================================================================
+generated_at: 2026-02-08T21:40:28
+llm_model: Mistral-7B-Instruct-v0.3-AWQ
+cwd: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/dev
+jsonl_base_dir: /projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/dev/llm_negative_selection/mistral
+npz_base_dir: /projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/dev/llm_negative_selection
+out_dir: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/dev/reports/mistral/20260208_214028
+embeds: ['bge_large', 'e5_large', 'gte_large']
+jsonl_glob: vllm_drop_adzuna_*.jsonl
+use_latest_per_month (plots): True
+
+prompt_used:
+------------------------------------------------------------------------------------------
+<|im_start|>system
+Return ONLY valid JSON: {"drop":[...]}. No extra text.
+<|im_end|>
+<|im_start|>user
+Return ONLY valid JSON with key "drop": {"drop":[...]}. No prose. No markdown.
+
+Title: {job_ad_title}
+Sector: {job_sector_category}
+Domain: {domain}
+Tasks: {tasks_str}
+
+Candidates (1-based):
+{numbered}
+
+Rules:
+- Keep 2–3 by default.
+- Keep 1 only if very sure all others are clearly wrong.
+- Drop only clearly wrong functions.
+Output ONLY JSON: {"drop":[...]}
+<|im_end|>
+<|im_start|>assistant
+------------------------------------------------------------------------------------------
+
+======================================================================
+BGE_LARGE
+======================================================================
+GLOBAL METRICS
+jobs: 700
+avg_candidates_before: 8.200
+avg_candidates_after:  2.911
+drop_rate:            0.6449
+empty_outputs_percent:0.00
+it_leakage_share:     0.0496
+min_kept:             2
+max_kept:             3
+
+TOP KEPT OCCUPATIONS (top 25)
+    34  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+    27  Food Service Managers
+    26  Information Technology Project Managers
+    25  Customer Service Representatives
+    25  Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop
+    24  Sales Managers
+    23  Personal Care Aides
+    22  Marketing Managers
+    22  Advertising and Promotions Managers
+    21  Mental Health and Substance Abuse Social Workers
+    21  Cooks, Institution and Cafeteria
+    21  Child, Family, and School Social Workers
+    21  First-Line Supervisors of Retail Sales Workers
+    20  Chefs and Head Cooks
+    20  Stockers and Order Fillers
+    19  Healthcare Social Workers
+    19  Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products
+    19  First-Line Supervisors of Office and Administrative Support Workers
+    19  Tutors
+    19  Dining Room and Cafeteria Attendants and Bartender Helpers
+    18  Market Research Analysts and Marketing Specialists
+    17  Childcare Workers
+    17  Administrative Services Managers
+    17  Retail Salespersons
+    16  Financial Managers
+
+DOMAIN AVG KEPT
+Accountancy: 3
+Admin Jobs: 3
+Administration: 3
+Administrative Support: 3
+Aerospace Engineering: 3
+Aerospace and Defence: 3
+Architecture and Construction: 3
+Automotive: 3
+Automotive Engineering: 3
+Aviation: 3
+Biotechnology: 3
+Business: 3
+Business Administration: 3
+Career Transition and Sports: 3
+Charity & Conservation: 3
+Childcare: 3
+Comms / Marketing / PR: 3
+Construction Trades: 3
+Construction and Architecture: 3
+Construction and Facilities Management: 3
+Construction and Infrastructure: 3
+Construction and Maintenance: 3
+Construction and Mining: 3
+Construction and Real Estate: 3
+Construction and Trade: 3
+Construction/Cleaning: 3
+Construction/Engineering: 3
+Construction/Infrastructure: 3
+Construction/Maintenance: 3
+Consultancy Jobs: 3
+Creative/Design: 3
+Criminal Justice: 3
+Customer Service: 3
+Customer Services: 3
+Cyber Security: 3
+Defence: 3
+Defence and Aerospace: 3
+Digital Agency: 3
+Digital Marketing: 3
+Domestic Services: 3
+Education Technology: 3
+Education/Training: 3
+Electronics Engineering: 3
+Electronics Manufacturing: 3
+Electronics/Audio Technology: 3
+Employment Research Consultancy: 3
+Energy: 3
+Energy and Waste consultancy: 3
+Engineering/Manufacturing: 3
+Environmental Conservation: 3
+Environmental Consultancy: 3
+Facilities Management: 3
+Fashion Retail: 3
+Finance/Accounting: 3
+Financial Services: 3
+Food Manufacturing: 3
+Health and Fitness: 3
+Healthcare/Social Care: 3
+Healthcare/Social Work: 3
+Hospitality: 3
+Hospitality Technology: 3
+IT / Information Technology: 3
+IT and Telecommunication: 3
+Industrial Engineering / Lean Manufacturing: 3
+Insurance: 3
+Investment Management: 3
+Law: 3
+Leisure: 3
+Leisure and Sports: 3
+Life Sciences: 3
+Logistics: 3
+Logistics and Supply Chain: 3
+Logistics and Warehouse: 3
+Market Research: 3
+Marketing: 3
+Marketing and Advertising: 3
+Marketing and PR: 3
+Marketing and Public Relations: 3
+Marketing/PR: 3
+Marketing/Sales: 3
+Medical Sales: 3
+Non-Profit/Charity: 3
+Non-profit/Charity: 3
+Non-profit/Research: 3
+PR: 3
+Packaging and Supply: 3
+Pharmaceutical Consulting: 3
+Procurement and Supply Chain: 3
+Property: 3
+Property Management and Consultancy: 3
+Public Safety: 3
+Public Sector: 3
+Public Sector/Government: 3
+Public Services: 3
+Publishing: 3
+Recruitment: 3
+Recruitment and Staffing: 3
+Remote Work/Online Jobs: 3
+Residential Property: 3
+Retail/Electronics: 3
+Retail/Food Service: 3
+SaaS: 3
+Sales and Events: 3
+Sales and Marketing: 3
+Sales and Recruitment: 3
+Scientific & QA Jobs: 3
+Scientific Research: 3
+Scientific Research and Development: 3
+Security: 3
+Social Services: 3
+Software Development: 3
+Supply Chain Technology: 3
+Technology & Engineering: 3
+Technology and IT: 3
+Telecommunications: 3
+Telecoms/Construction: 3
+Tourism and Transportation: 3
+Transportation: 3
+Transportation and Infrastructure: 3
+Transportation and Logistics: 3
+Transportation/Infrastructure: 3
+Urban Planning: 3
+Hospitality & Catering: 2.98
+Retail: 2.971
+Accounting & Finance: 2.968
+Logistics & Warehouse: 2.963
+IT: 2.941
+Education: 2.935
+Engineering: 2.923
+Manufacturing: 2.9
+Sales: 2.895
+Construction: 2.893
+Social work: 2.889
+Trade & Construction: 2.875
+Healthcare: 2.867
+Human Resources: 2.857
+IT and Technology: 2.857
+Social Work: 2.833
+Finance: 2.8
+Legal: 2.8
+Technology: 2.75
+Fintech: 2.667
+Logistics and Transportation: 2.667
+Real Estate: 2.667
+Remote Work/Online Opportunities: 2.667
+Healthcare & Nursing: 2.655
+Consultancy: 2.5
+Domestic help & Cleaning Jobs: 2.5
+Manufacturing/Engineering: 2.5
+Scientific & QA: 2.5
+Social Care: 2.5
+Utilities: 2.5
+Architecture: 2
+Cleaning and Maintenance: 2
+Construction/Building: 2
+Healthcare and Technology: 2
+Home Automation and Security: 2
+Media and Technology: 2
+Software Sales: 2
+
+SAMPLE CASES (truncated)
+
+job_id: 2743877458
+title:  Accounting & Business Advisory Supervisor
+domain: Accounting & Finance | sector: Accounting & Finance Jobs
+desc:   [Accounting & Finance] Accounting & Business Advisory Supervisor
+tasks:  [Accounting & Finance] Provide insights to clients on financial reporting systems and processes Support clients on preparation of their financial statements Work with ABA managers to run client portfolios profitably Maintain high standards of client service Identify opportunities for department growth Accounting standards Commercial understanding of the business world Innovative technological tools Leadership Business development
+kept:   ['Budget Analysts', 'Accountants and Auditors', 'Credit Analysts']
+drop:   ['Financial Managers', 'Financial Examiners', 'First-Line Supervisors of Non-Retail Sales Workers', 'First-Line Supervisors of Office and Administrative Support Workers', 'First-Line Supervisors of Retail Sales Workers']
+
+job_id: 2935709759
+title:  Area Sales Manager
+domain: Sales | sector: Sales Jobs
+desc:   [Sales] Area Sales Manager for a global leading brand of bathroom products
+tasks:  [Sales] Managing a portfolio of existing accounts with national plumbing/heating and independent merchants Dealing with Buying Group members and their associated showrooms Working with decision makers and stakeholders, including Owners and Branch Managers Developing and implementing sales strategies to meet business objectives Maintaining and building strong relationships with customers Sales Account Management Communication Leadership Time Management
+kept:   ['Sales Managers', 'Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products']
+drop:   ['Advertising Sales Agents', 'Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products', 'Parts Salespersons', 'Retail Salespersons', 'First-Line Supervisors of Retail Sales Workers', 'Advertising and Promotions Managers']
+
+job_id: 3168309379
+title:  BI Product Owner - Fully Remote
+domain: IT | sector: IT Jobs
+desc:   [IT] BI Product Owner with PowerBI / Tableau / BDD / Gherkin / Snowflake experience for a market leading ecommerce company
+tasks:  [IT] Work with the BI team to architect a plan for the team and the BI product Responsible for the financial and strategic implications of the unique BI product Collaborate with like-minded and driven individuals Work with all the tools needed for the role Contribute to the growth of the company PowerBI Tableau BDD Gherkin Snowflake
+kept:   ['Computer Network Architects', 'Financial Quantitative Analysts', 'Information Technology Project Managers']
+drop:   ['Business Intelligence Analysts', 'Database Architects', 'Sales Engineers', 'Quality Control Analysts', 'Web Administrators', 'Market Research Analysts and Marketing Specialists']
+
+job_id: 3152610177
+title:  Marketing Executive
+domain: Residential Property | sector: PR
+desc:   [Residential Property] Marketing Executive for a Residential Property Company
+tasks:  [Residential Property] Receive briefs and allocate jobs to the design team Help manage workflow to ensure jobs are delivered on time Work with stakeholders to ensure briefs are timely and detailed Work closely with designers and artworkers to understand any issues Ongoing improvement of processes Project management Communication Time management Teamwork Process improvement
+kept:   ['Property, Real Estate, and Community Association Managers', 'Graphic Designers', 'Art Directors']
+drop:   ['Interior Designers', 'Fashion Designers', 'Real Estate Sales Agents', 'Marketing Managers', 'Advertising Sales Agents', 'Real Estate Brokers']
+
+job_id: 3192033657
+title:  Business Strategy Analyst
+domain: Consultancy | sector: Consultancy Jobs
+desc:   [Consultancy] Business Strategy Analyst
+tasks:  [Consultancy] Conduct analysis, research, and development of Exec-level presentation materials Coordinate and project manage internal initiatives & projects Research & prepare market and competitor analysis Support and ownership across operational and strategic projects Prepare Exec-level presentation materials for progress reviews Project management Data analytics Business acumen Analytical mindset Strong work ethic
+kept:   ['Business Intelligence Analysts', 'Market Research Analysts and Marketing Specialists']
+drop:   ['Management Analysts', 'Industrial-Organizational Psychologists', 'Information Technology Project Managers', 'Operations Research Analysts', 'Logistics Analysts']
+
+job_id: 3407110803
+title:  MARAC Administrator -Domestic Violence Support Team
+domain: Public Services | sector: Admin Jobs
+desc:   [Public Services] Admin Assistant to support Domestic Violence Team in Police force in Lancashire
+tasks:  [Public Services] Attend Multi Agency Risk Management Conferences and take minutes Produce accurate records and distribute the same Interrogate police databases and research relevant information Administer Multi Agency Risk Assessment and management processes Support other Multi Agency forums Word-processing Data research Database interrogation Minute-taking Communication
+kept:   ['Social and Community Service Managers', 'Dispatchers, Except Police, Fire, and Ambulance', 'Medical and Health Services Managers']
+drop:   ['Security Managers', 'Loss Prevention Managers', 'Social and Human Service Assistants', 'First-Line Supervisors of Personal Service Workers', 'First-Line Supervisors of Office and Administrative Support Workers', 'Psychiatric Aides', 'Executive Secretaries and Executive Administrative Assistants']
+
+job_id: 3397033222
+title:  Timber Operative
+domain: Manufacturing | sector: Manufacturing Jobs
+desc:   [Manufacturing] Timber Products Assembler
+tasks:  [Manufacturing] Ensure products are manufactured to the desired quality requirements Comply with the Company's Health & Safety procedures Meet production output targets Complete nail gun safety checks Maintain a clean work area Manufacturing Quality control Health and Safety Attention to detail Teamwork
+kept:   ['Health and Safety Engineers, Except Mining Safety Engineers and Inspectors', 'Helpers--Production Workers', 'Cabinetmakers and Bench Carpenters']
+drop:   ['Industrial Production Managers', 'Machine Feeders and Offbearers', 'Weighers, Measurers, Checkers, and Samplers, Recordkeeping', 'Engine and Other Machine Assemblers', 'Patternmakers, Wood', 'Model Makers, Wood', 'Aircraft Structure, Surfaces, Rigging, and Systems Assemblers']
+
+job_id: 3456479302
+title:  Cleaner - Zero Hours - UCLH
+domain: Healthcare | sector: Domestic help & Cleaning Jobs
+desc:   [Healthcare] Cleaner - Zero Hours - UCLH
+tasks:  [Healthcare] High and low dusting Mopping Wiping and scrubbing surfaces Cleaning of wards, side rooms, toilets, showers, infected and public areas Maintaining rubbish bins Attention to detail Physical stamina Teamwork Time management Adherence to policies and procedures
+kept:   ['Maids and Housekeeping Cleaners', 'Janitors and Cleaners, Except Maids and Housekeeping Cleaners', 'Orderlies']
+drop:   ['Personal Care Aides', 'Shampooers', 'First-Line Supervisors of Housekeeping and Janitorial Workers', 'Home Health Aides', 'Community Health Workers']
+
+job_id: 3528221042
+title:  Secondary - General Cover Teacher
+domain: Education | sector: Teaching Jobs
+desc:   [Education] Secondary - General Cover Teacher
+tasks:  [Education] Supervise students in the classroom Keep students on task Inspire children to achieve great results Interact with children aged 11-18 Be the responsible adult in the classroom Positive attitude Patience Confidence in interacting with children Communication skills Leadership
+kept:   ['Self-Enrichment Teachers', 'Adult Basic Education, Adult Secondary Education, and English as a Second Language Instructors', 'Secondary School Teachers, Except Special and Career/Technical Education']
+drop:   ['Nannies', 'Childcare Workers', 'Tutors', 'Career/Technical Education Teachers, Secondary School', 'Teaching Assistants, Preschool, Elementary, Middle, and Secondary School, Except Special Education', 'Special Education Teachers, Secondary School', 'Middle School Teachers, Except Special and Career/Technical Education']
+
+job_id: 3171896027
+title:  Contracts Co-Ordinator
+domain: Business Administration | sector: Maintenance Jobs
+desc:   [Business Administration] We are seeking a Contracts Coordinator to join our team. The successful candidate will be responsible for coordinating and managing contracts, ensuring compliance with company policies and procedures.
+tasks:  [Business Administration] Coordinate and manage contracts from initiation to completion Ensure compliance with company policies and procedures Maintain accurate records and reports Communicate with internal stakeholders and external parties Review and analyze contract terms and conditions Contract management Communication Analytical skills Time management Attention to detail
+kept:   ['Administrative Services Managers', 'General and Operations Managers', 'Compliance Managers']
+drop:   ['Management Analysts', 'Financial Managers', 'Compliance Officers', 'Agents and Business Managers of Artists, Performers, and Athletes']
+
+======================================================================
+E5_LARGE
+======================================================================
+GLOBAL METRICS
+jobs: 700
+avg_candidates_before: 8.486
+avg_candidates_after:  2.889
+drop_rate:            0.6596
+empty_outputs_percent:0.00
+it_leakage_share:     0.0490
+min_kept:             2
+max_kept:             3
+
+TOP KEPT OCCUPATIONS (top 25)
+    78  Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products
+    44  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+    32  Customer Service Representatives
+    26  First-Line Supervisors of Material-Moving Machine and Vehicle Operators
+    24  Shipping, Receiving, and Inventory Clerks
+    23  Online Merchants
+    22  First-Line Supervisors of Food Preparation and Serving Workers
+    22  Sales Managers
+    22  Teaching Assistants, Special Education
+    21  Personal Care Aides
+    21  Cooks, Restaurant
+    21  Financial Managers
+    20  Healthcare Social Workers
+    20  Accountants and Auditors
+    18  Maids and Housekeeping Cleaners
+    18  Heavy and Tractor-Trailer Truck Drivers
+    17  Home Health Aides
+    17  Software Quality Assurance Analysts and Testers
+    17  Treasurers and Controllers
+    17  Bookkeeping, Accounting, and Auditing Clerks
+    16  Packers and Packagers, Hand
+    16  First-Line Supervisors of Retail Sales Workers
+    16  Software Developers
+    15  Computer User Support Specialists
+    15  Childcare Workers
+
+DOMAIN AVG KEPT
+Accountancy: 3
+Admin Jobs: 3
+Administration: 3
+Administrative Support: 3
+Aerospace Engineering: 3
+Aerospace and Defence: 3
+Architecture: 3
+Architecture and Construction: 3
+Automotive Engineering: 3
+Aviation: 3
+Business: 3
+Business Administration: 3
+Career Transition and Sports: 3
+Charity & Conservation: 3
+Childcare: 3
+Cleaning and Maintenance: 3
+Comms / Marketing / PR: 3
+Construction Trades: 3
+Construction and Architecture: 3
+Construction and Infrastructure: 3
+Construction and Maintenance: 3
+Construction and Mining: 3
+Construction and Real Estate: 3
+Construction and Trade: 3
+Construction/Cleaning: 3
+Construction/Engineering: 3
+Construction/Infrastructure: 3
+Construction/Maintenance: 3
+Consultancy Jobs: 3
+Creative/Design: 3
+Criminal Justice: 3
+Customer Service: 3
+Customer Services: 3
+Cyber Security: 3
+Defence and Aerospace: 3
+Digital Agency: 3
+Digital Marketing: 3
+Domestic Services: 3
+Domestic help & Cleaning Jobs: 3
+Education/Training: 3
+Electronics Engineering: 3
+Electronics Manufacturing: 3
+Electronics/Audio Technology: 3
+Employment Research Consultancy: 3
+Energy and Waste consultancy: 3
+Engineering/Manufacturing: 3
+Environmental Conservation: 3
+Environmental Consultancy: 3
+Facilities Management: 3
+Finance: 3
+Finance/Accounting: 3
+Financial Services: 3
+Food Manufacturing: 3
+Healthcare/Social Care: 3
+Hospitality Technology: 3
+Human Resources: 3
+IT / Information Technology: 3
+IT and Telecommunication: 3
+Industrial Engineering / Lean Manufacturing: 3
+Insurance: 3
+Investment Management: 3
+Leisure: 3
+Leisure and Sports: 3
+Life Sciences: 3
+Logistics: 3
+Logistics and Supply Chain: 3
+Logistics and Transportation: 3
+Logistics and Warehouse: 3
+Manufacturing/Engineering: 3
+Market Research: 3
+Marketing: 3
+Marketing and Advertising: 3
+Marketing and PR: 3
+Marketing and Public Relations: 3
+Marketing/PR: 3
+Marketing/Sales: 3
+Medical Sales: 3
+Non-Profit/Charity: 3
+Non-profit/Charity: 3
+Non-profit/Research: 3
+PR: 3
+Packaging and Supply: 3
+Pharmaceutical Consulting: 3
+Procurement and Supply Chain: 3
+Property: 3
+Property Management and Consultancy: 3
+Public Safety: 3
+Public Sector: 3
+Public Sector/Government: 3
+Publishing: 3
+Recruitment: 3
+Recruitment and Staffing: 3
+Remote Work/Online Jobs: 3
+Remote Work/Online Opportunities: 3
+Residential Property: 3
+Retail/Electronics: 3
+Retail/Food Service: 3
+SaaS: 3
+Sales and Events: 3
+Sales and Recruitment: 3
+Scientific & QA: 3
+Scientific & QA Jobs: 3
+Scientific Research: 3
+Security: 3
+Social Care: 3
+Social Services: 3
+Social Work: 3
+Software Development: 3
+Software Sales: 3
+Supply Chain Technology: 3
+Technology: 3
+Technology & Engineering: 3
+Technology and IT: 3
+Telecommunications: 3
+Telecoms/Construction: 3
+Tourism and Transportation: 3
+Transportation: 3
+Transportation and Infrastructure: 3
+Transportation and Logistics: 3
+Transportation/Infrastructure: 3
+Urban Planning: 3
+Utilities: 3
+Logistics & Warehouse: 2.963
+Social work: 2.944
+Retail: 2.941
+Hospitality & Catering: 2.939
+Accounting & Finance: 2.935
+Manufacturing: 2.9
+Sales: 2.895
+Education: 2.887
+Hospitality: 2.875
+Healthcare: 2.867
+IT: 2.863
+Engineering: 2.846
+Real Estate: 2.833
+Sales and Marketing: 2.833
+Construction: 2.821
+Legal: 2.8
+Healthcare & Nursing: 2.793
+Trade & Construction: 2.75
+IT and Technology: 2.714
+Automotive: 2.5
+Construction and Facilities Management: 2.5
+Consultancy: 2.5
+Energy: 2.5
+Fashion Retail: 2.5
+Healthcare/Social Work: 2.5
+Law: 2.5
+Public Services: 2.5
+Fintech: 2.333
+Biotechnology: 2
+Construction/Building: 2
+Defence: 2
+Education Technology: 2
+Health and Fitness: 2
+Healthcare and Technology: 2
+Home Automation and Security: 2
+Media and Technology: 2
+Scientific Research and Development: 2
+
+SAMPLE CASES (truncated)
+
+job_id: 3042570583
+title:  Primary Teacher
+domain: Education | sector: Teaching Jobs
+desc:   [Education] Key Stage 2 Teacher for a Primary School in Worksop
+tasks:  [Education] Teach Key Stage 2 to a high standard Work across all year groups in Key Stage 2 Employed on a full-time basis Start immediately Teach to a high standard Teaching Leadership Communication Classroom Management Lesson Planning
+kept:   ['Secondary School Teachers, Except Special and Career/Technical Education', 'Elementary School Teachers, Except Special Education']
+drop:   ['Kindergarten Teachers, Except Special Education', 'Self-Enrichment Teachers', 'Career/Technical Education Teachers, Secondary School', 'Communications Teachers, Postsecondary', 'Preschool Teachers, Except Special Education', 'Special Education Teachers, Preschool', 'Special Education Teachers, Elementary School']
+
+job_id: 3226952849
+title:  DCS Written Enquiries Senior Associate
+domain: Accounting & Finance | sector: Accounting & Finance Jobs
+desc:   [Accounting & Finance] SS&C is hiring a DCS Written Enquiries Senior Associate in the Accounting & Finance department.
+tasks:  [Accounting & Finance] Respond to written enquiries from clients and stakeholders Provide accurate and timely responses to client queries Maintain accurate records of client interactions and correspondence Collaborate with internal teams to resolve client issues Develop and implement process improvements to enhance client experience Excellent written and verbal communication skills Strong analytical and problem-solving skills Ability to work in a fast-paced environment Proficiency in Microsoft Office Suite Strong attention to detail
+kept:   ['Accountants and Auditors', 'Claims Adjusters, Examiners, and Investigators', 'Bookkeeping, Accounting, and Auditing Clerks']
+drop:   ['Billing and Posting Clerks', 'Arbitrators, Mediators, and Conciliators', 'New Accounts Clerks', 'Tax Preparers', 'Procurement Clerks', 'Treasurers and Controllers']
+
+job_id: 3483273575
+title:  Commercial Litigation Solicitor
+domain: Law | sector: Legal Jobs
+desc:   [Law] Commercial Litigation Solicitor position at a law firm in the Thames Valley region
+tasks:  [Law] Deal with a mixed general commercial litigation caseload Assist Partners/Senior Associates on complex cases Build and maintain client relationships Participate in business development activity Provide excellent client service Commercial litigation Client relationship building Business development Teamwork Communication
+kept:   ['Lawyers', 'Claims Adjusters, Examiners, and Investigators', 'Arbitrators, Mediators, and Conciliators']
+drop:   ['Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products', 'Paralegals and Legal Assistants', 'Procurement Clerks', 'Correspondence Clerks', 'Labor Relations Specialists']
+
+job_id: 2194228542
+title:  Trainee HGV Driver
+domain: Logistics | sector: Logistics & Warehouse Jobs
+desc:   [Logistics] Become a Trainee HGV Driver with flexible working hours and training in under a week.
+tasks:  [Logistics] Obtain a Cat C or Cat CE licence Complete training at one of 60+ training centres across the UK Pass a driving test with a 92% pass rate Secure job opportunities with top logistics companies Develop a new career in the logistics industry Driving Logistics Time management Communication Problem-solving
+kept:   ['Light Truck Drivers', 'First-Line Supervisors of Material-Moving Machine and Vehicle Operators', 'Heavy and Tractor-Trailer Truck Drivers']
+drop:   ['Shipping, Receiving, and Inventory Clerks', 'Logisticians', 'Tire Builders', 'Tire Repairers and Changers']
+
+job_id: 3495993288
+title:  Part 3 Architect
+domain: Architecture | sector: Creative & Design Jobs
+desc:   [Architecture] Part 3 Architect position at GAA Design, a residential architecture practice in London and the Home counties.
+tasks:  [Architecture] Submitting planning applications Dealing with building control applications Working on various stages of residential projects Collaborating with small and medium-sized developers Designing stimulating and context-sensitive residential projects Architecture Design Project management Communication Planning
+kept:   ['Architects, Except Landscape and Naval', 'Urban and Regional Planners', 'Architectural and Engineering Managers']
+drop:   ['Landscape Architects', 'Property, Real Estate, and Community Association Managers', 'Floral Designers', 'Manufactured Building and Mobile Home Installers', 'Architecture Teachers, Postsecondary']
+
+======================================================================
+GTE_LARGE
+======================================================================
+GLOBAL METRICS
+jobs: 700
+avg_candidates_before: 8.187
+avg_candidates_after:  2.911
+drop_rate:            0.6444
+empty_outputs_percent:0.00
+it_leakage_share:     0.0658
+min_kept:             2
+max_kept:             3
+
+TOP KEPT OCCUPATIONS (top 25)
+    26  Cooks, Institution and Cafeteria
+    25  Healthcare Social Workers
+    24  Chefs and Head Cooks
+    24  Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products
+    20  Treasurers and Controllers
+    20  Financial Managers
+    20  Packers and Packagers, Hand
+    20  Shipping, Receiving, and Inventory Clerks
+    20  Dining Room and Cafeteria Attendants and Bartender Helpers
+    19  Mental Health and Substance Abuse Social Workers
+    19  Child, Family, and School Social Workers
+    19  Personal Care Aides
+    19  Software Developers
+    18  Solar Sales Representatives and Assessors
+    18  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+    18  Transportation, Storage, and Distribution Managers
+    17  Advertising and Promotions Managers
+    17  Information Technology Project Managers
+    17  Food Service Managers
+    15  Customer Service Representatives
+    15  Medical and Health Services Managers
+    15  Human Resources Specialists
+    15  Sales Managers
+    15  Registered Nurses
+    15  Stockers and Order Fillers
+
+DOMAIN AVG KEPT
+Accountancy: 3
+Admin Jobs: 3
+Administration: 3
+Administrative Support: 3
+Aerospace Engineering: 3
+Aerospace and Defence: 3
+Architecture: 3
+Architecture and Construction: 3
+Automotive: 3
+Automotive Engineering: 3
+Aviation: 3
+Biotechnology: 3
+Business: 3
+Business Administration: 3
+Career Transition and Sports: 3
+Charity & Conservation: 3
+Childcare: 3
+Cleaning and Maintenance: 3
+Comms / Marketing / PR: 3
+Construction Trades: 3
+Construction and Architecture: 3
+Construction and Facilities Management: 3
+Construction and Infrastructure: 3
+Construction and Real Estate: 3
+Construction and Trade: 3
+Construction/Cleaning: 3
+Construction/Infrastructure: 3
+Construction/Maintenance: 3
+Consultancy Jobs: 3
+Creative/Design: 3
+Criminal Justice: 3
+Customer Service: 3
+Customer Services: 3
+Defence: 3
+Defence and Aerospace: 3
+Digital Agency: 3
+Digital Marketing: 3
+Domestic help & Cleaning Jobs: 3
+Education Technology: 3
+Education/Training: 3
+Electronics Engineering: 3
+Electronics Manufacturing: 3
+Electronics/Audio Technology: 3
+Employment Research Consultancy: 3
+Energy and Waste consultancy: 3
+Engineering/Manufacturing: 3
+Environmental Conservation: 3
+Environmental Consultancy: 3
+Facilities Management: 3
+Fashion Retail: 3
+Finance: 3
+Finance/Accounting: 3
+Food Manufacturing: 3
+Health and Fitness: 3
+Healthcare and Technology: 3
+Healthcare/Social Care: 3
+Home Automation and Security: 3
+Hospitality: 3
+Hospitality Technology: 3
+Human Resources: 3
+IT / Information Technology: 3
+IT and Telecommunication: 3
+Industrial Engineering / Lean Manufacturing: 3
+Insurance: 3
+Investment Management: 3
+Leisure: 3
+Leisure and Sports: 3
+Life Sciences: 3
+Logistics: 3
+Logistics and Supply Chain: 3
+Logistics and Transportation: 3
+Logistics and Warehouse: 3
+Manufacturing/Engineering: 3
+Market Research: 3
+Marketing: 3
+Marketing and Advertising: 3
+Marketing and PR: 3
+Marketing and Public Relations: 3
+Marketing/PR: 3
+Marketing/Sales: 3
+Media and Technology: 3
+Medical Sales: 3
+Non-Profit/Charity: 3
+Non-profit/Charity: 3
+Non-profit/Research: 3
+PR: 3
+Packaging and Supply: 3
+Procurement and Supply Chain: 3
+Property: 3
+Property Management and Consultancy: 3
+Public Safety: 3
+Public Sector: 3
+Public Sector/Government: 3
+Public Services: 3
+Publishing: 3
+Real Estate: 3
+Recruitment: 3
+Recruitment and Staffing: 3
+Remote Work/Online Jobs: 3
+Remote Work/Online Opportunities: 3
+Residential Property: 3
+Retail/Electronics: 3
+Retail/Food Service: 3
+SaaS: 3
+Sales: 3
+Sales and Marketing: 3
+Sales and Recruitment: 3
+Scientific & QA: 3
+Scientific & QA Jobs: 3
+Scientific Research: 3
+Scientific Research and Development: 3
+Security: 3
+Social Services: 3
+Social Work: 3
+Software Development: 3
+Software Sales: 3
+Supply Chain Technology: 3
+Technology: 3
+Technology & Engineering: 3
+Technology and IT: 3
+Telecommunications: 3
+Telecoms/Construction: 3
+Trade & Construction: 3
+Transportation: 3
+Transportation and Infrastructure: 3
+Transportation and Logistics: 3
+Transportation/Infrastructure: 3
+Urban Planning: 3
+Utilities: 3
+Construction: 2.964
+Social work: 2.944
+Retail: 2.941
+Hospitality & Catering: 2.939
+Accounting & Finance: 2.935
+Education: 2.935
+Logistics & Warehouse: 2.926
+IT: 2.902
+Manufacturing: 2.9
+Legal: 2.8
+Engineering: 2.769
+Healthcare & Nursing: 2.759
+Energy: 2.75
+Financial Services: 2.75
+Law: 2.75
+Healthcare: 2.733
+Construction and Maintenance: 2.667
+Fintech: 2.667
+IT and Technology: 2.571
+Consultancy: 2.5
+Domestic Services: 2.5
+Social Care: 2.5
+Construction and Mining: 2
+Construction/Building: 2
+Construction/Engineering: 2
+Cyber Security: 2
+Healthcare/Social Work: 2
+Pharmaceutical Consulting: 2
+Sales and Events: 2
+Tourism and Transportation: 2
+
+SAMPLE CASES (truncated)
+
+job_id: 2716371745
+title:  Support Worker - TA1
+domain: Social work | sector: Social work Jobs
+desc:   [Social work] Support Worker - TA1
+tasks:  [Social work] Promote and encourage the people we support to lead busy lives and engage in community activities Provide one-to-one time with the people we support Work as part of a team to support individuals with their daily needs Support individuals to make choices and decisions about their daily lives Encourage independence and promote a supportive team atmosphere Communication Teamwork Empathy Problem-solving Patience
+kept:   ['Mental Health and Substance Abuse Social Workers', 'Child, Family, and School Social Workers', 'Healthcare Social Workers']
+drop:   ['Community Health Workers', 'Recreation Workers', 'First-Line Supervisors of Office and Administrative Support Workers', 'First-Line Supervisors of Personal Service Workers', 'Meter Readers, Utilities']
+
+job_id: 3415641739
+title:  Retail Sales Advisor - 40 hours
+domain: Retail | sector: Sales Jobs
+desc:   [Retail] Retail Sales Advisor
+tasks:  [Retail] Guide customers to their dream sofa Show designs & styles available for sales Offer the best customer experience Create wish lists for customers Complete customer orders via Apple iPad Customer service Sales Communication Problem-solving Time management
+kept:   ['Retail Salespersons', 'Merchandise Displayers and Window Trimmers', 'Upholsterers']
+drop:   ['Stockers and Order Fillers', 'Furniture Finishers', 'Retail Loss Prevention Specialists', 'Wholesale and Retail Buyers, Except Farm Products', 'Online Merchants', 'Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products']
+
+job_id: 3534817828
+title:  Care and Support Worker - Relief
+domain: Social work | sector: Social work Jobs
+desc:   [Social work] Care and Support Worker - Relief
+tasks:  [Social work] Provide domiciliary care service to residents Promote Independent Living to the over 55's Work in a team to deliver care services Support residents with daily living activities Maintain accurate records of care provided Compassion Patience Personability Communication Time management
+kept:   ['Healthcare Social Workers', 'Personal Care Aides', 'Community Health Workers']
+drop:   ['Home Health Aides', 'Social and Human Service Assistants', 'Mental Health and Substance Abuse Social Workers', 'Art Therapists', 'First-Line Supervisors of Office and Administrative Support Workers', 'Recycling and Reclamation Workers']
+
+job_id: 3672510342
+title:  Health Visitor- £3000 Welcome Bonus
+domain: Healthcare | sector: Healthcare & Nursing Jobs
+desc:   [Healthcare] Health Visitor position with a £3000 welcome bonus and NMC registration reimbursement
+tasks:  [Healthcare] Work within Essex Child and Family Wellbeing Services Improve health and wellbeing outcomes for children and families in the community Be part of a valued team at Castle Point Feel valued within HCRG Care Group Have clear visibility of senior management Health Visitor qualification NMC registration Communication skills Leadership skills Community engagement
+kept:   ['Medical and Health Services Managers', 'Community Health Workers', 'Healthcare Social Workers']
+drop:   ['Pediatricians, General', 'Recreational Therapists', 'Medical Secretaries and Administrative Assistants', 'Patient Representatives', 'Clinical Data Managers', 'Medical Equipment Repairers']

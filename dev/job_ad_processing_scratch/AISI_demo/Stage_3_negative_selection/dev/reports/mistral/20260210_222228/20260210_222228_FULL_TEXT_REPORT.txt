@@ -1,0 +1,3057 @@
+==========================================================================================
+LLM_MODEL FULL COMPREHENSIVE REPORT
+==========================================================================================
+Generated at: 2026-02-10T22:22:29
+Model: Mistral-7B-Instruct-v0.3-AWQ
+Output Directory: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/dev/reports/mistral/20260210_222228
+
+PROMPT USED:
+------------------------------------------------------------------------------------------
+<|im_start|>system
+Return ONLY valid JSON: {{"drop":[...]}}. No extra text.
+
+Title: {job_ad_title}
+Sector: {job_sector_category}
+Domain: {domain}
+Tasks: {tasks_str}
+
+Candidates (1-based):
+{numbered}
+
+Rules:
+- Keep 2–3 by default.
+- Keep 1 only if very sure all others are clearly wrong.
+- Drop only clearly wrong functions.
+
+Output ONLY JSON: {{"drop":[...]}}
+------------------------------------------------------------------------------------------
+
+======================================================================
+EMBEDDING: BGE_LARGE
+======================================================================
+GLOBAL METRICS
+  Total Jobs Processed:    14000
+  Avg Candidates (Before): 8.166
+  Avg Candidates (After):  2.919
+  Drop Rate:               0.6425
+  Empty Outputs:           0 (0.00%)
+  IT Leakage Share:        0.0660 (2699/40869)
+
+TOP KEPT OCCUPATIONS (Top 25)
+    611 x Information Technology Project Managers
+    580 x Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+    515 x Sales Managers
+    508 x Customer Service Representatives
+    486 x Personal Care Aides
+    472 x Financial Managers
+    470 x Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop
+    447 x Food Service Managers
+    444 x Stockers and Order Fillers
+    435 x Software Developers
+    403 x Helpers--Installation, Maintenance, and Repair Workers
+    384 x Retail Salespersons
+    365 x Chefs and Head Cooks
+    364 x Advertising and Promotions Managers
+    353 x First-Line Supervisors of Retail Sales Workers
+    339 x Mental Health and Substance Abuse Social Workers
+    334 x Cooks, Institution and Cafeteria
+    313 x Dining Room and Cafeteria Attendants and Bartender Helpers
+    308 x Bookkeeping, Accounting, and Auditing Clerks
+    307 x Marketing Managers
+    304 x Administrative Services Managers
+    304 x Accountants and Auditors
+    298 x Architectural and Engineering Managers
+    296 x Shipping, Receiving, and Inventory Clerks
+    296 x Computer Systems Engineers/Architects
+
+DOMAIN AVERAGES (Avg items kept per domain)
+  Academia/Research   : 3.000
+  Accountancy         : 3.000
+  Accountancy/Consulting: 3.000
+  Accounting          : 3.000
+  Accounting and Business Advisory: 3.000
+  Accounting and Finance: 3.000
+  Accounting/Finance  : 3.000
+  Accounting/Finance, Administrative: 3.000
+  Administration/Logistics: 3.000
+  Administration/Office: 3.000
+  Administration/Office Management: 3.000
+  Administration/Office Support: 3.000
+  Administrative Support: 3.000
+  Administrative/Office: 3.000
+  Administrative/Office Support: 3.000
+  Advertising         : 3.000
+  Advertising and Marketing: 3.000
+  Advertising/Marketing: 3.000
+  Aerospace           : 3.000
+  Aerospace & Defence : 3.000
+  Aerospace & Manufacturing: 3.000
+  Aerospace Engineering: 3.000
+  Aerospace Manufacturing: 3.000
+  Aerospace and Defense: 3.000
+  Aerospace and Technology: 3.000
+  Aerospace/Automotive: 3.000
+  Aerospace/Aviation  : 3.000
+  Aerospace/Defence/Space: 3.000
+  Aerospace/Defense   : 3.000
+  Aerospace/Telecommunications: 3.000
+  Agricultural and Plant Engineering: 3.000
+  Agriculture         : 3.000
+  Agriculture and Construction: 3.000
+  Agriculture/Food Science: 3.000
+  Agriculture/Food and Beverage: 3.000
+  Agriculture/Rural   : 3.000
+  Agriculture/Supply Chain: 3.000
+  Animal Care         : 3.000
+  Animal Welfare and Non-Profit: 3.000
+  Architecture and Construction: 3.000
+  Architecture and Design: 3.000
+  Architecture and Engineering: 3.000
+  Architecture and Interior Design: 3.000
+  Art and Auction House: 3.000
+  Arts and Entertainment: 3.000
+  Arts, Entertainment & Recreation: 3.000
+  Audio-Visual        : 3.000
+  Automation          : 3.000
+  Automotive Engineering: 3.000
+  Automotive Manufacturing: 3.000
+  Automotive Sales    : 3.000
+  Automotive and Luxury Goods: 3.000
+  Automotive/Mechanical trade: 3.000
+  Automotive/Motorsport Engineering: 3.000
+  Automotive/Rental Industry: 3.000
+  Aviation            : 3.000
+  Banking             : 3.000
+  Banking & Finance   : 3.000
+  Banking and Finance : 3.000
+  Beauty and Wellness : 3.000
+  Biopharmaceutical   : 3.000
+  Biopharmaceutical and Medical Device: 3.000
+  Biopharmaceuticals  : 3.000
+  Biotechnology       : 3.000
+  Biotechnology and Biological Sciences: 3.000
+  Biotechnology/Life Sciences: 3.000
+  Biotechnology/Pharmaceuticals: 3.000
+  Building Services, FM and Support Sectors: 3.000
+  Building and Construction: 3.000
+  Business            : 3.000
+  Business Administration: 3.000
+  Business Support    : 3.000
+  Business and Finance: 3.000
+  Business and Management: 3.000
+  Business/Corporate  : 3.000
+  Business/Management : 3.000
+  Career Transition and Sports: 3.000
+  Charity & Conservation: 3.000
+  Charity & Voluntary : 3.000
+  Charity and Non-Profit: 3.000
+  Chemical Distribution: 3.000
+  Chemical Industry   : 3.000
+  Chemical/Manufacturing: 3.000
+  Chemicals           : 3.000
+  Chemicals and Ingredients: 3.000
+  Chemicals and Materials: 3.000
+  Childcare           : 3.000
+  Civil & Structural engineering: 3.000
+  Civil Engineering   : 3.000
+  Civil Engineering/Construction: 3.000
+  Cleaning Services   : 3.000
+  Cleaning and Domestic Help: 3.000
+  Cleaning and Domestic Services: 3.000
+  Cleaning and Hygiene: 3.000
+  Cleaning/Janitorial : 3.000
+  Cloud Computing     : 3.000
+  Commercial/Business : 3.000
+  Comms / Marketing / PR: 3.000
+  Community Development: 3.000
+  Construction Manufacturing: 3.000
+  Construction Materials: 3.000
+  Construction Trades : 3.000
+  Construction and Architecture: 3.000
+  Construction and Building: 3.000
+  Construction and Building Materials: 3.000
+  Construction and Consultancy: 3.000
+  Construction and Development: 3.000
+  Construction and Engineering Services: 3.000
+  Construction and Facilities Management: 3.000
+  Construction and Infrastructure Services: 3.000
+  Construction and Maintenance: 3.000
+  Construction and Manufacturing: 3.000
+  Construction and Mining: 3.000
+  Construction and Property: 3.000
+  Construction and Property Management: 3.000
+  Construction and Real Estate: 3.000
+  Construction and Steel: 3.000
+  Construction and Trades: 3.000
+  Construction/Architecture: 3.000
+  Construction/Building Maintenance: 3.000
+  Construction/Building Materials: 3.000
+  Construction/Building Services: 3.000
+  Construction/Civil Engineering: 3.000
+  Construction/Cleaning: 3.000
+  Construction/Equipment Rental: 3.000
+  Construction/Housing: 3.000
+  Construction/Infrastructure: 3.000
+  Construction/Maintenance: 3.000
+  Construction/Project Management: 3.000
+  Construction/Property: 3.000
+  Construction/Property Development: 3.000
+  Construction/Property Maintenance: 3.000
+  Construction/Quarrying: 3.000
+  Construction/Rail   : 3.000
+  Construction/Rail & Infrastructure: 3.000
+  Construction/Railway Engineering: 3.000
+  Construction/Real Estate: 3.000
+  Construction/Retail : 3.000
+  Construction/Trade  : 3.000
+  Consultancy Jobs    : 3.000
+  Consumer Goods      : 3.000
+  Content Creation/PR : 3.000
+  Control Systems     : 3.000
+  Corporate Business  : 3.000
+  Corporate Finance   : 3.000
+  Creative            : 3.000
+  Creative/Design     : 3.000
+  Criminal Justice    : 3.000
+  Customer Service    : 3.000
+  Customer Service/Administration: 3.000
+  Customer Service/Call Center: 3.000
+  Cyber Security      : 3.000
+  Data Science        : 3.000
+  Data Science and Analytics: 3.000
+  Data and Intelligence consultancy: 3.000
+  Defence             : 3.000
+  Defence & Security  : 3.000
+  Defence and Aerospace: 3.000
+  Defence and Government: 3.000
+  Defence and Security: 3.000
+  Defense and Government: 3.000
+  Defense and Military: 3.000
+  Defense and Security: 3.000
+  Design and Creative : 3.000
+  Design and Research : 3.000
+  Digital Agency      : 3.000
+  Digital Marketing   : 3.000
+  Digital Marketing and Creative Technology: 3.000
+  Digital Media and Performance Marketing: 3.000
+  Digital retail, Tech: 3.000
+  Digital/Technology  : 3.000
+  Document Management : 3.000
+  Domestic Help       : 3.000
+  Domestic and Cleaning Services: 3.000
+  Domestic/ Household Management: 3.000
+  Domestic/Cleaning   : 3.000
+  E-commerce          : 3.000
+  E-commerce and Logistics: 3.000
+  E-commerce/Fashion  : 3.000
+  Ecommerce Fashion   : 3.000
+  Ed Tech             : 3.000
+  EdTech              : 3.000
+  Education Recruitment: 3.000
+  Education Technology: 3.000
+  Education and Technology: 3.000
+  Education/Childcare : 3.000
+  Education/Library   : 3.000
+  Education/Library Services: 3.000
+  Education/Non-Profit: 3.000
+  Education/Online Learning: 3.000
+  Education/Recruitment: 3.000
+  Education/Social Work: 3.000
+  Education/Teaching  : 3.000
+  Education/Training  : 3.000
+  Electrical Distribution: 3.000
+  Electrical Trade    : 3.000
+  Electrical Wholesale: 3.000
+  Electrical services : 3.000
+  Electrical/Electronic Engineering: 3.000
+  Electrical/Electronics: 3.000
+  Electro-mechanical Engineering: 3.000
+  Electronics / Embedded Software: 3.000
+  Electronics Engineering: 3.000
+  Electronics Manufacturing: 3.000
+  Electronics Technology: 3.000
+  Electronics and Manufacturing: 3.000
+  Electronics and Semiconductors: 3.000
+  Electronics manufacture and distribution: 3.000
+  Electronics/Audio Technology: 3.000
+  Electronics/Embedded Systems: 3.000
+  Electronics/Engineering: 3.000
+  Electronics/Technology: 3.000
+  Electronics/Telecommunications: 3.000
+  Employment Research Consultancy: 3.000
+  Energy & Environment: 3.000
+  Energy & Natural Resources: 3.000
+  Energy Services     : 3.000
+  Energy Trading      : 3.000
+  Energy and Chemicals: 3.000
+  Energy and Environment: 3.000
+  Energy and Power Systems: 3.000
+  Energy and Sustainability: 3.000
+  Energy and Waste consultancy: 3.000
+  Energy sector       : 3.000
+  Energy/Engineering  : 3.000
+  Energy/Geoscience   : 3.000
+  Energy/Utilities    : 3.000
+  Engineering & Maintenance: 3.000
+  Engineering & Manufacturing: 3.000
+  Engineering & Science: 3.000
+  Engineering Jobs    : 3.000
+  Engineering and Advisory: 3.000
+  Engineering and Consulting: 3.000
+  Engineering and Manufacturing: 3.000
+  Engineering and Process Sector Industries: 3.000
+  Engineering/Construction: 3.000
+  Engineering/Maintenance: 3.000
+  Engineering/Manufacturing: 3.000
+  Engineering/Technology: 3.000
+  Entertainment and Media: 3.000
+  Entertainment/PR    : 3.000
+  Environmental Consultancy: 3.000
+  Environmental Consulting: 3.000
+  Environmental Regulation: 3.000
+  Environmental Science: 3.000
+  Environmental Technology: 3.000
+  Environmental and Occupational Hygiene: 3.000
+  Environmental consultancy: 3.000
+  Environmental, Engineering and Strategic Consulting: 3.000
+  Environmental, Health, and Safety: 3.000
+  Environmental/Social Impact: 3.000
+  Environmental/Sustainability: 3.000
+  Environmental/Water Management: 3.000
+  Estate Agency       : 3.000
+  Event Management    : 3.000
+  Event Planning and A/V Technology: 3.000
+  Events              : 3.000
+  Executive Search Firm: 3.000
+  Executive Search and Recruitment: 3.000
+  Executive Secretarial & Support: 3.000
+  FMCG                : 3.000
+  FMCG (Fast-Moving Consumer Goods): 3.000
+  Facilities & Property Management: 3.000
+  Facilities Maintenance: 3.000
+  Facilities Management and Professional Services: 3.000
+  Farming/Agribusiness: 3.000
+  Fashion Industry    : 3.000
+  Fashion Retail      : 3.000
+  Fashion Technology  : 3.000
+  Fashion and Apparel : 3.000
+  Fashion and Retail  : 3.000
+  Fashion/ Apparel    : 3.000
+  Fashion/Apparel     : 3.000
+  Fashion/Textile     : 3.000
+  Fashion/Textiles    : 3.000
+  FinTech             : 3.000
+  Finance and Accounting: 3.000
+  Finance and Administration: 3.000
+  Finance and Banking : 3.000
+  Finance and Business: 3.000
+  Finance and Consulting: 3.000
+  Finance and Insurance: 3.000
+  Finance and Law     : 3.000
+  Finance and Tax     : 3.000
+  Finance and Technology: 3.000
+  Finance et Assurance: 3.000
+  Finance/ Banking    : 3.000
+  Finance/Accounting  : 3.000
+  Finance/Administration: 3.000
+  Finance/Banking     : 3.000
+  Finance/Estate Agency: 3.000
+  Finance/Financial Services: 3.000
+  Finance/IT          : 3.000
+  Finance/Insurance   : 3.000
+  Finance/Investment  : 3.000
+  Finance/Investment Banking: 3.000
+  Finance/Trading     : 3.000
+  Finance/Wealth Management: 3.000
+  Financial Markets   : 3.000
+  Financial Planning  : 3.000
+  Financial Services and Technology: 3.000
+  Financial Services/Banking: 3.000
+  Financial Services/Reinsurance: 3.000
+  Financial Technology: 3.000
+  Financial Technology (FinTech): 3.000
+  Fire and Security   : 3.000
+  Fire and Security Installation: 3.000
+  Food Industry       : 3.000
+  Food Processing     : 3.000
+  Food Production     : 3.000
+  Food Sector         : 3.000
+  Food Service        : 3.000
+  Food Tech           : 3.000
+  Food and Beverage   : 3.000
+  Foodservice         : 3.000
+  Funeral Services    : 3.000
+  Game Development    : 3.000
+  Gaming and Betting  : 3.000
+  Gaming and Entertainment: 3.000
+  Global Manufacturing: 3.000
+  Government          : 3.000
+  Government and Defence: 3.000
+  Government and Public Administration: 3.000
+  Government and Public Policy: 3.000
+  Government and Public Sector: 3.000
+  Government/Local Government: 3.000
+  Government/Non-Profit: 3.000
+  Government/Public Administration: 3.000
+  Government/Public Sector: 3.000
+  HR & Recruitment Jobs: 3.000
+  Health & Beauty     : 3.000
+  Health & Social Care: 3.000
+  Health Tech         : 3.000
+  Health and Fitness  : 3.000
+  Health and Fitness Technology: 3.000
+  Health and Social Care: 3.000
+  Health and Social Care Recruitment: 3.000
+  Healthcare & Biotechnology: 3.000
+  Healthcare & Nursing Jobs: 3.000
+  Healthcare Administration: 3.000
+  Healthcare and Biotechnology: 3.000
+  Healthcare and Clinical Research: 3.000
+  Healthcare and Life Sciences (HCLS): 3.000
+  Healthcare and Social Care: 3.000
+  Healthcare and Social Services: 3.000
+  Healthcare and Social Work: 3.000
+  Healthcare/Biotechnology: 3.000
+  Healthcare/Hospitality: 3.000
+  Healthcare/IT       : 3.000
+  Healthcare/Non-profit: 3.000
+  Healthcare/Pharmaceutical: 3.000
+  Healthcare/Pharmaceuticals: 3.000
+  Healthcare/Social Services: 3.000
+  Heavy Plant industry: 3.000
+  Heritage and Conservation: 3.000
+  Heritage and Tourism: 3.000
+  Home Accessories Manufacturing: 3.000
+  Hospitality Technology: 3.000
+  Hospitality and Leisure: 3.000
+  Hospitality and Office Administration: 3.000
+  Hospitality and Recreation: 3.000
+  Hospitality, Leisure, Entertainment: 3.000
+  Hospitality/Entertainment: 3.000
+  Hospitality/Hotel   : 3.000
+  Hospitality/Leisure : 3.000
+  Household Help      : 3.000
+  Household Services  : 3.000
+  Housekeeping/Cleaning: 3.000
+  Housing Association : 3.000
+  Housing and Construction: 3.000
+  Housing and Property Management: 3.000
+  Human Resources/Recruitment: 3.000
+  Hygiene Operations  : 3.000
+  IT & Technology     : 3.000
+  IT & Technology Recruitment: 3.000
+  IT / Information Technology: 3.000
+  IT / Telecoms       : 3.000
+  IT Consultancy      : 3.000
+  IT Consulting       : 3.000
+  IT Security         : 3.000
+  IT and Consulting   : 3.000
+  IT and Cybersecurity: 3.000
+  IT and Defence      : 3.000
+  IT and InfoSec      : 3.000
+  IT and Software     : 3.000
+  IT and Software Development: 3.000
+  IT and Telecommunication: 3.000
+  IT and Telecommunications: 3.000
+  IT, Fintech, Blockchain, AI: 3.000
+  IT/Fintech          : 3.000
+  IT/PropTech         : 3.000
+  IT/Software         : 3.000
+  IT/Software Development: 3.000
+  IT/Sports           : 3.000
+  IT/Technology       : 3.000
+  IT/Telecoms         : 3.000
+  IT/Telecoms Infrastructure: 3.000
+  Industrial          : 3.000
+  Industrial Engineering / Lean Manufacturing: 3.000
+  Industrial Equipment Sales: 3.000
+  Industrial Maintenance: 3.000
+  Industrial Systems  : 3.000
+  Information Services: 3.000
+  Information Technology: 3.000
+  Information Technology and Cybersecurity: 3.000
+  Infrastructure and Construction: 3.000
+  Infrastructure consultancy: 3.000
+  InsurTech           : 3.000
+  Insurance Broker    : 3.000
+  Investment Management: 3.000
+  Justice and Law     : 3.000
+  Justice and Law Enforcement: 3.000
+  Justice/Legal       : 3.000
+  Landscaping and Gardening: 3.000
+  Landscaping and Grounds Maintenance: 3.000
+  Law Enforcement     : 3.000
+  Law and Finance     : 3.000
+  Law and Legal       : 3.000
+  Law and Legal Services: 3.000
+  Legal Jobs          : 3.000
+  Legal Services      : 3.000
+  Leisure             : 3.000
+  Leisure and Fitness : 3.000
+  Leisure and Hospitality: 3.000
+  Leisure and Recreation: 3.000
+  Leisure and Sports  : 3.000
+  Life Sciences       : 3.000
+  Logistics & Automotive: 3.000
+  Logistics & Defence : 3.000
+  Logistics & E-commerce: 3.000
+  Logistics & Manufacturing: 3.000
+  Logistics & Supply Chain: 3.000
+  Logistics and Events: 3.000
+  Logistics and Postal Services: 3.000
+  Logistics and Supply Chain: 3.000
+  Logistics/Distribution: 3.000
+  Luxury Goods        : 3.000
+  Maintenance         : 3.000
+  Maintenance Jobs    : 3.000
+  Maintenance and Building Services: 3.000
+  Maintenance and Repair: 3.000
+  Management Consultancy: 3.000
+  Manufacturing / Engineering: 3.000
+  Manufacturing Engineering: 3.000
+  Manufacturing and Distribution: 3.000
+  Manufacturing and Engineering: 3.000
+  Manufacturing and Logistics: 3.000
+  Manufacturing and Operations: 3.000
+  Manufacturing/FMCG  : 3.000
+  Manufacturing/Food Industry: 3.000
+  Manufacturing/Food and Beverage: 3.000
+  Manufacturing/Furniture: 3.000
+  Manufacturing/Industrial: 3.000
+  Manufacturing/Logistics: 3.000
+  Manufacturing/Maintenance: 3.000
+  Manufacturing/Production: 3.000
+  Marketing and Advertising: 3.000
+  Marketing and Communications: 3.000
+  Marketing and Digital Design: 3.000
+  Marketing and PR    : 3.000
+  Marketing and Public Relations: 3.000
+  Marketing and Sales : 3.000
+  Marketing/Advertising: 3.000
+  Marketing/PR        : 3.000
+  Marketing/Sales     : 3.000
+  Media               : 3.000
+  Media and Communications: 3.000
+  Media and Entertainment: 3.000
+  Media and Events    : 3.000
+  Media and Journalism: 3.000
+  Medical Affairs     : 3.000
+  Medical Communications: 3.000
+  Medical Device      : 3.000
+  Medical Device Engineering: 3.000
+  Medical Devices     : 3.000
+  Medical Technology  : 3.000
+  Membership and Associations: 3.000
+  Mental Health       : 3.000
+  Military/Defense    : 3.000
+  Mining              : 3.000
+  Music               : 3.000
+  Music Industry      : 3.000
+  Non-Profit          : 3.000
+  Non-Profit and Humanitarian: 3.000
+  Non-Profit/Community: 3.000
+  Non-Profit/Religious: 3.000
+  Non-Profit/Social Services: 3.000
+  Non-profit/NGO      : 3.000
+  Non-profit/Philanthropy: 3.000
+  Non-profit/Research : 3.000
+  Non-profit/Social Services: 3.000
+  Non-profit/Sustainability: 3.000
+  Nonprofit           : 3.000
+  Nuclear Engineering : 3.000
+  Office Administration: 3.000
+  Oil and Gas         : 3.000
+  Online Surveys/Admin Jobs: 3.000
+  Other/General Jobs  : 3.000
+  PR & Communications : 3.000
+  PR (Public Relations): 3.000
+  PR and Communications: 3.000
+  PR and Creative Agency: 3.000
+  PR and Marketing    : 3.000
+  Packaging           : 3.000
+  Packaging and Supply: 3.000
+  Pet Care            : 3.000
+  Pharmaceutical Consulting: 3.000
+  Pharmaceutical and Healthcare: 3.000
+  Pharmaceutical industry: 3.000
+  Pharmaceuticals/Healthcare: 3.000
+  Pharmaceuticals/Pharmatech: 3.000
+  Power Engineering   : 3.000
+  Print & IT supplies distribution: 3.000
+  Print and document management industry: 3.000
+  Private Equity      : 3.000
+  Procurement and Supply Chain: 3.000
+  Project Administration: 3.000
+  Property            : 3.000
+  Property & Construction: 3.000
+  Property Jobs       : 3.000
+  Property Management : 3.000
+  Property Management and Construction: 3.000
+  Property Management and Consultancy: 3.000
+  Property Services   : 3.000
+  Property and Real Estate: 3.000
+  Property/Construction: 3.000
+  Public Administration: 3.000
+  Public Administration and Governance: 3.000
+  Public Administration and Justice: 3.000
+  Public Administration and Safety: 3.000
+  Public Health       : 3.000
+  Public Health Administration: 3.000
+  Public Health and Social Work: 3.000
+  Public Relations    : 3.000
+  Public Relations (PR): 3.000
+  Public Relations/Marketing: 3.000
+  Public Safety       : 3.000
+  Public Safety and Corrections: 3.000
+  Public Sector Administration: 3.000
+  Public Sector/ Law Enforcement: 3.000
+  Public Sector/Government: 3.000
+  Public Sector/Local Government: 3.000
+  Public Sector/Prison Services: 3.000
+  Publishing          : 3.000
+  Real Estate Consultancy: 3.000
+  Real Estate Finance : 3.000
+  Real Estate/Housing : 3.000
+  Real Estate/Housing Association: 3.000
+  Real Estate/Property: 3.000
+  Real Estate/Property Development: 3.000
+  Real Estate/Property Management: 3.000
+  Recruitment & Consultancy: 3.000
+  Recruitment Consultancy: 3.000
+  Recruitment Sector  : 3.000
+  Recruitment and Consultancy: 3.000
+  Recruitment and Human Resources: 3.000
+  Recruitment and Sales: 3.000
+  Recruitment and Staffing: 3.000
+  Recruitment/Consultancy: 3.000
+  Recruitment/Consulting: 3.000
+  Recruitment/HR      : 3.000
+  Recruitment/HR Technology: 3.000
+  Recruitment/Human Resources: 3.000
+  Recruitment/Technology: 3.000
+  Recycling and Resource Management: 3.000
+  Remote Work/Online Business: 3.000
+  Remote Work/Online Jobs: 3.000
+  Remote work/ Administration: 3.000
+  Renewable Energy & Sustainable Technologies: 3.000
+  Renewable Energy and District Heating: 3.000
+  Renewable Energy/EV/Mobility: 3.000
+  Renewable Energy/Electric Vehicle: 3.000
+  Renewables          : 3.000
+  Rental/Leasing      : 3.000
+  Research            : 3.000
+  Research and Development: 3.000
+  Research and Market Analysis: 3.000
+  Residential Property: 3.000
+  Retail & Leisure    : 3.000
+  Retail / Hospitality / Leisure: 3.000
+  Retail Banking & Finance: 3.000
+  Retail Marketing    : 3.000
+  Retail Technology   : 3.000
+  Retail and Cosmetics: 3.000
+  Retail and Technology: 3.000
+  Retail/Beauty       : 3.000
+  Retail/E-commerce   : 3.000
+  Retail/Ecommerce    : 3.000
+  Retail/Electronics  : 3.000
+  Retail/Fashion      : 3.000
+  Retail/Fast Food    : 3.000
+  Retail/Food         : 3.000
+  Retail/Food Industry: 3.000
+  Retail/Food Service : 3.000
+  Retail/Hair and Beauty: 3.000
+  Retail/Trading      : 3.000
+  Retail/Travel       : 3.000
+  Retail/Wholesale    : 3.000
+  Ride-sharing/Gig Economy: 3.000
+  SaaS                : 3.000
+  SaaS, Sustainability, Transparency: 3.000
+  Sales / Customer Service: 3.000
+  Sales Intelligence  : 3.000
+  Sales Jobs          : 3.000
+  Sales Jobs consultancy: 3.000
+  Sales and Administration: 3.000
+  Sales and Business Development: 3.000
+  Sales and Customer Service: 3.000
+  Sales and Customer Success: 3.000
+  Sales and Events    : 3.000
+  Sales and Fundraising: 3.000
+  Sales and Interiors : 3.000
+  Sales and Procurement: 3.000
+  Sales and Retail    : 3.000
+  Sales and Security  : 3.000
+  Sales and Service   : 3.000
+  Sales and Technology: 3.000
+  Sales, Customer Service and Account Management: 3.000
+  Sales/Admin         : 3.000
+  Sales/Admin/Customer Service/Account Management: 3.000
+  Sales/Marketing     : 3.000
+  Salesforce, Technology: 3.000
+  Science and Technology: 3.000
+  Scientific Research : 3.000
+  Scientific Research and Development: 3.000
+  Security            : 3.000
+  Security Services   : 3.000
+  Security and Customer Service: 3.000
+  Security and Customer Services: 3.000
+  Security and Defence: 3.000
+  Security and Engineering: 3.000
+  Security and Event Management: 3.000
+  Security and Facilities Management: 3.000
+  Security and Law Enforcement: 3.000
+  Security and Protection: 3.000
+  Security and Surveillance: 3.000
+  Semiconductor       : 3.000
+  Semiconductor industry: 3.000
+  Shipbuilding and Marine Engineering: 3.000
+  Social Housing      : 3.000
+  Social Housing and Regeneration: 3.000
+  Social Services     : 3.000
+  Social Services/Housing: 3.000
+  Social Services/Humanitarian: 3.000
+  Social Services/Non-Profit: 3.000
+  Social Work/Care    : 3.000
+  Social Work/Charity : 3.000
+  Social Work/Housing : 3.000
+  Social work/Housing : 3.000
+  Software Development and Technology: 3.000
+  Software Engineering: 3.000
+  Software and Digital Transformation: 3.000
+  Software and I.T sales: 3.000
+  Software and SaaS   : 3.000
+  Software and Technology: 3.000
+  Software as a Service (SaaS): 3.000
+  Software as a Service (SaaS) and Technology: 3.000
+  Sports Management   : 3.000
+  Sports Marketing/PR : 3.000
+  Sports Technology   : 3.000
+  Sports and Entertainment: 3.000
+  Sports and Leisure  : 3.000
+  Sports and Recreation: 3.000
+  Sports, Fashion, Events, and Media: 3.000
+  Sports/Leisure      : 3.000
+  Supply Chain & Logistics: 3.000
+  Supply Chain Solutions: 3.000
+  Supply Chain Technology: 3.000
+  Sustainability      : 3.000
+  Sustainability and Environment: 3.000
+  Sustainability and Environmental Consulting: 3.000
+  Talent Representation: 3.000
+  Teaching Jobs       : 3.000
+  Technology & Engineering: 3.000
+  Technology and Consulting: 3.000
+  Technology and Data : 3.000
+  Technology and Engineering: 3.000
+  Technology and IT   : 3.000
+  Technology and Services: 3.000
+  Technology/Software Development: 3.000
+  Technology/Telecommunications: 3.000
+  Telecom             : 3.000
+  Telecoms/Construction: 3.000
+  Tourism             : 3.000
+  Tourism and Hospitality: 3.000
+  Tourism and Transportation: 3.000
+  Tourism/Hospitality : 3.000
+  Trade & Construction Jobs: 3.000
+  Trade and Construction: 3.000
+  Trade/Manufacturing : 3.000
+  Translation and Content Creation: 3.000
+  Translation and Interpretation: 3.000
+  Translation and Interpreting: 3.000
+  Translation/Language Services: 3.000
+  Transport           : 3.000
+  Transportation Technology: 3.000
+  Transportation and Infrastructure: 3.000
+  Transportation and Logistics: 3.000
+  Transportation/Airport Security: 3.000
+  Transportation/Consulting: 3.000
+  Transportation/Engineering: 3.000
+  Transportation/Fleet Management: 3.000
+  Transportation/Infrastructure: 3.000
+  Transportation/Manufacturing: 3.000
+  Transportation/Rail : 3.000
+  Transportation/Rental Services: 3.000
+  Travel              : 3.000
+  Travel Industry     : 3.000
+  Travel and Hospitality: 3.000
+  Travel and Tourism  : 3.000
+  Urban Planning      : 3.000
+  Waste Management    : 3.000
+  Water Industry      : 3.000
+  Water Resources Management: 3.000
+  Water Treatment, Water Hygiene, Commercial Plumbing: 3.000
+  Water and Wastewater: 3.000
+  Water and Wastewater Engineering: 3.000
+  Water and Wastewater Treatment: 3.000
+  Water industry      : 3.000
+  Web and Digital Agency: 3.000
+  Wine and Beverage   : 3.000
+  Facilities Management: 2.984
+  Technology          : 2.981
+  Recruitment         : 2.979
+  HR & Recruitment    : 2.973
+  Administration      : 2.968
+  Retail              : 2.966
+  Scientific & QA Jobs: 2.964
+  Construction and Engineering: 2.963
+  Creative & Design   : 2.958
+  Domestic Services   : 2.958
+  Hospitality & Catering: 2.958
+  Sales and Marketing : 2.956
+  Customer Services   : 2.955
+  Human Resources     : 2.953
+  Sales               : 2.953
+  Accounting & Finance: 2.953
+  Marketing           : 2.952
+  PR                  : 2.952
+  Consulting          : 2.946
+  IT and Technology   : 2.945
+  Manufacturing       : 2.945
+  Pharmaceutical      : 2.944
+  Telecommunications  : 2.941
+  Manufacturing/Engineering: 2.938
+  Public Sector       : 2.938
+  Social work         : 2.936
+  Logistics           : 2.934
+  Construction and Infrastructure: 2.933
+  Market Research     : 2.933
+  Logistics & Warehouse: 2.933
+  Financial Services  : 2.932
+  Professional Services: 2.929
+  Automotive          : 2.928
+  Real Estate         : 2.925
+  Admin Jobs          : 2.923
+  Cybersecurity       : 2.923
+  Fashion             : 2.923
+  Hospitality         : 2.923
+  Pharmaceuticals     : 2.923
+  Construction        : 2.923
+  Finance             : 2.922
+  Aerospace and Defence: 2.917
+  Social Work         : 2.914
+  Education           : 2.912
+  Law                 : 2.912
+  Beauty and Cosmetics: 2.909
+  Entertainment       : 2.909
+  IT                  : 2.909
+  Insurance           : 2.909
+  Sales and Recruitment: 2.909
+  Non-Profit/Charity  : 2.900
+  Social Care         : 2.900
+  Engineering         : 2.895
+  Transportation      : 2.894
+  Environmental Services: 2.889
+  Logistics and Transportation: 2.889
+  Renewable Energy    : 2.889
+  Transportation/Logistics: 2.889
+  Trade & Construction: 2.886
+  Non-profit/Charity  : 2.882
+  Remote Work/Online Opportunities: 2.882
+  Domestic help & Cleaning Jobs: 2.879
+  Architecture        : 2.875
+  Cleaning and Maintenance: 2.875
+  Consultancy         : 2.875
+  Electrical Engineering: 2.875
+  Healthcare/Social work: 2.875
+  IT Jobs             : 2.875
+  Logistics & Transportation: 2.875
+  Logistics and Warehouse: 2.864
+  Software Development: 2.862
+  Construction/Engineering: 2.857
+  Food Service/Hospitality: 2.857
+  Logistics/Transportation: 2.857
+  Media and Publishing: 2.857
+  Technology/Software : 2.857
+  Telecoms            : 2.857
+  Energy              : 2.855
+  Gaming              : 2.846
+  Legal               : 2.844
+  Healthcare          : 2.839
+  Education and Training: 2.833
+  Environmental Conservation: 2.833
+  Environmental Engineering: 2.833
+  Food Manufacturing  : 2.833
+  Software            : 2.833
+  Energy and Utilities: 2.828
+  Scientific & QA     : 2.825
+  Public Administration and Government: 2.818
+  Domestic help & Cleaning: 2.810
+  Automotive Retail   : 2.800
+  Healthcare Technology: 2.800
+  IT and Cyber Security: 2.800
+  Logistics/Warehouse : 2.800
+  Public Services     : 2.800
+  Creative & Design Jobs: 2.786
+  Construction and Trade: 2.778
+  Healthcare/Social Work: 2.778
+  Digital Media       : 2.750
+  Electronics         : 2.750
+  Media and Advertising: 2.750
+  Social Services/Social Work: 2.750
+  Healthcare/Social Care: 2.727
+  Healthcare & Nursing: 2.725
+  Fintech             : 2.714
+  Utilities           : 2.700
+  Construction and Civil Engineering: 2.667
+  Environmental/Conservation: 2.667
+  Higher Education    : 2.667
+  Software Sales      : 2.667
+  Domestic Help & Cleaning: 2.615
+  Construction/Housebuilding: 2.500
+  Defense and Aerospace: 2.500
+  Ecommerce           : 2.500
+  Graphic Design      : 2.500
+  Health and Wellness : 2.500
+  Local Government    : 2.500
+  Medical Sales       : 2.500
+  Motor Trade         : 2.500
+  Non-profit          : 2.500
+  Oil & Gas           : 2.500
+  Retail and Sales    : 2.500
+  Tech                : 2.500
+  Veterinary Medicine : 2.500
+  Advertising/PR      : 2.000
+  Aerospace/Defence   : 2.000
+  Animation           : 2.000
+  Biotechnology/Pharmaceutical: 2.000
+  Building Services   : 2.000
+  Chemical and Energy : 2.000
+  Cleaning and Hygiene Services: 2.000
+  Construction/Building: 2.000
+  Creative Agency     : 2.000
+  Digital Design and Build Agency: 2.000
+  Digital and Content Creative: 2.000
+  Entertainment/Event Management: 2.000
+  Health Care         : 2.000
+  Healthcare Advertising: 2.000
+  Healthcare and Technology: 2.000
+  Home Automation and Security: 2.000
+  Humanitarian/Non-Profit: 2.000
+  IT and Defense      : 2.000
+  IT and Telecommunication Services: 2.000
+  IT/Operations       : 2.000
+  Industrial Automation: 2.000
+  Legal/Defence       : 2.000
+  Legal/Finance       : 2.000
+  Life Science        : 2.000
+  Local Government/Town Planning: 2.000
+  Logistics and Distribution: 2.000
+  Manufacturing Jobs  : 2.000
+  Manufacturing/Food Processing: 2.000
+  Marine Engineering  : 2.000
+  MedTech             : 2.000
+  Media and Technology: 2.000
+  Military/Defence    : 2.000
+  Non-Profit/NGO      : 2.000
+  Non-profit/Gambling Support: 2.000
+  Oil & Gas / Energy Corporate: 2.000
+  Pharmaceuticals/Biotechnology: 2.000
+  Sustainability Tech : 2.000
+  Technology and Software: 2.000
+  Transportation/Railway: 2.000
+  Utilities and infrastructure: 2.000
+  Utility             : 2.000
+  Water Treatment     : 2.000
+
+SAMPLE CASES (Truncated)
+----------------------------------------
+Job ID: 2743877458
+Title:  Accounting & Business Advisory Supervisor
+Domain: Accounting & Finance | Sector: Accounting & Finance Jobs
+Desc:   [Accounting & Finance] Accounting & Business Advisory Supervisor
+Tasks:  [Accounting & Finance] Provide insights to clients on financial reporting systems and processes Support clients on preparation of their financial statements Work with ABA managers to run client portfolios profitably Maintain high standards of client service Identify opportunities for department growth Accounting standards Commercial understanding of the business world Innovative technological tools Leadership Business development
+Kept:   ['Budget Analysts', 'Accountants and Auditors', 'Credit Analysts']
+Dropped:['Financial Managers', 'Financial Examiners', 'First-Line Supervisors of Non-Retail Sales Workers', 'First-Line Supervisors of Office and Administrative Support Workers', 'First-Line Supervisors of Retail Sales Workers']
+----------------------------------------
+Job ID: 2825288483
+Title:  Female Support Worker - Bank Staff
+Domain: Social Work | Sector: Social work Jobs
+Desc:   [Social Work] Support Worker for individuals with learning disabilities, mental health, and autism in Ellesmere Port.
+Tasks:  [Social Work] Helping with everyday life tasks such as dressing and cooking Participating in hobbies and social engagements Administering medication as required Completing daily care plans Ensuring safeguarding responsibilities Communication Caring Teamwork Time Management Safeguarding
+Kept:   ['Healthcare Social Workers', 'Mental Health and Substance Abuse Social Workers', 'Child, Family, and School Social Workers']
+Dropped:['Personal Care Aides', 'Childcare Workers', 'Social and Human Service Assistants', 'Occupational Therapists']
+----------------------------------------
+Job ID: 2730635282
+Title:  Office Manager
+Domain: Administration | Sector: Admin Jobs
+Desc:   [Administration] Office Manager role in a creative organisation based in Oxfordshire
+Tasks:  [Administration] Carry out PA duties for the Executive Director Manage the operations of the business Look after the management of the office Manage office moves and opening new sites HR Administration for the organisation Office Management HR Administration Coordination Relationship Building Communication
+Kept:   ['Administrative Services Managers', 'Secretaries and Administrative Assistants, Except Legal, Medical, and Executive', 'Executive Secretaries and Executive Administrative Assistants']
+Dropped:['Chief Executives', 'General and Operations Managers', 'Advertising and Promotions Managers', 'Agents and Business Managers of Artists, Performers, and Athletes', 'First-Line Supervisors of Office and Administrative Support Workers']
+----------------------------------------
+Job ID: 2773160380
+Title:  Gardener
+Domain: Education | Sector: Trade & Construction Jobs
+Desc:   [Education] Gardener position at Brighton College
+Tasks:  [Education] Lawn care Tree and shrub maintenance Monitoring the health of all plants and greenspaces Maintaining and developing beds and borders Weeding, feeding and irrigation Gardening Plant care Health and safety Teamwork Sustainability
+Kept:   ['Landscaping and Groundskeeping Workers', 'Farmworkers and Laborers, Crop, Nursery, and Greenhouse', 'First-Line Supervisors of Landscaping, Lawn Service, and Groundskeeping Workers']
+Dropped:['Agricultural Technicians', 'Forest and Conservation Technicians', 'Soil and Plant Scientists', 'Agricultural Sciences Teachers, Postsecondary']
+----------------------------------------
+Job ID: 2797091541
+Title:  Shift Manager
+Domain: Hospitality & Catering | Sector: Hospitality & Catering Jobs
+Desc:   [Hospitality & Catering] Shift Manager for Dunkin' donut & coffee stores, providing customer service and ensuring store compliance.
+Tasks:  [Hospitality & Catering] Ensure store compliance in safety Deliver memorable customer experience Focus on sales and quality of products Maintain a positive attitude and accountability Develop and implement store operations Customer Service Leadership Time Management Communication Problem Solving
+Kept:   ['Food Service Managers', 'Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop']
+Dropped:['Chefs and Head Cooks', 'Cooks, Institution and Cafeteria', 'Food Servers, Nonrestaurant', 'Fast Food and Counter Workers', 'First-Line Supervisors of Gambling Services Workers', 'First-Line Supervisors of Housekeeping and Janitorial Workers']
+----------------------------------------
+Job ID: 2793906727
+Title:  Department Supervisor - 30 Hours Per Week
+Domain: Retail | Sector: Retail Jobs
+Desc:   [Retail] Department Supervisor for a retail store, responsible for day-to-day operations and customer service.
+Tasks:  [Retail] Supervise and coach team members to deliver market leading standards Support store management team with services offer and floor leadership Ensure delivery of exceptional standards across the store Adhere to in-store security and stock loss procedures Maximise services offer to provide a great customer journey Leadership Customer Service Team Management Communication Problem Solving
+Kept:   ['First-Line Supervisors of Retail Sales Workers', 'Retail Loss Prevention Specialists', 'Loss Prevention Managers']
+Dropped:['Sales Managers', 'Stockers and Order Fillers', 'First-Line Supervisors of Non-Retail Sales Workers', 'First-Line Supervisors of Personal Service Workers', 'Retail Salespersons']
+----------------------------------------
+Job ID: 2332613137
+Title:  Real Estate Solicitor - Asset Management
+Domain: Legal | Sector: Legal Jobs
+Desc:   [Legal] Real Estate Solicitor - Asset Management
+Tasks:  [Legal] Manage own caseload Provide legal advice Evidence a confident and commercial approach Communicate effectively Organise tasks Communication Organisation Academic skills Commercial awareness Confidence
+Kept:   ['Paralegals and Legal Assistants', 'Property, Real Estate, and Community Association Managers']
+Dropped:['Lawyers', 'Legal Secretaries and Administrative Assistants', 'Agents and Business Managers of Artists, Performers, and Athletes', 'Claims Adjusters, Examiners, and Investigators', 'Real Estate Sales Agents', 'Real Estate Brokers', 'Title Examiners, Abstractors, and Searchers', 'Appraisers and Assessors of Real Estate']
+----------------------------------------
+Job ID: 2849178724
+Title:  Female Security Receptionist - 55 hours per week - Monday to Friday 0800-1900
+Domain: Security and Customer Service | Sector: Customer Services Jobs
+Desc:   [Security and Customer Service] Female Security Receptionist for a corporate building in London
+Tasks:  [Security and Customer Service] Deliver high quality guarding and customer service to clients and service users Operate the front desk and reception area Manage searches at the front entrance Use IT skills to manage Outlook emails and calendar Demonstrate a pro-active can-do attitude in urgent situations SIA Licence Door Supervisor Customer Service Communication IT skills Time Management
+Kept:   ['Security Guards', 'First-Line Supervisors of Personal Service Workers', 'Receptionists and Information Clerks']
+Dropped:['First-Line Supervisors of Security Workers', 'Switchboard Operators, Including Answering Service', 'Security Management Specialists', 'Security Managers', 'Hotel, Motel, and Resort Desk Clerks']
+----------------------------------------
+Job ID: 2846706557
+Title:  Case Handler
+Domain: Insurance | Sector: Admin Jobs
+Desc:   [Insurance] Case Handler for emergency response, disaster restoration and building repair services
+Tasks:  [Insurance] Case management from first point of contact for new cases to conclusion and invoicing Communicating proactively with customers and instructing clients over the telephone and in writing Allocating contractors and providing oversight, quality standards and adherence to SLAs Managing building repair, restoration and other suppliers, proactively guiding claims to settlement Responding effectively to technical queries, issues and complaints Excellent customer service Verbal and written communication Property insurance claims understanding
+Kept:   ['Insurance Claims and Policy Processing Clerks', 'Insurance Sales Agents', 'Claims Adjusters, Examiners, and Investigators']
+Dropped:['Customer Service Representatives', 'Bill and Account Collectors', 'Insurance Underwriters', 'Business Continuity Planners', 'Insurance Appraisers, Auto Damage']
+----------------------------------------
+Job ID: 2627575229
+Title:  Heating Engineer External Works
+Domain: Engineering | Sector: Engineering Jobs
+Desc:   [Engineering] Heating Engineer External Works
+Tasks:  [Engineering] Delivering great service to customers Working on customer sites Problem solving and communication Working on their own initiative Supporting other team members Problem solving Communication Initiative Teamwork LPG specialist
+Kept:   ['Sales Engineers', 'Logisticians', 'Customer Service Representatives']
+Dropped:['Telecommunications Engineering Specialists', 'Service Unit Operators, Oil and Gas', 'Solar Energy Systems Engineers', 'Mechanical Engineers', 'Insulation Workers, Mechanical', 'Furnace, Kiln, Oven, Drier, and Kettle Operators and Tenders', 'Heating, Air Conditioning, and Refrigeration Mechanics and Installers']
+
+
+======================================================================
+EMBEDDING: E5_LARGE
+======================================================================
+GLOBAL METRICS
+  Total Jobs Processed:    14000
+  Avg Candidates (Before): 8.509
+  Avg Candidates (After):  2.899
+  Drop Rate:               0.6593
+  Empty Outputs:           0 (0.00%)
+  IT Leakage Share:        0.0535 (2172/40587)
+
+TOP KEPT OCCUPATIONS (Top 25)
+   1347 x Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products
+    838 x Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+    585 x Customer Service Representatives
+    506 x Personal Care Aides
+    484 x Shipping, Receiving, and Inventory Clerks
+    474 x Accountants and Auditors
+    450 x Software Developers
+    419 x Home Health Aides
+    404 x First-Line Supervisors of Material-Moving Machine and Vehicle Operators
+    396 x Treasurers and Controllers
+    396 x Heavy and Tractor-Trailer Truck Drivers
+    385 x Online Merchants
+    385 x Financial Managers
+    375 x Bookkeeping, Accounting, and Auditing Clerks
+    366 x Sales Managers
+    364 x Packers and Packagers, Hand
+    352 x Maids and Housekeeping Cleaners
+    338 x Cooks, Restaurant
+    337 x Architectural and Engineering Managers
+    318 x Light Truck Drivers
+    314 x First-Line Supervisors of Retail Sales Workers
+    307 x Software Quality Assurance Analysts and Testers
+    299 x First-Line Supervisors of Food Preparation and Serving Workers
+    297 x First-Line Supervisors of Mechanics, Installers, and Repairers
+    296 x Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop
+
+DOMAIN AVERAGES (Avg items kept per domain)
+  Academia/Research   : 3.000
+  Accountancy         : 3.000
+  Accountancy/Consulting: 3.000
+  Accounting and Finance: 3.000
+  Accounting/Finance  : 3.000
+  Accounting/Finance, Administrative: 3.000
+  Administration/Logistics: 3.000
+  Administration/Office: 3.000
+  Administration/Office Management: 3.000
+  Administrative Support: 3.000
+  Administrative/Office Support: 3.000
+  Advertising         : 3.000
+  Advertising and Marketing: 3.000
+  Advertising/Marketing: 3.000
+  Aerospace & Defence : 3.000
+  Aerospace Engineering: 3.000
+  Aerospace Manufacturing: 3.000
+  Aerospace and Defense: 3.000
+  Aerospace and Technology: 3.000
+  Aerospace/Automotive: 3.000
+  Aerospace/Aviation  : 3.000
+  Aerospace/Defence/Space: 3.000
+  Aerospace/Defense   : 3.000
+  Aerospace/Telecommunications: 3.000
+  Agricultural and Plant Engineering: 3.000
+  Agriculture         : 3.000
+  Agriculture and Construction: 3.000
+  Agriculture/Food Science: 3.000
+  Agriculture/Food and Beverage: 3.000
+  Agriculture/Rural   : 3.000
+  Agriculture/Supply Chain: 3.000
+  Animal Care         : 3.000
+  Animal Welfare and Non-Profit: 3.000
+  Animation           : 3.000
+  Architecture        : 3.000
+  Architecture and Construction: 3.000
+  Architecture and Design: 3.000
+  Architecture and Engineering: 3.000
+  Architecture and Interior Design: 3.000
+  Art and Auction House: 3.000
+  Arts and Entertainment: 3.000
+  Arts, Entertainment & Recreation: 3.000
+  Automation          : 3.000
+  Automotive Engineering: 3.000
+  Automotive Manufacturing: 3.000
+  Automotive Retail   : 3.000
+  Automotive Sales    : 3.000
+  Automotive and Luxury Goods: 3.000
+  Automotive/Mechanical trade: 3.000
+  Automotive/Motorsport Engineering: 3.000
+  Automotive/Rental Industry: 3.000
+  Aviation            : 3.000
+  Banking             : 3.000
+  Banking & Finance   : 3.000
+  Banking and Finance : 3.000
+  Beauty and Cosmetics: 3.000
+  Biopharmaceutical   : 3.000
+  Biopharmaceuticals  : 3.000
+  Biotechnology and Biological Sciences: 3.000
+  Biotechnology/Life Sciences: 3.000
+  Biotechnology/Pharmaceutical: 3.000
+  Biotechnology/Pharmaceuticals: 3.000
+  Building Services   : 3.000
+  Building Services, FM and Support Sectors: 3.000
+  Building and Construction: 3.000
+  Business            : 3.000
+  Business Administration: 3.000
+  Business Support    : 3.000
+  Business and Finance: 3.000
+  Business and Management: 3.000
+  Business/Corporate  : 3.000
+  Business/Management : 3.000
+  Career Transition and Sports: 3.000
+  Charity & Conservation: 3.000
+  Charity & Voluntary : 3.000
+  Charity and Non-Profit: 3.000
+  Chemical Industry   : 3.000
+  Chemical and Energy : 3.000
+  Chemical/Manufacturing: 3.000
+  Chemicals           : 3.000
+  Chemicals and Ingredients: 3.000
+  Chemicals and Materials: 3.000
+  Childcare           : 3.000
+  Civil Engineering   : 3.000
+  Civil Engineering/Construction: 3.000
+  Cleaning Services   : 3.000
+  Cleaning and Domestic Help: 3.000
+  Cleaning and Hygiene Services: 3.000
+  Cloud Computing     : 3.000
+  Commercial/Business : 3.000
+  Comms / Marketing / PR: 3.000
+  Community Development: 3.000
+  Construction Manufacturing: 3.000
+  Construction Materials: 3.000
+  Construction Trades : 3.000
+  Construction and Architecture: 3.000
+  Construction and Building: 3.000
+  Construction and Building Materials: 3.000
+  Construction and Civil Engineering: 3.000
+  Construction and Consultancy: 3.000
+  Construction and Development: 3.000
+  Construction and Engineering Services: 3.000
+  Construction and Infrastructure Services: 3.000
+  Construction and Manufacturing: 3.000
+  Construction and Mining: 3.000
+  Construction and Property: 3.000
+  Construction and Property Management: 3.000
+  Construction and Real Estate: 3.000
+  Construction and Steel: 3.000
+  Construction and Trade: 3.000
+  Construction and Trades: 3.000
+  Construction/Architecture: 3.000
+  Construction/Building Maintenance: 3.000
+  Construction/Building Materials: 3.000
+  Construction/Building Services: 3.000
+  Construction/Civil Engineering: 3.000
+  Construction/Cleaning: 3.000
+  Construction/Equipment Rental: 3.000
+  Construction/Housing: 3.000
+  Construction/Infrastructure: 3.000
+  Construction/Maintenance: 3.000
+  Construction/Project Management: 3.000
+  Construction/Property: 3.000
+  Construction/Property Development: 3.000
+  Construction/Property Maintenance: 3.000
+  Construction/Quarrying: 3.000
+  Construction/Rail   : 3.000
+  Construction/Rail & Infrastructure: 3.000
+  Construction/Railway Engineering: 3.000
+  Construction/Real Estate: 3.000
+  Construction/Retail : 3.000
+  Construction/Trade  : 3.000
+  Consultancy Jobs    : 3.000
+  Consumer Goods      : 3.000
+  Content Creation/PR : 3.000
+  Control Systems     : 3.000
+  Corporate Business  : 3.000
+  Corporate Finance   : 3.000
+  Creative            : 3.000
+  Creative Agency     : 3.000
+  Creative/Design     : 3.000
+  Customer Service/Call Center: 3.000
+  Data Science        : 3.000
+  Data Science and Analytics: 3.000
+  Data and Intelligence consultancy: 3.000
+  Defence & Security  : 3.000
+  Defence and Aerospace: 3.000
+  Defence and Government: 3.000
+  Defence and Security: 3.000
+  Defense and Military: 3.000
+  Defense and Security: 3.000
+  Design and Creative : 3.000
+  Design and Research : 3.000
+  Digital Agency      : 3.000
+  Digital Design and Build Agency: 3.000
+  Digital Marketing   : 3.000
+  Digital Marketing and Creative Technology: 3.000
+  Digital Media       : 3.000
+  Digital Media and Performance Marketing: 3.000
+  Digital retail, Tech: 3.000
+  Document Management : 3.000
+  Domestic Help & Cleaning: 3.000
+  Domestic Services   : 3.000
+  Domestic and Cleaning Services: 3.000
+  Domestic/ Household Management: 3.000
+  Domestic/Cleaning   : 3.000
+  E-commerce and Logistics: 3.000
+  E-commerce/Fashion  : 3.000
+  Ecommerce           : 3.000
+  Ecommerce Fashion   : 3.000
+  Ed Tech             : 3.000
+  EdTech              : 3.000
+  Education Recruitment: 3.000
+  Education and Training: 3.000
+  Education/Childcare : 3.000
+  Education/Library   : 3.000
+  Education/Library Services: 3.000
+  Education/Non-Profit: 3.000
+  Education/Online Learning: 3.000
+  Education/Recruitment: 3.000
+  Education/Social Work: 3.000
+  Electrical Distribution: 3.000
+  Electrical Trade    : 3.000
+  Electrical Wholesale: 3.000
+  Electrical/Electronic Engineering: 3.000
+  Electrical/Electronics: 3.000
+  Electro-mechanical Engineering: 3.000
+  Electronics / Embedded Software: 3.000
+  Electronics Manufacturing: 3.000
+  Electronics Technology: 3.000
+  Electronics and Manufacturing: 3.000
+  Electronics and Semiconductors: 3.000
+  Electronics manufacture and distribution: 3.000
+  Electronics/Audio Technology: 3.000
+  Electronics/Embedded Systems: 3.000
+  Electronics/Engineering: 3.000
+  Electronics/Technology: 3.000
+  Electronics/Telecommunications: 3.000
+  Employment Research Consultancy: 3.000
+  Energy & Environment: 3.000
+  Energy & Natural Resources: 3.000
+  Energy Services     : 3.000
+  Energy Trading      : 3.000
+  Energy and Chemicals: 3.000
+  Energy and Environment: 3.000
+  Energy and Power Systems: 3.000
+  Energy and Sustainability: 3.000
+  Energy and Waste consultancy: 3.000
+  Energy/Engineering  : 3.000
+  Energy/Geoscience   : 3.000
+  Engineering & Maintenance: 3.000
+  Engineering & Manufacturing: 3.000
+  Engineering & Science: 3.000
+  Engineering and Advisory: 3.000
+  Engineering and Consulting: 3.000
+  Engineering and Process Sector Industries: 3.000
+  Engineering/Construction: 3.000
+  Engineering/Maintenance: 3.000
+  Engineering/Manufacturing: 3.000
+  Engineering/Technology: 3.000
+  Entertainment/Event Management: 3.000
+  Entertainment/PR    : 3.000
+  Environmental Consultancy: 3.000
+  Environmental Consulting: 3.000
+  Environmental Engineering: 3.000
+  Environmental Regulation: 3.000
+  Environmental Science: 3.000
+  Environmental Technology: 3.000
+  Environmental and Occupational Hygiene: 3.000
+  Environmental consultancy: 3.000
+  Environmental, Engineering and Strategic Consulting: 3.000
+  Environmental, Health, and Safety: 3.000
+  Environmental/Conservation: 3.000
+  Environmental/Social Impact: 3.000
+  Environmental/Sustainability: 3.000
+  Environmental/Water Management: 3.000
+  Estate Agency       : 3.000
+  Event Management    : 3.000
+  Event Planning and A/V Technology: 3.000
+  Events              : 3.000
+  Executive Search Firm: 3.000
+  Executive Search and Recruitment: 3.000
+  Executive Secretarial & Support: 3.000
+  FMCG                : 3.000
+  FMCG (Fast-Moving Consumer Goods): 3.000
+  Facilities & Property Management: 3.000
+  Farming/Agribusiness: 3.000
+  Fashion Industry    : 3.000
+  Fashion Technology  : 3.000
+  Fashion and Apparel : 3.000
+  Fashion/ Apparel    : 3.000
+  Fashion/Apparel     : 3.000
+  Fashion/Textile     : 3.000
+  Fashion/Textiles    : 3.000
+  Finance and Accounting: 3.000
+  Finance and Administration: 3.000
+  Finance and Banking : 3.000
+  Finance and Business: 3.000
+  Finance and Consulting: 3.000
+  Finance and Insurance: 3.000
+  Finance and Law     : 3.000
+  Finance and Tax     : 3.000
+  Finance and Technology: 3.000
+  Finance et Assurance: 3.000
+  Finance/ Banking    : 3.000
+  Finance/Accounting  : 3.000
+  Finance/Administration: 3.000
+  Finance/Banking     : 3.000
+  Finance/Financial Services: 3.000
+  Finance/IT          : 3.000
+  Finance/Insurance   : 3.000
+  Finance/Investment  : 3.000
+  Finance/Investment Banking: 3.000
+  Finance/Trading     : 3.000
+  Finance/Wealth Management: 3.000
+  Financial Markets   : 3.000
+  Financial Planning  : 3.000
+  Financial Services and Technology: 3.000
+  Financial Services/Banking: 3.000
+  Financial Services/Reinsurance: 3.000
+  Financial Technology: 3.000
+  Fire and Security   : 3.000
+  Fire and Security Installation: 3.000
+  Food Industry       : 3.000
+  Food Processing     : 3.000
+  Food Production     : 3.000
+  Food Sector         : 3.000
+  Food Service        : 3.000
+  Food Service/Hospitality: 3.000
+  Food Tech           : 3.000
+  Foodservice         : 3.000
+  Funeral Services    : 3.000
+  Game Development    : 3.000
+  Gaming and Betting  : 3.000
+  Gaming and Entertainment: 3.000
+  Global Manufacturing: 3.000
+  Government and Defence: 3.000
+  Government and Public Administration: 3.000
+  Government and Public Policy: 3.000
+  Government and Public Sector: 3.000
+  Government/Local Government: 3.000
+  Government/Non-Profit: 3.000
+  Government/Public Administration: 3.000
+  Government/Public Sector: 3.000
+  Graphic Design      : 3.000
+  HR & Recruitment Jobs: 3.000
+  Health & Beauty     : 3.000
+  Health & Social Care: 3.000
+  Health and Fitness Technology: 3.000
+  Health and Social Care: 3.000
+  Health and Social Care Recruitment: 3.000
+  Health and Wellness : 3.000
+  Healthcare & Biotechnology: 3.000
+  Healthcare & Nursing Jobs: 3.000
+  Healthcare Administration: 3.000
+  Healthcare Advertising: 3.000
+  Healthcare and Biotechnology: 3.000
+  Healthcare and Clinical Research: 3.000
+  Healthcare and Life Sciences (HCLS): 3.000
+  Healthcare and Social Care: 3.000
+  Healthcare and Social Services: 3.000
+  Healthcare and Social Work: 3.000
+  Healthcare/Biotechnology: 3.000
+  Healthcare/Hospitality: 3.000
+  Healthcare/IT       : 3.000
+  Healthcare/Non-profit: 3.000
+  Healthcare/Pharmaceutical: 3.000
+  Healthcare/Social Services: 3.000
+  Healthcare/Social work: 3.000
+  Heavy Plant industry: 3.000
+  Heritage and Conservation: 3.000
+  Heritage and Tourism: 3.000
+  Higher Education    : 3.000
+  Home Accessories Manufacturing: 3.000
+  Hospitality Technology: 3.000
+  Hospitality and Office Administration: 3.000
+  Hospitality and Recreation: 3.000
+  Hospitality, Leisure, Entertainment: 3.000
+  Hospitality/Entertainment: 3.000
+  Hospitality/Hotel   : 3.000
+  Hospitality/Leisure : 3.000
+  Household Help      : 3.000
+  Household Services  : 3.000
+  Housekeeping/Cleaning: 3.000
+  Housing Association : 3.000
+  Housing and Construction: 3.000
+  Housing and Property Management: 3.000
+  Human Resources/Recruitment: 3.000
+  IT & Technology     : 3.000
+  IT & Technology Recruitment: 3.000
+  IT / Information Technology: 3.000
+  IT / Telecoms       : 3.000
+  IT Consultancy      : 3.000
+  IT Security         : 3.000
+  IT and Cybersecurity: 3.000
+  IT and Defence      : 3.000
+  IT and Defense      : 3.000
+  IT and InfoSec      : 3.000
+  IT and Software     : 3.000
+  IT and Software Development: 3.000
+  IT and Telecommunication: 3.000
+  IT and Telecommunication Services: 3.000
+  IT and Telecommunications: 3.000
+  IT, Fintech, Blockchain, AI: 3.000
+  IT/Operations       : 3.000
+  IT/PropTech         : 3.000
+  IT/Software         : 3.000
+  IT/Software Development: 3.000
+  IT/Sports           : 3.000
+  IT/Technology       : 3.000
+  IT/Telecoms         : 3.000
+  IT/Telecoms Infrastructure: 3.000
+  Industrial          : 3.000
+  Industrial Automation: 3.000
+  Industrial Engineering / Lean Manufacturing: 3.000
+  Industrial Equipment Sales: 3.000
+  Industrial Maintenance: 3.000
+  Industrial Systems  : 3.000
+  Information Services: 3.000
+  Information Technology and Cybersecurity: 3.000
+  Infrastructure and Construction: 3.000
+  Infrastructure consultancy: 3.000
+  InsurTech           : 3.000
+  Insurance Broker    : 3.000
+  Investment Management: 3.000
+  Justice and Law     : 3.000
+  Justice and Law Enforcement: 3.000
+  Justice/Legal       : 3.000
+  Landscaping and Gardening: 3.000
+  Landscaping and Grounds Maintenance: 3.000
+  Law and Finance     : 3.000
+  Law and Legal       : 3.000
+  Law and Legal Services: 3.000
+  Legal Jobs          : 3.000
+  Legal Services      : 3.000
+  Legal/Defence       : 3.000
+  Legal/Finance       : 3.000
+  Leisure             : 3.000
+  Leisure and Fitness : 3.000
+  Leisure and Hospitality: 3.000
+  Leisure and Recreation: 3.000
+  Life Science        : 3.000
+  Life Sciences       : 3.000
+  Local Government/Town Planning: 3.000
+  Logistics & Automotive: 3.000
+  Logistics & Defence : 3.000
+  Logistics & E-commerce: 3.000
+  Logistics & Manufacturing: 3.000
+  Logistics & Supply Chain: 3.000
+  Logistics and Distribution: 3.000
+  Logistics and Postal Services: 3.000
+  Logistics/Distribution: 3.000
+  Logistics/Transportation: 3.000
+  Luxury Goods        : 3.000
+  Maintenance         : 3.000
+  Maintenance Jobs    : 3.000
+  Maintenance and Building Services: 3.000
+  Management Consultancy: 3.000
+  Manufacturing Engineering: 3.000
+  Manufacturing Jobs  : 3.000
+  Manufacturing and Distribution: 3.000
+  Manufacturing and Logistics: 3.000
+  Manufacturing and Operations: 3.000
+  Manufacturing/FMCG  : 3.000
+  Manufacturing/Food Industry: 3.000
+  Manufacturing/Food Processing: 3.000
+  Manufacturing/Food and Beverage: 3.000
+  Manufacturing/Furniture: 3.000
+  Manufacturing/Logistics: 3.000
+  Manufacturing/Maintenance: 3.000
+  Manufacturing/Production: 3.000
+  Marine Engineering  : 3.000
+  Marketing and Advertising: 3.000
+  Marketing and Communications: 3.000
+  Marketing and Digital Design: 3.000
+  Marketing and PR    : 3.000
+  Marketing and Public Relations: 3.000
+  Marketing and Sales : 3.000
+  Marketing/Advertising: 3.000
+  Marketing/Sales     : 3.000
+  MedTech             : 3.000
+  Media and Advertising: 3.000
+  Media and Communications: 3.000
+  Media and Entertainment: 3.000
+  Media and Events    : 3.000
+  Media and Journalism: 3.000
+  Media and Publishing: 3.000
+  Medical Affairs     : 3.000
+  Medical Communications: 3.000
+  Medical Device      : 3.000
+  Medical Device Engineering: 3.000
+  Medical Devices     : 3.000
+  Medical Sales       : 3.000
+  Medical Technology  : 3.000
+  Membership and Associations: 3.000
+  Mental Health       : 3.000
+  Military/Defence    : 3.000
+  Military/Defense    : 3.000
+  Mining              : 3.000
+  Music               : 3.000
+  Music Industry      : 3.000
+  Non-Profit          : 3.000
+  Non-Profit and Humanitarian: 3.000
+  Non-Profit/Charity  : 3.000
+  Non-Profit/Community: 3.000
+  Non-Profit/NGO      : 3.000
+  Non-Profit/Religious: 3.000
+  Non-Profit/Social Services: 3.000
+  Non-profit          : 3.000
+  Non-profit/Charity  : 3.000
+  Non-profit/Gambling Support: 3.000
+  Non-profit/NGO      : 3.000
+  Non-profit/Research : 3.000
+  Non-profit/Social Services: 3.000
+  Non-profit/Sustainability: 3.000
+  Nonprofit           : 3.000
+  Nuclear Engineering : 3.000
+  Oil & Gas           : 3.000
+  Oil & Gas / Energy Corporate: 3.000
+  Online Surveys/Admin Jobs: 3.000
+  PR & Communications : 3.000
+  PR (Public Relations): 3.000
+  PR and Communications: 3.000
+  PR and Marketing    : 3.000
+  Packaging           : 3.000
+  Packaging and Supply: 3.000
+  Pet Care            : 3.000
+  Pharmaceutical Consulting: 3.000
+  Pharmaceutical and Healthcare: 3.000
+  Pharmaceutical industry: 3.000
+  Pharmaceuticals/Biotechnology: 3.000
+  Pharmaceuticals/Healthcare: 3.000
+  Power Engineering   : 3.000
+  Print & IT supplies distribution: 3.000
+  Print and document management industry: 3.000
+  Procurement and Supply Chain: 3.000
+  Project Administration: 3.000
+  Property            : 3.000
+  Property & Construction: 3.000
+  Property Jobs       : 3.000
+  Property Management : 3.000
+  Property Management and Construction: 3.000
+  Property Management and Consultancy: 3.000
+  Property Services   : 3.000
+  Property and Real Estate: 3.000
+  Property/Construction: 3.000
+  Public Administration: 3.000
+  Public Administration and Justice: 3.000
+  Public Administration and Safety: 3.000
+  Public Health       : 3.000
+  Public Health Administration: 3.000
+  Public Health and Social Work: 3.000
+  Public Relations/Marketing: 3.000
+  Public Safety       : 3.000
+  Public Safety and Corrections: 3.000
+  Public Sector Administration: 3.000
+  Public Sector/ Law Enforcement: 3.000
+  Public Sector/Government: 3.000
+  Public Sector/Local Government: 3.000
+  Public Sector/Prison Services: 3.000
+  Publishing          : 3.000
+  Real Estate Consultancy: 3.000
+  Real Estate Finance : 3.000
+  Real Estate/Housing : 3.000
+  Real Estate/Housing Association: 3.000
+  Real Estate/Property: 3.000
+  Real Estate/Property Development: 3.000
+  Real Estate/Property Management: 3.000
+  Recruitment & Consultancy: 3.000
+  Recruitment Consultancy: 3.000
+  Recruitment Sector  : 3.000
+  Recruitment and Consultancy: 3.000
+  Recruitment and Human Resources: 3.000
+  Recruitment and Sales: 3.000
+  Recruitment and Staffing: 3.000
+  Recruitment/Consultancy: 3.000
+  Recruitment/Consulting: 3.000
+  Recruitment/HR      : 3.000
+  Recruitment/HR Technology: 3.000
+  Recruitment/Human Resources: 3.000
+  Recruitment/Technology: 3.000
+  Recycling and Resource Management: 3.000
+  Remote Work/Online Business: 3.000
+  Remote Work/Online Jobs: 3.000
+  Remote Work/Online Opportunities: 3.000
+  Remote work/ Administration: 3.000
+  Renewable Energy & Sustainable Technologies: 3.000
+  Renewable Energy and District Heating: 3.000
+  Renewable Energy/EV/Mobility: 3.000
+  Renewable Energy/Electric Vehicle: 3.000
+  Renewables          : 3.000
+  Rental/Leasing      : 3.000
+  Research            : 3.000
+  Research and Development: 3.000
+  Research and Market Analysis: 3.000
+  Residential Property: 3.000
+  Retail & Leisure    : 3.000
+  Retail / Hospitality / Leisure: 3.000
+  Retail Banking & Finance: 3.000
+  Retail Marketing    : 3.000
+  Retail Technology   : 3.000
+  Retail and Cosmetics: 3.000
+  Retail and Sales    : 3.000
+  Retail and Technology: 3.000
+  Retail/Beauty       : 3.000
+  Retail/E-commerce   : 3.000
+  Retail/Ecommerce    : 3.000
+  Retail/Electronics  : 3.000
+  Retail/Fashion      : 3.000
+  Retail/Fast Food    : 3.000
+  Retail/Food         : 3.000
+  Retail/Food Industry: 3.000
+  Retail/Food Service : 3.000
+  Retail/Hair and Beauty: 3.000
+  Retail/Trading      : 3.000
+  Retail/Travel       : 3.000
+  Retail/Wholesale    : 3.000
+  Ride-sharing/Gig Economy: 3.000
+  SaaS                : 3.000
+  SaaS, Sustainability, Transparency: 3.000
+  Sales / Customer Service: 3.000
+  Sales Intelligence  : 3.000
+  Sales Jobs          : 3.000
+  Sales Jobs consultancy: 3.000
+  Sales and Administration: 3.000
+  Sales and Business Development: 3.000
+  Sales and Customer Service: 3.000
+  Sales and Customer Success: 3.000
+  Sales and Events    : 3.000
+  Sales and Fundraising: 3.000
+  Sales and Interiors : 3.000
+  Sales and Procurement: 3.000
+  Sales and Recruitment: 3.000
+  Sales and Retail    : 3.000
+  Sales and Security  : 3.000
+  Sales and Service   : 3.000
+  Sales and Technology: 3.000
+  Sales, Customer Service and Account Management: 3.000
+  Sales/Admin         : 3.000
+  Sales/Admin/Customer Service/Account Management: 3.000
+  Sales/Marketing     : 3.000
+  Salesforce, Technology: 3.000
+  Science and Technology: 3.000
+  Scientific Research : 3.000
+  Security            : 3.000
+  Security Services   : 3.000
+  Security and Customer Service: 3.000
+  Security and Customer Services: 3.000
+  Security and Defence: 3.000
+  Security and Engineering: 3.000
+  Security and Event Management: 3.000
+  Security and Facilities Management: 3.000
+  Security and Protection: 3.000
+  Security and Surveillance: 3.000
+  Semiconductor       : 3.000
+  Semiconductor industry: 3.000
+  Shipbuilding and Marine Engineering: 3.000
+  Social Care         : 3.000
+  Social Housing      : 3.000
+  Social Services/Housing: 3.000
+  Social Services/Humanitarian: 3.000
+  Social Services/Non-Profit: 3.000
+  Social Services/Social Work: 3.000
+  Social Work/Care    : 3.000
+  Social Work/Charity : 3.000
+  Social Work/Housing : 3.000
+  Social work/Housing : 3.000
+  Software            : 3.000
+  Software Sales      : 3.000
+  Software and Digital Transformation: 3.000
+  Software and I.T sales: 3.000
+  Software and SaaS   : 3.000
+  Software as a Service (SaaS) and Technology: 3.000
+  Sports Management   : 3.000
+  Sports Marketing/PR : 3.000
+  Sports Technology   : 3.000
+  Sports and Entertainment: 3.000
+  Sports and Leisure  : 3.000
+  Sports and Recreation: 3.000
+  Sports, Fashion, Events, and Media: 3.000
+  Sports/Leisure      : 3.000
+  Supply Chain & Logistics: 3.000
+  Supply Chain Solutions: 3.000
+  Supply Chain Technology: 3.000
+  Sustainability      : 3.000
+  Sustainability Tech : 3.000
+  Sustainability and Environment: 3.000
+  Sustainability and Environmental Consulting: 3.000
+  Talent Representation: 3.000
+  Teaching Jobs       : 3.000
+  Tech                : 3.000
+  Technology & Engineering: 3.000
+  Technology and Consulting: 3.000
+  Technology and Data : 3.000
+  Technology and Engineering: 3.000
+  Technology and IT   : 3.000
+  Technology and Services: 3.000
+  Technology and Software: 3.000
+  Technology/Software Development: 3.000
+  Technology/Telecommunications: 3.000
+  Telecoms/Construction: 3.000
+  Tourism             : 3.000
+  Tourism and Hospitality: 3.000
+  Tourism and Transportation: 3.000
+  Tourism/Hospitality : 3.000
+  Trade & Construction Jobs: 3.000
+  Trade and Construction: 3.000
+  Trade/Manufacturing : 3.000
+  Translation and Content Creation: 3.000
+  Translation and Interpretation: 3.000
+  Translation/Language Services: 3.000
+  Transport           : 3.000
+  Transportation and Infrastructure: 3.000
+  Transportation and Logistics: 3.000
+  Transportation/Airport Security: 3.000
+  Transportation/Consulting: 3.000
+  Transportation/Engineering: 3.000
+  Transportation/Fleet Management: 3.000
+  Transportation/Infrastructure: 3.000
+  Transportation/Manufacturing: 3.000
+  Transportation/Rail : 3.000
+  Transportation/Railway: 3.000
+  Transportation/Rental Services: 3.000
+  Travel              : 3.000
+  Travel Industry     : 3.000
+  Travel and Hospitality: 3.000
+  Utilities and infrastructure: 3.000
+  Utility             : 3.000
+  Water Industry      : 3.000
+  Water Resources Management: 3.000
+  Water Treatment     : 3.000
+  Water and Wastewater: 3.000
+  Water and Wastewater Engineering: 3.000
+  Water and Wastewater Treatment: 3.000
+  Web and Digital Agency: 3.000
+  Wine and Beverage   : 3.000
+  Human Resources     : 2.984
+  Marketing           : 2.984
+  HR & Recruitment    : 2.973
+  Administration      : 2.968
+  Sales               : 2.966
+  Insurance           : 2.964
+  Logistics and Transportation: 2.963
+  Technology          : 2.962
+  Hospitality         : 2.962
+  Marketing/PR        : 2.958
+  Customer Service    : 2.957
+  Social Services     : 2.957
+  Customer Services   : 2.955
+  Logistics and Warehouse: 2.955
+  Admin Jobs          : 2.949
+  Social Work         : 2.948
+  Pharmaceutical      : 2.944
+  Logistics and Supply Chain: 2.941
+  Real Estate         : 2.940
+  Logistics & Warehouse: 2.938
+  Aerospace           : 2.938
+  Consultancy         : 2.938
+  Manufacturing/Engineering: 2.938
+  Public Sector       : 2.938
+  Accounting & Finance: 2.937
+  Hospitality & Catering: 2.937
+  Recruitment         : 2.936
+  Construction and Infrastructure: 2.933
+  Government          : 2.933
+  Sales and Marketing : 2.933
+  Energy and Utilities: 2.931
+  Social work         : 2.930
+  Domestic help & Cleaning: 2.929
+  Information Technology: 2.929
+  Professional Services: 2.929
+  Scientific & QA Jobs: 2.929
+  Travel and Tourism  : 2.929
+  Cybersecurity       : 2.923
+  Fashion             : 2.923
+  Gaming              : 2.923
+  Pharmaceuticals     : 2.923
+  Public Relations    : 2.923
+  Consulting          : 2.919
+  Logistics           : 2.918
+  Biotechnology       : 2.917
+  Office Administration: 2.917
+  Telecommunications  : 2.912
+  Entertainment       : 2.909
+  Public Administration and Government: 2.909
+  Financial Services  : 2.907
+  PR                  : 2.905
+  Cyber Security      : 2.900
+  Security and Law Enforcement: 2.900
+  Utilities           : 2.900
+  Manufacturing       : 2.898
+  Retail              : 2.896
+  Construction and Maintenance: 2.895
+  Education           : 2.894
+  Manufacturing and Engineering: 2.889
+  Renewable Energy    : 2.889
+  Transportation/Logistics: 2.889
+  Finance             : 2.888
+  Facilities Management: 2.887
+  Construction        : 2.884
+  Legal               : 2.883
+  Healthcare          : 2.881
+  Domestic help & Cleaning Jobs: 2.879
+  Transportation      : 2.879
+  Cleaning and Maintenance: 2.875
+  Creative & Design   : 2.875
+  Logistics & Transportation: 2.875
+  Law                 : 2.868
+  Market Research     : 2.867
+  IT                  : 2.863
+  IT and Technology   : 2.859
+  Creative & Design Jobs: 2.857
+  IT and Consulting   : 2.857
+  Leisure and Sports  : 2.857
+  Technology/Software : 2.857
+  Telecoms            : 2.857
+  Construction and Engineering: 2.852
+  Scientific & QA     : 2.850
+  Trade & Construction: 2.845
+  Administrative/Office: 2.833
+  Aerospace and Defence: 2.833
+  Environmental Conservation: 2.833
+  Food Manufacturing  : 2.833
+  Food and Beverage   : 2.833
+  Waste Management    : 2.833
+  Engineering         : 2.830
+  Software Development: 2.828
+  Energy              : 2.818
+  Healthcare/Social Work: 2.806
+  Administration/Office Support: 2.800
+  Education/Teaching  : 2.800
+  Healthcare Technology: 2.800
+  IT and Cyber Security: 2.800
+  Logistics/Warehouse : 2.800
+  Public Services     : 2.800
+  Software Engineering: 2.800
+  Construction/Engineering: 2.786
+  Environmental Services: 2.778
+  Automotive          : 2.758
+  Cleaning and Domestic Services: 2.750
+  Criminal Justice    : 2.750
+  Customer Service/Administration: 2.750
+  E-commerce          : 2.750
+  Electronics         : 2.750
+  Health and Fitness  : 2.750
+  IT Jobs             : 2.750
+  Translation and Interpreting: 2.750
+  Veterinary Medicine : 2.750
+  Healthcare & Nursing: 2.747
+  Electronics Engineering: 2.727
+  Fintech             : 2.714
+  Accounting          : 2.667
+  Cleaning and Hygiene: 2.667
+  Education Technology: 2.667
+  Energy/Utilities    : 2.667
+  Engineering Jobs    : 2.667
+  Facilities Management and Professional Services: 2.667
+  Hospitality and Leisure: 2.667
+  Law Enforcement     : 2.667
+  Media               : 2.667
+  Public Administration and Governance: 2.667
+  Urban Planning      : 2.667
+  Healthcare/Social Care: 2.636
+  Electrical Engineering: 2.625
+  Education/Training  : 2.600
+  Fashion and Retail  : 2.600
+  Software as a Service (SaaS): 2.600
+  Beauty and Wellness : 2.500
+  Construction and Facilities Management: 2.500
+  Construction/Housebuilding: 2.500
+  Defense and Aerospace: 2.500
+  Engineering and Manufacturing: 2.500
+  Facilities Maintenance: 2.500
+  Fashion Retail      : 2.500
+  Healthcare/Pharmaceuticals: 2.500
+  Local Government    : 2.500
+  Maintenance and Repair: 2.500
+  Manufacturing/Industrial: 2.500
+  Motor Trade         : 2.500
+  Oil and Gas         : 2.500
+  Other/General Jobs  : 2.500
+  Public Relations (PR): 2.500
+  Software and Technology: 2.500
+  Telecom             : 2.500
+  Accounting and Business Advisory: 2.000
+  Advertising/PR      : 2.000
+  Aerospace & Manufacturing: 2.000
+  Aerospace/Defence   : 2.000
+  Audio-Visual        : 2.000
+  Biopharmaceutical and Medical Device: 2.000
+  Chemical Distribution: 2.000
+  Civil & Structural engineering: 2.000
+  Cleaning/Janitorial : 2.000
+  Construction/Building: 2.000
+  Defence             : 2.000
+  Defense and Government: 2.000
+  Digital and Content Creative: 2.000
+  Digital/Technology  : 2.000
+  Domestic Help       : 2.000
+  Education and Technology: 2.000
+  Electrical services : 2.000
+  Energy sector       : 2.000
+  Entertainment and Media: 2.000
+  FinTech             : 2.000
+  Finance/Estate Agency: 2.000
+  Financial Technology (FinTech): 2.000
+  Health Care         : 2.000
+  Health Tech         : 2.000
+  Healthcare and Technology: 2.000
+  Home Automation and Security: 2.000
+  Humanitarian/Non-Profit: 2.000
+  Hygiene Operations  : 2.000
+  IT Consulting       : 2.000
+  IT/Fintech          : 2.000
+  Logistics and Events: 2.000
+  Manufacturing / Engineering: 2.000
+  Media and Technology: 2.000
+  Non-profit/Philanthropy: 2.000
+  PR and Creative Agency: 2.000
+  Pharmaceuticals/Pharmatech: 2.000
+  Private Equity      : 2.000
+  Scientific Research and Development: 2.000
+  Social Housing and Regeneration: 2.000
+  Software Development and Technology: 2.000
+  Transportation Technology: 2.000
+  Water Treatment, Water Hygiene, Commercial Plumbing: 2.000
+  Water industry      : 2.000
+
+SAMPLE CASES (Truncated)
+----------------------------------------
+Job ID: 2824190950
+Title:  Hotel Arcade Host - Alton Towers Hotel
+Domain: Hospitality & Catering | Sector: Hospitality & Catering Jobs
+Desc:   [Hospitality & Catering] Hotel Arcade Host at Alton Towers Hotel
+Tasks:  [Hospitality & Catering] Provide excellent customer service to guests Ensure the arcade is clean and presentable Manage arcade operations, including opening and closing Report any machine faults and perform daily checks Maintain a fully stocked and working arcade Customer Service Communication Time Management Problem Solving Teamwork
+Kept:   ['Coin, Vending, and Amusement Machine Servicers and Repairers', 'Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop', 'First-Line Supervisors of Gambling Services Workers']
+Dropped:['Ushers, Lobby Attendants, and Ticket Takers', 'Concierges', 'Gambling Change Persons and Booth Cashiers', 'Gambling Cage Workers', 'Bartenders']
+----------------------------------------
+Job ID: 2692731315
+Title:  Part Time Pizza Chef
+Domain: Food Service/Hospitality | Sector: Part time Jobs
+Desc:   [Food Service/Hospitality] Part time Pizza Chef
+Tasks:  [Food Service/Hospitality] Make pizzas to high standards Ensure kitchen service is running smoothly Work in a team environment Maintain high standards of cleanliness and organization Work in a fast-paced environment Pizza making Teamwork Time management Communication Attention to detail
+Kept:   ['Cooks, Fast Food', 'Cooks, Short Order', 'Bakers']
+Dropped:['Janitors and Cleaners, Except Maids and Housekeeping Cleaners', 'Cooks, Restaurant', 'First-Line Supervisors of Food Preparation and Serving Workers', 'Cooks, Private Household', 'Cooks, Institution and Cafeteria', 'Food Preparation Workers']
+----------------------------------------
+Job ID: 2832950694
+Title:  Domestic Assistant
+Domain: Healthcare | Sector: Domestic help & Cleaning Jobs
+Desc:   [Healthcare] Domestic Assistant for a care home in the High Peak, maintaining cleanliness and hygiene standards.
+Tasks:  [Healthcare] Provide a domestic cleaning service within the care home Undertake all hygienic work practices in relation to the care home environment Clean and protect a variety of floor surfaces Clean sanitary fixtures and fittings and replenish sundries Remove refuse Cleaning Hygiene Attention to detail Teamwork Communication
+Kept:   ['Maids and Housekeeping Cleaners', 'Personal Care Aides', 'Home Health Aides']
+Dropped:['Janitors and Cleaners, Except Maids and Housekeeping Cleaners', 'Orderlies', 'Nursing Assistants']
+----------------------------------------
+Job ID: 2842834052
+Title:  Training Manager
+Domain: Health & Social Care | Sector: HR & Recruitment Jobs
+Desc:   [Health & Social Care] Learning and Development Manager for a Health & Social Care client in Cambridgeshire and surrounding regions.
+Tasks:  [Health & Social Care] Promote a culture of learning and continued professional development Develop and deliver training plans and solutions Lead and manage the L&D team Collaborate with the Leadership Team and business stakeholders Develop, review, and evaluate leadership and management development programmes Learning and Development People Management Leadership Training Delivery Coaching
+Kept:   ['Training and Development Specialists', 'Training and Development Managers', 'Health Education Specialists']
+Dropped:['Medical and Health Services Managers', 'Clinical Nurse Specialists', 'Health Informatics Specialists', 'Midwives']
+----------------------------------------
+Job ID: 2848369166
+Title:  Install Engineer
+Domain: Engineering | Sector: Engineering Jobs
+Desc:   [Engineering] Security Install Engineer required for a specialist fire and security company to install security systems.
+Tasks:  [Engineering] Install security systems, including Access Control, IP CCTV, and Fire Alarm systems Work on high-end security systems with integrated technology and IP cameras Collaborate with various security system providers, including Lenel, Axis, Hikvision, Honeywell, Paxton, and Kentec Complete installation work on commercial sites, including shops, offices, and hospitals Troubleshoot and maintain existing security systems Security system installation Access Control IP CCTV Fire Alarm systems Troubleshooting
+Kept:   ['Security and Fire Alarm Systems Installers', 'Information Security Engineers', 'Heating, Air Conditioning, and Refrigeration Mechanics and Installers']
+Dropped:['Security Guards', 'Helpers--Installation, Maintenance, and Repair Workers', 'Fire-Prevention and Protection Engineers', 'Security Management Specialists', 'Telecommunications Engineering Specialists']
+----------------------------------------
+Job ID: 2762096507
+Title:  Test and Trace Environmental Health Officer
+Domain: Public Health | Sector: Legal Jobs
+Desc:   [Public Health] Test and Trace Environmental Health Officer
+Tasks:  [Public Health] Review and action the daily case list issued to you Triage of the cases and immediate escalation where required Contact tracing through phone calls and district visits Escalate and follow up issues as identified through positive case tracing Collaborate to create a resilient system across the borough Communication Problem-solving Initiative Time management Analytical skills
+Kept:   ['Epidemiologists', 'Preventive Medicine Physicians', 'Medical Scientists, Except Epidemiologists']
+Dropped:['Arbitrators, Mediators, and Conciliators', 'Community Health Workers', 'Environmental Science and Protection Technicians, Including Health', 'Occupational Health and Safety Technicians', 'Environmental Compliance Inspectors', 'Occupational Health and Safety Specialists', 'Environmental Scientists and Specialists, Including Health']
+----------------------------------------
+Job ID: 2911432717
+Title:  Mobile Responder
+Domain: Healthcare & Nursing | Sector: Healthcare & Nursing Jobs
+Desc:   [Healthcare & Nursing] Urgent Care Mobile Responder
+Tasks:  [Healthcare & Nursing] Respond to medical emergencies, fall response calls, and high category emergency incidents Provide high quality and effective clinical care to the community Drive vehicles under emergency and non-emergency conditions Attend to patients and service users within the care of SJA Provide treatment and care up to agreed clinical scope of practice Clinical care Driving Ambulance driving qualification Communication Time management
+Kept:   ['Acute Care Nurses', 'Ambulance Drivers and Attendants, Except Emergency Medical Technicians', 'Phlebotomists']
+Dropped:['Heavy and Tractor-Trailer Truck Drivers', 'Dispatchers, Except Police, Fire, and Ambulance', 'Medical Equipment Repairers', 'Emergency Medicine Physicians', 'Critical Care Nurses', 'Nurse Practitioners']
+----------------------------------------
+Job ID: 2908845600
+Title:  Architectural REVIT Technologist
+Domain: Architecture and Design | Sector: Creative & Design Jobs
+Desc:   [Architecture and Design] Architectural REVIT Technologist position in Manchester for an experienced candidate
+Tasks:  [Architecture and Design] Work on a range of exciting and fast-paced projects in the retail and industrial sectors Deliver the highest standard of design solutions for a prestigious portfolio of clients Collaborate with a large, multi-award winning team of Architectural and Interior Design staff Work across a broad range of sectors (Retail, Residential, Industrial, Workplace, Sports & Leisure) Use Autodesk Revit for detailed design of retail commercial, industrial or warehouse projects Autodesk Revit Technical qualifications (HNC/HND or equivalent) RIBA plan of work stages Bespoke detailing an ...[truncated]
+Kept:   ['Architects, Except Landscape and Naval', 'Interior Designers', 'Grinding and Polishing Workers, Hand']
+Dropped:['Shoe and Leather Workers and Repairers', 'Fine Artists, Including Painters, Sculptors, and Illustrators', 'Robotics Engineers', 'Human Factors Engineers and Ergonomists', 'Architectural and Civil Drafters', 'Civil Engineering Technologists and Technicians', 'Architectural and Engineering Managers']
+----------------------------------------
+Job ID: 2827438336
+Title:  Cleaner DBS checked
+Domain: Facilities Management | Sector: Domestic help & Cleaning Jobs
+Desc:   [Facilities Management] Cleaner required for offices in Keynsham
+Tasks:  [Facilities Management] Vacuuming, sweeping, and mopping floors Dusting ceilings, light fittings, countertops, and loose furniture Scrubbing and sanitizing toilets, sinks, and kitchen fixtures Emptying trash cans Washing and drying windows Cleaning products and equipment usage Organizational skills Time management Communication Physical stamina
+Kept:   ['Janitors and Cleaners, Except Maids and Housekeeping Cleaners', 'Maids and Housekeeping Cleaners', 'First-Line Supervisors of Housekeeping and Janitorial Workers']
+Dropped:['Floor Layers, Except Carpet, Wood, and Hard Tiles', 'Facilities Managers', 'Cleaning, Washing, and Metal Pickling Equipment Operators and Tenders', 'Cleaners of Vehicles and Equipment']
+----------------------------------------
+Job ID: 2846152002
+Title:  Account Manager
+Domain: Sales | Sector: Sales Jobs
+Desc:   [Sales] Account Manager for a sales team, responsible for servicing accounts, processing orders, and upselling.
+Tasks:  [Sales] Look after different sized accounts Ensure accounts are fully serviced Process new orders Administer previous orders Upsell where necessary and possible Customer Service Administration Sales Great organisation Persuasive personality
+Kept:   ['Bill and Account Collectors', 'Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products', 'Customer Service Representatives']
+Dropped:['Order Clerks', 'First-Line Supervisors of Retail Sales Workers', 'Sales Managers', 'Parts Salespersons', 'Agents and Business Managers of Artists, Performers, and Athletes', 'Advertising and Promotions Managers']
+
+
+======================================================================
+EMBEDDING: GTE_LARGE
+======================================================================
+GLOBAL METRICS
+  Total Jobs Processed:    14000
+  Avg Candidates (Before): 8.208
+  Avg Candidates (After):  2.922
+  Drop Rate:               0.6440
+  Empty Outputs:           0 (0.00%)
+  IT Leakage Share:        0.0809 (3309/40906)
+
+TOP KEPT OCCUPATIONS (Top 25)
+    590 x Software Developers
+    465 x Cooks, Institution and Cafeteria
+    460 x Information Technology Project Managers
+    436 x Personal Care Aides
+    435 x Treasurers and Controllers
+    434 x Computer Systems Engineers/Architects
+    418 x Financial Managers
+    394 x Chefs and Head Cooks
+    387 x Packers and Packagers, Hand
+    385 x Laborers and Freight, Stock, and Material Movers, Hand
+    368 x Healthcare Social Workers
+    363 x Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+    360 x Shipping, Receiving, and Inventory Clerks
+    347 x Sales Managers
+    325 x Stockers and Order Fillers
+    323 x Retail Salespersons
+    320 x Human Resources Specialists
+    316 x Mental Health and Substance Abuse Social Workers
+    308 x Accountants and Auditors
+    304 x Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop
+    296 x Dining Room and Cafeteria Attendants and Bartender Helpers
+    296 x Industrial Truck and Tractor Operators
+    290 x Nursing Assistants
+    286 x Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products
+    281 x Transportation, Storage, and Distribution Managers
+
+DOMAIN AVERAGES (Avg items kept per domain)
+  Academia/Research   : 3.000
+  Accountancy         : 3.000
+  Accountancy/Consulting: 3.000
+  Accounting          : 3.000
+  Accounting and Finance: 3.000
+  Accounting/Finance, Administrative: 3.000
+  Administration      : 3.000
+  Administration/Logistics: 3.000
+  Administration/Office: 3.000
+  Administration/Office Management: 3.000
+  Administration/Office Support: 3.000
+  Administrative Support: 3.000
+  Administrative/Office Support: 3.000
+  Advertising         : 3.000
+  Advertising/PR      : 3.000
+  Aerospace & Defence : 3.000
+  Aerospace Engineering: 3.000
+  Aerospace Manufacturing: 3.000
+  Aerospace and Defense: 3.000
+  Aerospace and Technology: 3.000
+  Aerospace/Automotive: 3.000
+  Aerospace/Defence   : 3.000
+  Aerospace/Defence/Space: 3.000
+  Aerospace/Defense   : 3.000
+  Aerospace/Telecommunications: 3.000
+  Agricultural and Plant Engineering: 3.000
+  Agriculture         : 3.000
+  Agriculture and Construction: 3.000
+  Agriculture/Food Science: 3.000
+  Agriculture/Food and Beverage: 3.000
+  Agriculture/Rural   : 3.000
+  Agriculture/Supply Chain: 3.000
+  Animal Care         : 3.000
+  Animal Welfare and Non-Profit: 3.000
+  Architecture and Design: 3.000
+  Architecture and Engineering: 3.000
+  Architecture and Interior Design: 3.000
+  Art and Auction House: 3.000
+  Arts and Entertainment: 3.000
+  Arts, Entertainment & Recreation: 3.000
+  Audio-Visual        : 3.000
+  Automation          : 3.000
+  Automotive Engineering: 3.000
+  Automotive Manufacturing: 3.000
+  Automotive Retail   : 3.000
+  Automotive Sales    : 3.000
+  Automotive and Luxury Goods: 3.000
+  Automotive/Mechanical trade: 3.000
+  Automotive/Motorsport Engineering: 3.000
+  Automotive/Rental Industry: 3.000
+  Aviation            : 3.000
+  Banking             : 3.000
+  Banking & Finance   : 3.000
+  Banking and Finance : 3.000
+  Beauty and Wellness : 3.000
+  Biopharmaceutical   : 3.000
+  Biopharmaceutical and Medical Device: 3.000
+  Biotechnology and Biological Sciences: 3.000
+  Biotechnology/Life Sciences: 3.000
+  Building Services   : 3.000
+  Building Services, FM and Support Sectors: 3.000
+  Building and Construction: 3.000
+  Business            : 3.000
+  Business Administration: 3.000
+  Business Support    : 3.000
+  Business and Finance: 3.000
+  Business and Management: 3.000
+  Business/Corporate  : 3.000
+  Business/Management : 3.000
+  Career Transition and Sports: 3.000
+  Charity & Conservation: 3.000
+  Charity & Voluntary : 3.000
+  Charity and Non-Profit: 3.000
+  Chemical Distribution: 3.000
+  Chemical Industry   : 3.000
+  Chemical and Energy : 3.000
+  Chemical/Manufacturing: 3.000
+  Chemicals           : 3.000
+  Chemicals and Ingredients: 3.000
+  Chemicals and Materials: 3.000
+  Childcare           : 3.000
+  Civil & Structural engineering: 3.000
+  Civil Engineering   : 3.000
+  Civil Engineering/Construction: 3.000
+  Cleaning and Hygiene: 3.000
+  Cleaning and Hygiene Services: 3.000
+  Cleaning/Janitorial : 3.000
+  Cloud Computing     : 3.000
+  Commercial/Business : 3.000
+  Comms / Marketing / PR: 3.000
+  Community Development: 3.000
+  Construction Manufacturing: 3.000
+  Construction Materials: 3.000
+  Construction Trades : 3.000
+  Construction and Building: 3.000
+  Construction and Building Materials: 3.000
+  Construction and Civil Engineering: 3.000
+  Construction and Consultancy: 3.000
+  Construction and Development: 3.000
+  Construction and Engineering: 3.000
+  Construction and Engineering Services: 3.000
+  Construction and Facilities Management: 3.000
+  Construction and Infrastructure Services: 3.000
+  Construction and Manufacturing: 3.000
+  Construction and Property: 3.000
+  Construction and Property Management: 3.000
+  Construction and Real Estate: 3.000
+  Construction and Steel: 3.000
+  Construction and Trade: 3.000
+  Construction/Architecture: 3.000
+  Construction/Building Maintenance: 3.000
+  Construction/Building Materials: 3.000
+  Construction/Civil Engineering: 3.000
+  Construction/Cleaning: 3.000
+  Construction/Housing: 3.000
+  Construction/Maintenance: 3.000
+  Construction/Project Management: 3.000
+  Construction/Property: 3.000
+  Construction/Property Development: 3.000
+  Construction/Property Maintenance: 3.000
+  Construction/Quarrying: 3.000
+  Construction/Rail & Infrastructure: 3.000
+  Construction/Railway Engineering: 3.000
+  Construction/Real Estate: 3.000
+  Construction/Retail : 3.000
+  Construction/Trade  : 3.000
+  Consumer Goods      : 3.000
+  Content Creation/PR : 3.000
+  Control Systems     : 3.000
+  Corporate Business  : 3.000
+  Corporate Finance   : 3.000
+  Creative            : 3.000
+  Creative Agency     : 3.000
+  Creative/Design     : 3.000
+  Criminal Justice    : 3.000
+  Customer Service/Call Center: 3.000
+  Data Science        : 3.000
+  Data Science and Analytics: 3.000
+  Data and Intelligence consultancy: 3.000
+  Defence             : 3.000
+  Defence & Security  : 3.000
+  Defence and Aerospace: 3.000
+  Defence and Government: 3.000
+  Defence and Security: 3.000
+  Defense and Aerospace: 3.000
+  Defense and Government: 3.000
+  Defense and Security: 3.000
+  Design and Creative : 3.000
+  Design and Research : 3.000
+  Digital Agency      : 3.000
+  Digital Design and Build Agency: 3.000
+  Digital Marketing and Creative Technology: 3.000
+  Digital Media       : 3.000
+  Digital Media and Performance Marketing: 3.000
+  Digital and Content Creative: 3.000
+  Digital retail, Tech: 3.000
+  Digital/Technology  : 3.000
+  Document Management : 3.000
+  Domestic Help       : 3.000
+  Domestic and Cleaning Services: 3.000
+  Domestic/Cleaning   : 3.000
+  E-commerce          : 3.000
+  E-commerce and Logistics: 3.000
+  E-commerce/Fashion  : 3.000
+  Ecommerce Fashion   : 3.000
+  Ed Tech             : 3.000
+  Education Recruitment: 3.000
+  Education Technology: 3.000
+  Education and Technology: 3.000
+  Education/Childcare : 3.000
+  Education/Library   : 3.000
+  Education/Library Services: 3.000
+  Education/Non-Profit: 3.000
+  Education/Online Learning: 3.000
+  Education/Recruitment: 3.000
+  Education/Social Work: 3.000
+  Education/Training  : 3.000
+  Electrical Distribution: 3.000
+  Electrical Trade    : 3.000
+  Electrical Wholesale: 3.000
+  Electrical services : 3.000
+  Electrical/Electronic Engineering: 3.000
+  Electrical/Electronics: 3.000
+  Electro-mechanical Engineering: 3.000
+  Electronics / Embedded Software: 3.000
+  Electronics Manufacturing: 3.000
+  Electronics Technology: 3.000
+  Electronics and Manufacturing: 3.000
+  Electronics and Semiconductors: 3.000
+  Electronics manufacture and distribution: 3.000
+  Electronics/Audio Technology: 3.000
+  Electronics/Embedded Systems: 3.000
+  Electronics/Engineering: 3.000
+  Electronics/Technology: 3.000
+  Electronics/Telecommunications: 3.000
+  Employment Research Consultancy: 3.000
+  Energy & Environment: 3.000
+  Energy & Natural Resources: 3.000
+  Energy Services     : 3.000
+  Energy Trading      : 3.000
+  Energy and Chemicals: 3.000
+  Energy and Environment: 3.000
+  Energy and Sustainability: 3.000
+  Energy and Waste consultancy: 3.000
+  Energy sector       : 3.000
+  Energy/Engineering  : 3.000
+  Energy/Geoscience   : 3.000
+  Energy/Utilities    : 3.000
+  Engineering & Maintenance: 3.000
+  Engineering & Manufacturing: 3.000
+  Engineering & Science: 3.000
+  Engineering and Advisory: 3.000
+  Engineering and Consulting: 3.000
+  Engineering and Manufacturing: 3.000
+  Engineering and Process Sector Industries: 3.000
+  Engineering/Construction: 3.000
+  Engineering/Manufacturing: 3.000
+  Engineering/Technology: 3.000
+  Entertainment and Media: 3.000
+  Entertainment/Event Management: 3.000
+  Entertainment/PR    : 3.000
+  Environmental Consultancy: 3.000
+  Environmental Engineering: 3.000
+  Environmental Regulation: 3.000
+  Environmental Science: 3.000
+  Environmental Technology: 3.000
+  Environmental and Occupational Hygiene: 3.000
+  Environmental consultancy: 3.000
+  Environmental, Engineering and Strategic Consulting: 3.000
+  Environmental, Health, and Safety: 3.000
+  Environmental/Social Impact: 3.000
+  Environmental/Sustainability: 3.000
+  Environmental/Water Management: 3.000
+  Estate Agency       : 3.000
+  Event Management    : 3.000
+  Event Planning and A/V Technology: 3.000
+  Events              : 3.000
+  Executive Search Firm: 3.000
+  Executive Search and Recruitment: 3.000
+  Executive Secretarial & Support: 3.000
+  FMCG                : 3.000
+  FMCG (Fast-Moving Consumer Goods): 3.000
+  Facilities & Property Management: 3.000
+  Facilities Management and Professional Services: 3.000
+  Farming/Agribusiness: 3.000
+  Fashion Retail      : 3.000
+  Fashion Technology  : 3.000
+  Fashion and Apparel : 3.000
+  Fashion/ Apparel    : 3.000
+  Fashion/Apparel     : 3.000
+  Fashion/Textile     : 3.000
+  Fashion/Textiles    : 3.000
+  FinTech             : 3.000
+  Finance and Accounting: 3.000
+  Finance and Administration: 3.000
+  Finance and Banking : 3.000
+  Finance and Business: 3.000
+  Finance and Consulting: 3.000
+  Finance and Insurance: 3.000
+  Finance and Law     : 3.000
+  Finance and Tax     : 3.000
+  Finance and Technology: 3.000
+  Finance et Assurance: 3.000
+  Finance/ Banking    : 3.000
+  Finance/Accounting  : 3.000
+  Finance/Administration: 3.000
+  Finance/Estate Agency: 3.000
+  Finance/Financial Services: 3.000
+  Finance/IT          : 3.000
+  Finance/Investment Banking: 3.000
+  Finance/Trading     : 3.000
+  Finance/Wealth Management: 3.000
+  Financial Markets   : 3.000
+  Financial Planning  : 3.000
+  Financial Services and Technology: 3.000
+  Financial Services/Banking: 3.000
+  Financial Services/Reinsurance: 3.000
+  Financial Technology: 3.000
+  Financial Technology (FinTech): 3.000
+  Fire and Security   : 3.000
+  Fire and Security Installation: 3.000
+  Food Industry       : 3.000
+  Food Manufacturing  : 3.000
+  Food Processing     : 3.000
+  Food Production     : 3.000
+  Food Sector         : 3.000
+  Food Service        : 3.000
+  Food Service/Hospitality: 3.000
+  Food Tech           : 3.000
+  Foodservice         : 3.000
+  Funeral Services    : 3.000
+  Game Development    : 3.000
+  Gaming              : 3.000
+  Gaming and Betting  : 3.000
+  Gaming and Entertainment: 3.000
+  Global Manufacturing: 3.000
+  Government and Defence: 3.000
+  Government and Public Administration: 3.000
+  Government and Public Policy: 3.000
+  Government and Public Sector: 3.000
+  Government/Local Government: 3.000
+  Government/Non-Profit: 3.000
+  Government/Public Administration: 3.000
+  Government/Public Sector: 3.000
+  Graphic Design      : 3.000
+  HR & Recruitment Jobs: 3.000
+  Health & Beauty     : 3.000
+  Health & Social Care: 3.000
+  Health Tech         : 3.000
+  Health and Fitness Technology: 3.000
+  Health and Social Care: 3.000
+  Health and Social Care Recruitment: 3.000
+  Health and Wellness : 3.000
+  Healthcare & Biotechnology: 3.000
+  Healthcare & Nursing Jobs: 3.000
+  Healthcare Administration: 3.000
+  Healthcare and Biotechnology: 3.000
+  Healthcare and Clinical Research: 3.000
+  Healthcare and Life Sciences (HCLS): 3.000
+  Healthcare and Social Care: 3.000
+  Healthcare and Social Services: 3.000
+  Healthcare and Social Work: 3.000
+  Healthcare and Technology: 3.000
+  Healthcare/Biotechnology: 3.000
+  Healthcare/Hospitality: 3.000
+  Healthcare/Non-profit: 3.000
+  Healthcare/Pharmaceutical: 3.000
+  Healthcare/Pharmaceuticals: 3.000
+  Healthcare/Social Services: 3.000
+  Heavy Plant industry: 3.000
+  Heritage and Conservation: 3.000
+  Heritage and Tourism: 3.000
+  Higher Education    : 3.000
+  Home Accessories Manufacturing: 3.000
+  Home Automation and Security: 3.000
+  Hospitality Technology: 3.000
+  Hospitality and Leisure: 3.000
+  Hospitality and Office Administration: 3.000
+  Hospitality and Recreation: 3.000
+  Hospitality, Leisure, Entertainment: 3.000
+  Hospitality/Entertainment: 3.000
+  Hospitality/Hotel   : 3.000
+  Household Help      : 3.000
+  Household Services  : 3.000
+  Housekeeping/Cleaning: 3.000
+  Housing Association : 3.000
+  Housing and Construction: 3.000
+  Human Resources/Recruitment: 3.000
+  Hygiene Operations  : 3.000
+  IT & Technology     : 3.000
+  IT & Technology Recruitment: 3.000
+  IT / Information Technology: 3.000
+  IT / Telecoms       : 3.000
+  IT Consultancy      : 3.000
+  IT Consulting       : 3.000
+  IT Security         : 3.000
+  IT and Consulting   : 3.000
+  IT and Cyber Security: 3.000
+  IT and Cybersecurity: 3.000
+  IT and Defence      : 3.000
+  IT and Defense      : 3.000
+  IT and InfoSec      : 3.000
+  IT and Software     : 3.000
+  IT and Software Development: 3.000
+  IT and Telecommunication: 3.000
+  IT and Telecommunication Services: 3.000
+  IT and Telecommunications: 3.000
+  IT, Fintech, Blockchain, AI: 3.000
+  IT/Fintech          : 3.000
+  IT/Operations       : 3.000
+  IT/PropTech         : 3.000
+  IT/Software         : 3.000
+  IT/Software Development: 3.000
+  IT/Sports           : 3.000
+  IT/Telecoms         : 3.000
+  IT/Telecoms Infrastructure: 3.000
+  Industrial          : 3.000
+  Industrial Engineering / Lean Manufacturing: 3.000
+  Industrial Equipment Sales: 3.000
+  Industrial Maintenance: 3.000
+  Industrial Systems  : 3.000
+  Information Services: 3.000
+  Information Technology: 3.000
+  Information Technology and Cybersecurity: 3.000
+  Infrastructure consultancy: 3.000
+  InsurTech           : 3.000
+  Insurance Broker    : 3.000
+  Investment Management: 3.000
+  Justice and Law     : 3.000
+  Justice and Law Enforcement: 3.000
+  Justice/Legal       : 3.000
+  Landscaping and Gardening: 3.000
+  Landscaping and Grounds Maintenance: 3.000
+  Law Enforcement     : 3.000
+  Law and Legal       : 3.000
+  Legal Jobs          : 3.000
+  Legal Services      : 3.000
+  Legal/Defence       : 3.000
+  Legal/Finance       : 3.000
+  Leisure             : 3.000
+  Leisure and Fitness : 3.000
+  Leisure and Hospitality: 3.000
+  Leisure and Recreation: 3.000
+  Life Science        : 3.000
+  Life Sciences       : 3.000
+  Local Government/Town Planning: 3.000
+  Logistics & Automotive: 3.000
+  Logistics & Defence : 3.000
+  Logistics & E-commerce: 3.000
+  Logistics & Manufacturing: 3.000
+  Logistics & Supply Chain: 3.000
+  Logistics and Events: 3.000
+  Logistics and Supply Chain: 3.000
+  Logistics/Distribution: 3.000
+  Logistics/Warehouse : 3.000
+  Luxury Goods        : 3.000
+  Maintenance Jobs    : 3.000
+  Maintenance and Building Services: 3.000
+  Maintenance and Repair: 3.000
+  Management Consultancy: 3.000
+  Manufacturing / Engineering: 3.000
+  Manufacturing Engineering: 3.000
+  Manufacturing Jobs  : 3.000
+  Manufacturing and Distribution: 3.000
+  Manufacturing and Engineering: 3.000
+  Manufacturing and Logistics: 3.000
+  Manufacturing and Operations: 3.000
+  Manufacturing/Engineering: 3.000
+  Manufacturing/FMCG  : 3.000
+  Manufacturing/Food Industry: 3.000
+  Manufacturing/Food Processing: 3.000
+  Manufacturing/Food and Beverage: 3.000
+  Manufacturing/Furniture: 3.000
+  Manufacturing/Industrial: 3.000
+  Manufacturing/Logistics: 3.000
+  Manufacturing/Production: 3.000
+  Marine Engineering  : 3.000
+  Market Research     : 3.000
+  Marketing and Advertising: 3.000
+  Marketing and Communications: 3.000
+  Marketing and Digital Design: 3.000
+  Marketing and PR    : 3.000
+  Marketing and Public Relations: 3.000
+  Marketing and Sales : 3.000
+  Marketing/Advertising: 3.000
+  Marketing/PR        : 3.000
+  Marketing/Sales     : 3.000
+  MedTech             : 3.000
+  Media and Advertising: 3.000
+  Media and Events    : 3.000
+  Media and Journalism: 3.000
+  Media and Technology: 3.000
+  Medical Affairs     : 3.000
+  Medical Communications: 3.000
+  Medical Device      : 3.000
+  Medical Device Engineering: 3.000
+  Medical Sales       : 3.000
+  Medical Technology  : 3.000
+  Membership and Associations: 3.000
+  Mental Health       : 3.000
+  Military/Defence    : 3.000
+  Military/Defense    : 3.000
+  Mining              : 3.000
+  Motor Trade         : 3.000
+  Music               : 3.000
+  Music Industry      : 3.000
+  Non-Profit          : 3.000
+  Non-Profit and Humanitarian: 3.000
+  Non-Profit/Community: 3.000
+  Non-Profit/NGO      : 3.000
+  Non-Profit/Religious: 3.000
+  Non-Profit/Social Services: 3.000
+  Non-profit          : 3.000
+  Non-profit/Gambling Support: 3.000
+  Non-profit/NGO      : 3.000
+  Non-profit/Philanthropy: 3.000
+  Non-profit/Research : 3.000
+  Non-profit/Social Services: 3.000
+  Non-profit/Sustainability: 3.000
+  Nonprofit           : 3.000
+  Nuclear Engineering : 3.000
+  Office Administration: 3.000
+  Oil and Gas         : 3.000
+  Online Surveys/Admin Jobs: 3.000
+  PR                  : 3.000
+  PR & Communications : 3.000
+  PR (Public Relations): 3.000
+  PR and Communications: 3.000
+  PR and Creative Agency: 3.000
+  PR and Marketing    : 3.000
+  Packaging           : 3.000
+  Packaging and Supply: 3.000
+  Pet Care            : 3.000
+  Pharmaceutical and Healthcare: 3.000
+  Pharmaceutical industry: 3.000
+  Pharmaceuticals/Biotechnology: 3.000
+  Pharmaceuticals/Pharmatech: 3.000
+  Power Engineering   : 3.000
+  Print & IT supplies distribution: 3.000
+  Print and document management industry: 3.000
+  Private Equity      : 3.000
+  Procurement and Supply Chain: 3.000
+  Project Administration: 3.000
+  Property & Construction: 3.000
+  Property Jobs       : 3.000
+  Property Management : 3.000
+  Property Management and Construction: 3.000
+  Property Management and Consultancy: 3.000
+  Property Services   : 3.000
+  Property and Real Estate: 3.000
+  Property/Construction: 3.000
+  Public Administration: 3.000
+  Public Administration and Governance: 3.000
+  Public Administration and Justice: 3.000
+  Public Administration and Safety: 3.000
+  Public Health       : 3.000
+  Public Health Administration: 3.000
+  Public Health and Social Work: 3.000
+  Public Relations    : 3.000
+  Public Relations (PR): 3.000
+  Public Relations/Marketing: 3.000
+  Public Safety       : 3.000
+  Public Safety and Corrections: 3.000
+  Public Sector Administration: 3.000
+  Public Sector/ Law Enforcement: 3.000
+  Public Sector/Government: 3.000
+  Public Sector/Local Government: 3.000
+  Public Sector/Prison Services: 3.000
+  Public Services     : 3.000
+  Real Estate Consultancy: 3.000
+  Real Estate Finance : 3.000
+  Real Estate/Housing : 3.000
+  Real Estate/Housing Association: 3.000
+  Real Estate/Property: 3.000
+  Real Estate/Property Development: 3.000
+  Real Estate/Property Management: 3.000
+  Recruitment & Consultancy: 3.000
+  Recruitment Consultancy: 3.000
+  Recruitment and Consultancy: 3.000
+  Recruitment and Human Resources: 3.000
+  Recruitment and Sales: 3.000
+  Recruitment and Staffing: 3.000
+  Recruitment/Consultancy: 3.000
+  Recruitment/Consulting: 3.000
+  Recruitment/HR      : 3.000
+  Recruitment/HR Technology: 3.000
+  Recruitment/Human Resources: 3.000
+  Recruitment/Technology: 3.000
+  Recycling and Resource Management: 3.000
+  Remote Work/Online Business: 3.000
+  Remote Work/Online Jobs: 3.000
+  Remote Work/Online Opportunities: 3.000
+  Remote work/ Administration: 3.000
+  Renewable Energy & Sustainable Technologies: 3.000
+  Renewable Energy and District Heating: 3.000
+  Renewable Energy/EV/Mobility: 3.000
+  Renewable Energy/Electric Vehicle: 3.000
+  Renewables          : 3.000
+  Rental/Leasing      : 3.000
+  Research            : 3.000
+  Research and Development: 3.000
+  Research and Market Analysis: 3.000
+  Residential Property: 3.000
+  Retail & Leisure    : 3.000
+  Retail / Hospitality / Leisure: 3.000
+  Retail Marketing    : 3.000
+  Retail Technology   : 3.000
+  Retail and Cosmetics: 3.000
+  Retail and Sales    : 3.000
+  Retail and Technology: 3.000
+  Retail/Beauty       : 3.000
+  Retail/Ecommerce    : 3.000
+  Retail/Electronics  : 3.000
+  Retail/Fashion      : 3.000
+  Retail/Fast Food    : 3.000
+  Retail/Food         : 3.000
+  Retail/Food Industry: 3.000
+  Retail/Food Service : 3.000
+  Retail/Hair and Beauty: 3.000
+  Retail/Trading      : 3.000
+  Retail/Travel       : 3.000
+  Ride-sharing/Gig Economy: 3.000
+  SaaS                : 3.000
+  SaaS, Sustainability, Transparency: 3.000
+  Sales / Customer Service: 3.000
+  Sales Intelligence  : 3.000
+  Sales Jobs          : 3.000
+  Sales Jobs consultancy: 3.000
+  Sales and Administration: 3.000
+  Sales and Business Development: 3.000
+  Sales and Customer Service: 3.000
+  Sales and Fundraising: 3.000
+  Sales and Interiors : 3.000
+  Sales and Procurement: 3.000
+  Sales and Retail    : 3.000
+  Sales and Security  : 3.000
+  Sales and Service   : 3.000
+  Sales and Technology: 3.000
+  Sales, Customer Service and Account Management: 3.000
+  Sales/Admin         : 3.000
+  Sales/Admin/Customer Service/Account Management: 3.000
+  Sales/Marketing     : 3.000
+  Salesforce, Technology: 3.000
+  Scientific Research : 3.000
+  Scientific Research and Development: 3.000
+  Security Services   : 3.000
+  Security and Customer Service: 3.000
+  Security and Customer Services: 3.000
+  Security and Defence: 3.000
+  Security and Engineering: 3.000
+  Security and Event Management: 3.000
+  Security and Facilities Management: 3.000
+  Security and Protection: 3.000
+  Security and Surveillance: 3.000
+  Semiconductor       : 3.000
+  Semiconductor industry: 3.000
+  Shipbuilding and Marine Engineering: 3.000
+  Social Housing      : 3.000
+  Social Housing and Regeneration: 3.000
+  Social Services/Housing: 3.000
+  Social Services/Humanitarian: 3.000
+  Social Services/Non-Profit: 3.000
+  Social Services/Social Work: 3.000
+  Social Work/Care    : 3.000
+  Social Work/Charity : 3.000
+  Social Work/Housing : 3.000
+  Social work/Housing : 3.000
+  Software Development and Technology: 3.000
+  Software Engineering: 3.000
+  Software Sales      : 3.000
+  Software and Digital Transformation: 3.000
+  Software and I.T sales: 3.000
+  Software and SaaS   : 3.000
+  Software and Technology: 3.000
+  Software as a Service (SaaS) and Technology: 3.000
+  Sports Management   : 3.000
+  Sports Marketing/PR : 3.000
+  Sports Technology   : 3.000
+  Sports and Entertainment: 3.000
+  Sports and Leisure  : 3.000
+  Sports and Recreation: 3.000
+  Sports, Fashion, Events, and Media: 3.000
+  Sports/Leisure      : 3.000
+  Supply Chain & Logistics: 3.000
+  Supply Chain Solutions: 3.000
+  Supply Chain Technology: 3.000
+  Sustainability      : 3.000
+  Sustainability Tech : 3.000
+  Sustainability and Environment: 3.000
+  Sustainability and Environmental Consulting: 3.000
+  Talent Representation: 3.000
+  Teaching Jobs       : 3.000
+  Tech                : 3.000
+  Technology & Engineering: 3.000
+  Technology and Consulting: 3.000
+  Technology and Data : 3.000
+  Technology and Engineering: 3.000
+  Technology and IT   : 3.000
+  Technology and Services: 3.000
+  Technology and Software: 3.000
+  Technology/Software : 3.000
+  Technology/Software Development: 3.000
+  Technology/Telecommunications: 3.000
+  Telecom             : 3.000
+  Telecoms            : 3.000
+  Telecoms/Construction: 3.000
+  Tourism             : 3.000
+  Tourism and Hospitality: 3.000
+  Tourism/Hospitality : 3.000
+  Trade & Construction Jobs: 3.000
+  Trade and Construction: 3.000
+  Trade/Manufacturing : 3.000
+  Translation and Content Creation: 3.000
+  Translation and Interpretation: 3.000
+  Translation and Interpreting: 3.000
+  Translation/Language Services: 3.000
+  Transport           : 3.000
+  Transportation Technology: 3.000
+  Transportation and Infrastructure: 3.000
+  Transportation and Logistics: 3.000
+  Transportation/Airport Security: 3.000
+  Transportation/Consulting: 3.000
+  Transportation/Engineering: 3.000
+  Transportation/Fleet Management: 3.000
+  Transportation/Logistics: 3.000
+  Transportation/Manufacturing: 3.000
+  Transportation/Rail : 3.000
+  Transportation/Railway: 3.000
+  Transportation/Rental Services: 3.000
+  Travel              : 3.000
+  Travel Industry     : 3.000
+  Travel and Hospitality: 3.000
+  Travel and Tourism  : 3.000
+  Urban Planning      : 3.000
+  Utility             : 3.000
+  Waste Management    : 3.000
+  Water Industry      : 3.000
+  Water Resources Management: 3.000
+  Water Treatment     : 3.000
+  Water Treatment, Water Hygiene, Commercial Plumbing: 3.000
+  Water and Wastewater: 3.000
+  Water and Wastewater Engineering: 3.000
+  Water and Wastewater Treatment: 3.000
+  Water industry      : 3.000
+  Web and Digital Agency: 3.000
+  Wine and Beverage   : 3.000
+  Transportation      : 2.985
+  Human Resources     : 2.984
+  Automotive          : 2.979
+  Social Services     : 2.979
+  Hospitality         : 2.978
+  Admin Jobs          : 2.974
+  Sales and Marketing : 2.967
+  Sales               : 2.966
+  Finance             : 2.966
+  Software Development: 2.966
+  Scientific & QA Jobs: 2.964
+  HR & Recruitment    : 2.959
+  Accounting & Finance: 2.958
+  Customer Service    : 2.957
+  Recruitment         : 2.957
+  Logistics           : 2.956
+  Marketing           : 2.952
+  Logistics & Warehouse: 2.952
+  Security and Law Enforcement: 2.950
+  Social Work         : 2.948
+  Construction and Maintenance: 2.947
+  Finance/Banking     : 2.947
+  Insurance           : 2.945
+  Renewable Energy    : 2.944
+  Hospitality & Catering: 2.944
+  Technology          : 2.943
+  Non-profit/Charity  : 2.941
+  Manufacturing       : 2.939
+  IT Jobs             : 2.938
+  Public Sector       : 2.938
+  Retail              : 2.936
+  Non-Profit/Charity  : 2.933
+  Customer Services   : 2.933
+  Financial Services  : 2.932
+  Construction        : 2.929
+  Construction/Engineering: 2.929
+  Creative & Design Jobs: 2.929
+  Fintech             : 2.929
+  Professional Services: 2.929
+  IT                  : 2.926
+  Logistics and Transportation: 2.926
+  Real Estate         : 2.925
+  Health and Fitness  : 2.925
+  Cybersecurity       : 2.923
+  Fashion             : 2.923
+  Media and Entertainment: 2.923
+  Pharmaceuticals     : 2.923
+  Trade & Construction: 2.923
+  IT and Technology   : 2.922
+  Consulting          : 2.919
+  Aerospace and Defence: 2.917
+  Biotechnology       : 2.917
+  Telecommunications  : 2.912
+  Social work         : 2.911
+  Beauty and Cosmetics: 2.909
+  Consultancy Jobs    : 2.909
+  Healthcare/Social Care: 2.909
+  Logistics and Warehouse: 2.909
+  Public Administration and Government: 2.909
+  Publishing          : 2.909
+  Security            : 2.909
+  Education           : 2.905
+  Facilities Management: 2.903
+  Scientific & QA     : 2.900
+  Social Care         : 2.900
+  Utilities           : 2.900
+  Architecture and Construction: 2.889
+  Digital Marketing   : 2.889
+  Environmental Services: 2.889
+  Healthcare          : 2.882
+  Engineering         : 2.877
+  Consultancy         : 2.875
+  Creative & Design   : 2.875
+  Electrical Engineering: 2.875
+  Healthcare/Social work: 2.875
+  Logistics & Transportation: 2.875
+  Property            : 2.875
+  Construction and Infrastructure: 2.867
+  Government          : 2.867
+  Energy and Utilities: 2.862
+  Construction and Architecture: 2.857
+  Hospitality/Leisure : 2.857
+  Leisure and Sports  : 2.857
+  Logistics/Transportation: 2.857
+  Maintenance         : 2.857
+  Media and Publishing: 2.857
+  Energy              : 2.836
+  Administrative/Office: 2.833
+  Advertising/Marketing: 2.833
+  Education and Training: 2.833
+  Engineering Jobs    : 2.833
+  Pharmaceutical      : 2.833
+  Software            : 2.833
+  Domestic help & Cleaning Jobs: 2.818
+  Electronics Engineering: 2.818
+  Sales and Recruitment: 2.818
+  Law                 : 2.816
+  Aerospace           : 2.812
+  Legal               : 2.805
+  Cyber Security      : 2.800
+  Education/Teaching  : 2.800
+  Fashion and Retail  : 2.800
+  Healthcare Technology: 2.800
+  Software as a Service (SaaS): 2.800
+  Healthcare & Nursing: 2.766
+  Architecture        : 2.750
+  Cleaning and Domestic Services: 2.750
+  Cleaning and Maintenance: 2.750
+  Construction and Trades: 2.750
+  Customer Service/Administration: 2.750
+  Electronics         : 2.750
+  Finance/Insurance   : 2.750
+  Healthcare/Social Work: 2.750
+  Local Government    : 2.750
+  Entertainment       : 2.727
+  Domestic help & Cleaning: 2.690
+  Aerospace/Aviation  : 2.667
+  Cleaning and Domestic Help: 2.667
+  Construction/Infrastructure: 2.667
+  Environmental Conservation: 2.667
+  Environmental Consulting: 2.667
+  Environmental/Conservation: 2.667
+  Food and Beverage   : 2.667
+  Healthcare/IT       : 2.667
+  IT/Technology       : 2.667
+  Media               : 2.667
+  Medical Devices     : 2.667
+  Transportation/Infrastructure: 2.600
+  Domestic Services   : 2.542
+  Domestic Help & Cleaning: 2.538
+  Advertising and Marketing: 2.500
+  Biopharmaceuticals  : 2.500
+  Cleaning Services   : 2.500
+  Construction/Housebuilding: 2.500
+  Defense and Military: 2.500
+  Ecommerce           : 2.500
+  Facilities Maintenance: 2.500
+  Finance/Investment  : 2.500
+  Oil & Gas           : 2.500
+  Other/General Jobs  : 2.500
+  Veterinary Medicine : 2.500
+  Accounting and Business Advisory: 2.000
+  Accounting/Finance  : 2.000
+  Aerospace & Manufacturing: 2.000
+  Animation           : 2.000
+  Biotechnology/Pharmaceutical: 2.000
+  Biotechnology/Pharmaceuticals: 2.000
+  Construction and Mining: 2.000
+  Construction/Building: 2.000
+  Construction/Building Services: 2.000
+  Construction/Equipment Rental: 2.000
+  Construction/Rail   : 2.000
+  Domestic/ Household Management: 2.000
+  EdTech              : 2.000
+  Energy and Power Systems: 2.000
+  Engineering/Maintenance: 2.000
+  Fashion Industry    : 2.000
+  Health Care         : 2.000
+  Healthcare Advertising: 2.000
+  Housing and Property Management: 2.000
+  Humanitarian/Non-Profit: 2.000
+  Industrial Automation: 2.000
+  Infrastructure and Construction: 2.000
+  Law and Finance     : 2.000
+  Law and Legal Services: 2.000
+  Logistics and Distribution: 2.000
+  Logistics and Postal Services: 2.000
+  Manufacturing/Maintenance: 2.000
+  Media and Communications: 2.000
+  Oil & Gas / Energy Corporate: 2.000
+  Pharmaceutical Consulting: 2.000
+  Pharmaceuticals/Healthcare: 2.000
+  Recruitment Sector  : 2.000
+  Retail Banking & Finance: 2.000
+  Retail/E-commerce   : 2.000
+  Retail/Wholesale    : 2.000
+  Sales and Customer Success: 2.000
+  Sales and Events    : 2.000
+  Science and Technology: 2.000
+  Tourism and Transportation: 2.000
+  Utilities and infrastructure: 2.000
+
+SAMPLE CASES (Truncated)
+----------------------------------------
+Job ID: 2739890770
+Title:  Test Assurance Lead
+Domain: IT | Sector: IT Jobs
+Desc:   [IT] Test Assurance Lead for a rapidly expanding team working at the forefront of technology, focusing on IT products based on COBOL & CA GEN toolset.
+Tasks:  [IT] Lead technical teams in test management and quality assurance Drive for greater efficiency and effectiveness in meeting client needs Maintain excellent delivery standards Oversee the use of skills, knowledge, and resources Support 20 HMRC systems Test Management Quality Assurance Technical Leadership COBOL CA GEN toolset
+Kept:   ['Software Quality Assurance Analysts and Testers', 'Validation Engineers', 'Quality Control Systems Managers']
+Dropped:['Aerospace Engineering and Operations Technologists and Technicians', 'Quality Control Analysts', 'Non-Destructive Testing Specialists', 'Information Security Engineers', 'Computer Systems Engineers/Architects']
+----------------------------------------
+Job ID: 2813395527
+Title:  Senior Electronic Design Engineer
+Domain: Engineering/Manufacturing | Sector: Engineering Jobs
+Desc:   [Engineering/Manufacturing] Senior Electronic Design Engineer
+Tasks:  [Engineering/Manufacturing] Electronic design from concept to completion PCB layout and schematics Build and test Occasional visits to customer site Involvement in new product design Electronic design Analogue and digital design Firmware HV power electronics Leadership
+Kept:   ['Electronics Engineers, Except Computer', 'Electrical and Electronic Engineering Technologists and Technicians', 'Electrical Engineers']
+Dropped:['Solar Energy Systems Engineers', 'Electrical and Electronics Drafters', 'Manufacturing Engineers', 'Microsystems Engineers']
+----------------------------------------
+Job ID: 2832373272
+Title:  Bank On Call Doctor (Psychiatry)
+Domain: Healthcare | Sector: Healthcare & Nursing Jobs
+Desc:   [Healthcare] On Call Doctor (Psychiatry) for Cygnet Hospital Colchester
+Tasks:  [Healthcare] Ensure ward contact arrangements are in place Respond to ward contact and travel to the hospital Assess, examine, and initiate management of admissions Maintain high professional standards Keep clinical records Psychiatry Clinical assessment Communication Time management Record keeping
+Kept:   ['Psychiatrists', 'Hospitalists']
+Dropped:['Advanced Practice Psychiatric Nurses', 'Psychiatric Aides', 'Clinical Research Coordinators', 'Orderlies', 'Psychiatric Technicians', 'Neurologists']
+----------------------------------------
+Job ID: 2746697434
+Title:  Python Engineer
+Domain: IT | Sector: IT Jobs
+Desc:   [IT] Contract Python Engineer for a high-growth SAAS-based organisation in the Entertainment sector.
+Tasks:  [IT] Experience with Python Experience with AWS Experience with Microservice architecture Development of bespoke Saas-based products Open Source Development Python AWS Linux GraphQL
+Kept:   ['Software Developers', 'Bioinformatics Scientists', 'Web Developers']
+Dropped:['Computer Network Architects', 'Hydroelectric Plant Technicians', 'Dancers', 'Riggers', 'Motion Picture Projectionists', 'Choreographers', 'Producers and Directors']
+----------------------------------------
+Job ID: 2793979799
+Title:  Restaurant Host/hostess
+Domain: Hospitality & Catering | Sector: Hospitality & Catering Jobs
+Desc:   [Hospitality & Catering] Restaurant Host/Hostess
+Tasks:  [Hospitality & Catering] Meet and greet customers upon arrival Maintain a warm smile and eye contact with all guests Provide the highest standard of service with confidence Exceed customer expectation at all times Be the first point of contact for all guests Communication Customer Service Time Management Teamwork Problem Solving
+Kept:   ['Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop', 'Waiters and Waitresses', 'Dining Room and Cafeteria Attendants and Bartender Helpers']
+Dropped:['Concierges', 'Fast Food and Counter Workers', 'Food Service Managers', 'Baristas', 'Bartenders']
+----------------------------------------
+Job ID: 2849156955
+Title:  ICT Support Technician
+Domain: IT | Sector: IT Jobs
+Desc:   [IT] ICT Support Technician
+Tasks:  [IT] Maintain ICT Service Delivery activities within the Trust's ICT infrastructure Work closely with users to ensure the best level of service at all times Assist with maintenance and troubleshooting of users' hardware and software Be on call 2 weekends in 4 within an hour's time frame of the centre of Stratford-upon-Avon Interact with users face-to-face and virtually ICT knowledge Helpdesk experience 2nd line support experience Communication skills Troubleshooting skills
+Kept:   ['Network and Computer Systems Administrators', 'Computer Systems Engineers/Architects', 'Computer Network Support Specialists']
+Dropped:['Computer User Support Specialists', 'Telecommunications Equipment Installers and Repairers, Except Line Installers', 'Computer, Automated Teller, and Office Machine Repairers', 'Electrical and Electronics Repairers, Commercial and Industrial Equipment', 'Telecommunications Line Installers and Repairers', 'Robotics Technicians']
+----------------------------------------
+Job ID: 2842251390
+Title:  Senior Shift Technician (Lead Engineer / Engineering Team Leader)
+Domain: Manufacturing | Sector: Engineering Jobs
+Desc:   [Manufacturing] Lead Engineer / Engineering Team Leader for FMCG manufacturing
+Tasks:  [Manufacturing] Delegating workload to team members Providing engineering support to achieve production targets Assisting in PPM, T-Cards, CWO's, and reacting to breakdowns Supporting team members in their work Ensuring plant production targets and PPM completion rate are met Leadership Engineering Time served Multi-Skilled Engineer Team management Problem-solving
+Kept:   ['Team Assemblers', 'Industrial Engineering Technologists and Technicians', 'Industrial Production Managers']
+Dropped:['Industrial Engineers', 'Helpers--Production Workers', 'Manufacturing Engineers', 'Validation Engineers', 'Logistics Engineers', 'Quality Control Analysts']
+----------------------------------------
+Job ID: 2845560941
+Title:  Multi Car Transporter HGV Nights
+Domain: Logistics & Warehouse | Sector: Logistics & Warehouse Jobs
+Desc:   [Logistics & Warehouse] Trunking Specialist for home delivery of used cars
+Tasks:  [Logistics & Warehouse] Ensure customer cars are available for home delivery Deliver cars to the right location, at the right time, and to the right standards Work a shift pattern of 4 days on, 4 days off (including weekends) Work 12 hour days from 5pm-5am or 6pm-6am Maintain high standards of customer service CE Licence Logistics and transportation Time management Customer service Teamwork
+Kept:   ['Transportation, Storage, and Distribution Managers', 'Logisticians', 'Freight Forwarders']
+Dropped:['Couriers and Messengers', 'Logistics Analysts', 'Logistics Engineers', 'Industrial Truck and Tractor Operators', 'Packers and Packagers, Hand']
+----------------------------------------
+Job ID: 2847823348
+Title:  Guarding Services Business Development Manager
+Domain: Sales | Sector: Sales Jobs
+Desc:   [Sales] Business Development Manager for outsourced Facilities Management Services
+Tasks:  [Sales] Driving marketing activity Uncovering and scoping opportunities Organising site-surveys Coordinating internal resources Presenting solutions and closing sales Solution sales Consultative sales Relationship building Sales methodology Communication
+Kept:   ['Sales Managers', 'Solar Sales Representatives and Assessors', 'Sales Engineers']
+Dropped:['Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products', 'First-Line Supervisors of Non-Retail Sales Workers', 'Facilities Managers', 'Sustainability Specialists', 'Security Managers', 'Solar Energy Installation Managers', 'Lodging Managers']
+----------------------------------------
+Job ID: 2780642469
+Title:  Business Development Director
+Domain: Sales | Sector: Sales Jobs
+Desc:   [Sales] Business Development Director for Commercial team, seeking experienced professional with Facilities Management background to drive sales pipeline, conversion, and key account management.
+Tasks:  [Sales] Drive all elements of Commercial Agenda: Keep, Win and Grow Lead the bid processes for all target clients within your segment Develop a compelling needs analysis and 'go to market' strategy for key target clients Maintain growth agenda in line with ISS UK&I governance procedures Develop a comprehensive sector focused network and drive C-suite engagement across key current and target clients Business Development Sales Leadership Strategic Planning Communication
+Kept:   ['Sales Managers', 'Advertising Sales Agents', 'Solar Sales Representatives and Assessors']
+Dropped:['Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products', 'Writers and Authors', 'Facilities Managers', 'Sustainability Specialists', 'Training and Development Managers', 'Property, Real Estate, and Community Association Managers']
+

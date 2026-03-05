@@ -1,0 +1,3077 @@
+================================================================================
+FULL TEXT REPORT
+================================================================================
+generated_at: 2026-02-08T18:04:25
+llm_model: DeepSeek-R1-Distill-Qwen-32B
+jsonl_base_dir: /projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/dev/llm_negative_selection/deepseek
+npz_base_dir: /projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/dev/llm_negative_selection
+
+prompt_used:
+--------------------------------------------------------------------------------
+def build_retry_prompt(
+    tasks_str: str,
+    clean_titles: list[str],
+    domain: str,
+    job_ad_title: str,
+    job_sector_category: str,
+) -> str:
+    numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(clean_titles))
+    return f"""<|im_start|>system
+Return ONLY valid JSON: {{"drop":[...]}}. No extra text.
+<|im_end|>
+<|im_start|>user
+Return ONLY valid JSON with key "drop": {{"drop":[...]}}. No prose. No markdown.
+
+Title: {job_ad_title}
+Sector: {job_sector_category}
+Domain: {domain}
+Tasks: {tasks_str}
+
+Candidates (1-based):
+{numbered}
+
+Rules:
+- Keep 2–3 by default.
+- Keep 1 only if very sure all others are clearly wrong.
+- Drop only clearly wrong functions.
+Output ONLY JSON: {{"drop":[...]}}
+<|im_end|>
+<|im_start|>assistant
+""".strip()
+--------------------------------------------------------------------------------
+
+============================================================
+****** BGE_LARGE ******
+============================================================
+=== GLOBAL METRICS ===
+jobs: 14000
+avg_candidates_before: 8.166
+avg_candidates_after: 2.613
+drop_rate: 0.6799
+empty_outputs_percent: 0.0
+it_leakage_share: 0.0750
+min_kept: 2
+max_kept: 3
+
+=== TOP KEPT OCCUPATIONS ===
+581  Information Technology Project Managers
+525  Sales Managers
+518  Customer Service Representatives
+506  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+467  Software Developers
+450  Financial Managers
+422  Personal Care Aides
+381  First-Line Supervisors of Retail Sales Workers
+379  Chefs and Head Cooks
+379  Food Service Managers
+361  Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop
+335  Computer Systems Engineers/Architects
+334  Retail Salespersons
+324  Mental Health and Substance Abuse Social Workers
+307  Home Health Aides
+304  Accountants and Auditors
+300  Stockers and Order Fillers
+299  Marketing Managers
+292  Construction Managers
+285  Teaching Assistants, Special Education
+279  Human Resources Specialists
+264  Healthcare Social Workers
+263  Bookkeeping, Accounting, and Auditing Clerks
+262  Advertising and Promotions Managers
+257  Shipping, Receiving, and Inventory Clerks
+
+=== DOMAIN AVG KEPT ===
+Academia/Research: 3
+Accounting: 3
+Accounting and Finance: 3
+Accounting/Finance: 3
+Accounting/Finance, Administrative: 3
+Administration/Logistics: 3
+Administration/Office: 3
+Administration/Office Management: 3
+Administration/Office Support: 3
+Advertising: 3
+Advertising and Marketing: 3
+Advertising/PR: 3
+Aerospace & Defence: 3
+Aerospace Manufacturing: 3
+Aerospace and Technology: 3
+Aerospace/Automotive: 3
+Aerospace/Defence: 3
+Aerospace/Defence/Space: 3
+Aerospace/Telecommunications: 3
+Agriculture: 3
+Agriculture and Construction: 3
+Agriculture/Food Science: 3
+Agriculture/Food and Beverage: 3
+Agriculture/Supply Chain: 3
+Animal Welfare and Non-Profit: 3
+Architecture and Engineering: 3
+Art and Auction House: 3
+Audio-Visual: 3
+Automotive Engineering: 3
+Automotive Manufacturing: 3
+Automotive Sales: 3
+Automotive and Luxury Goods: 3
+Automotive/Mechanical trade: 3
+Automotive/Motorsport Engineering: 3
+Automotive/Rental Industry: 3
+Biopharmaceutical and Medical Device: 3
+Biotechnology and Biological Sciences: 3
+Biotechnology/Life Sciences: 3
+Biotechnology/Pharmaceuticals: 3
+Business Support: 3
+Business and Finance: 3
+Business and Management: 3
+Business/Corporate: 3
+Charity and Non-Profit: 3
+Chemical Industry: 3
+Chemical/Manufacturing: 3
+Chemicals and Materials: 3
+Civil & Structural engineering: 3
+Civil Engineering: 3
+Civil Engineering/Construction: 3
+Cleaning and Domestic Services: 3
+Cleaning and Hygiene Services: 3
+Commercial/Business: 3
+Comms / Marketing / PR: 3
+Community Development: 3
+Construction Manufacturing: 3
+Construction Materials: 3
+Construction and Building Materials: 3
+Construction and Consultancy: 3
+Construction and Engineering Services: 3
+Construction and Facilities Management: 3
+Construction and Property Management: 3
+Construction and Steel: 3
+Construction/Building Maintenance: 3
+Construction/Building Services: 3
+Construction/Cleaning: 3
+Construction/Equipment Rental: 3
+Construction/Maintenance: 3
+Construction/Property: 3
+Construction/Rail & Infrastructure: 3
+Construction/Railway Engineering: 3
+Control Systems: 3
+Corporate Finance: 3
+Data Science: 3
+Data Science and Analytics: 3
+Defence & Security: 3
+Defence and Aerospace: 3
+Defence and Government: 3
+Defence and Security: 3
+Defense and Government: 3
+Defense and Security: 3
+Design and Creative: 3
+Digital Marketing and Creative Technology: 3
+Digital and Content Creative: 3
+Digital retail, Tech: 3
+Digital/Technology: 3
+Document Management: 3
+Domestic Help: 3
+Domestic and Cleaning Services: 3
+Domestic/ Household Management: 3
+Domestic/Cleaning: 3
+E-commerce and Logistics: 3
+E-commerce/Fashion: 3
+Ecommerce: 3
+Ecommerce Fashion: 3
+Education Recruitment: 3
+Education/Childcare: 3
+Education/Library: 3
+Education/Library Services: 3
+Education/Recruitment: 3
+Education/Social Work: 3
+Education/Training: 3
+Electrical Distribution: 3
+Electrical Trade: 3
+Electrical Wholesale: 3
+Electrical services: 3
+Electrical/Electronic Engineering: 3
+Electrical/Electronics: 3
+Electro-mechanical Engineering: 3
+Electronics Engineering: 3
+Electronics Manufacturing: 3
+Electronics and Manufacturing: 3
+Electronics manufacture and distribution: 3
+Electronics/Audio Technology: 3
+Electronics/Telecommunications: 3
+Employment Research Consultancy: 3
+Energy & Environment: 3
+Energy & Natural Resources: 3
+Energy Services: 3
+Energy Trading: 3
+Energy and Chemicals: 3
+Energy and Environment: 3
+Energy and Sustainability: 3
+Energy and Waste consultancy: 3
+Energy/Engineering: 3
+Energy/Geoscience: 3
+Engineering & Manufacturing: 3
+Engineering and Consulting: 3
+Engineering and Process Sector Industries: 3
+Engineering/Construction: 3
+Engineering/Maintenance: 3
+Engineering/Manufacturing: 3
+Engineering/Technology: 3
+Entertainment and Media: 3
+Entertainment/Event Management: 3
+Environmental Conservation: 3
+Environmental Regulation: 3
+Environmental Technology: 3
+Environmental, Engineering and Strategic Consulting: 3
+Environmental, Health, and Safety: 3
+Environmental/Conservation: 3
+Environmental/Social Impact: 3
+Environmental/Sustainability: 3
+Environmental/Water Management: 3
+Estate Agency: 3
+Event Planning and A/V Technology: 3
+Events: 3
+Executive Search and Recruitment: 3
+Executive Secretarial & Support: 3
+FMCG: 3
+FMCG (Fast-Moving Consumer Goods): 3
+Facilities Maintenance: 3
+Fashion Retail: 3
+Fashion and Apparel: 3
+Fashion/ Apparel: 3
+Fashion/Textiles: 3
+FinTech: 3
+Finance and Business: 3
+Finance and Consulting: 3
+Finance and Law: 3
+Finance/ Banking: 3
+Finance/Administration: 3
+Finance/Estate Agency: 3
+Finance/Financial Services: 3
+Finance/Investment: 3
+Finance/Investment Banking: 3
+Finance/Trading: 3
+Financial Planning: 3
+Financial Technology (FinTech): 3
+Fire and Security: 3
+Food Processing: 3
+Food Production: 3
+Foodservice: 3
+Funeral Services: 3
+Global Manufacturing: 3
+Government and Defence: 3
+Government and Public Policy: 3
+Government and Public Sector: 3
+Government/Local Government: 3
+Government/Non-Profit: 3
+Health Care: 3
+Health Tech: 3
+Health and Fitness Technology: 3
+Health and Social Care: 3
+Health and Social Care Recruitment: 3
+Healthcare & Biotechnology: 3
+Healthcare Administration: 3
+Healthcare Advertising: 3
+Healthcare and Life Sciences (HCLS): 3
+Healthcare and Social Care: 3
+Healthcare and Social Work: 3
+Healthcare and Technology: 3
+Healthcare/Hospitality: 3
+Healthcare/IT: 3
+Healthcare/Non-profit: 3
+Healthcare/Social Care: 3
+Healthcare/Social Services: 3
+Healthcare/Social work: 3
+Heavy Plant industry: 3
+Heritage and Tourism: 3
+Home Accessories Manufacturing: 3
+Home Automation and Security: 3
+Hospitality and Office Administration: 3
+Hospitality and Recreation: 3
+Hospitality/Hotel: 3
+Household Services: 3
+Housing Association: 3
+Housing and Property Management: 3
+Hygiene Operations: 3
+IT & Technology: 3
+IT & Technology Recruitment: 3
+IT / Telecoms: 3
+IT Consulting: 3
+IT Security: 3
+IT and Cybersecurity: 3
+IT and Defence: 3
+IT and InfoSec: 3
+IT and Software: 3
+IT and Software Development: 3
+IT and Telecommunication: 3
+IT and Telecommunication Services: 3
+IT and Telecommunications: 3
+IT/Operations: 3
+IT/PropTech: 3
+IT/Sports: 3
+IT/Telecoms: 3
+IT/Telecoms Infrastructure: 3
+Industrial: 3
+Industrial Automation: 3
+Industrial Engineering / Lean Manufacturing: 3
+Industrial Equipment Sales: 3
+Industrial Maintenance: 3
+Industrial Systems: 3
+Information Services: 3
+Information Technology and Cybersecurity: 3
+Infrastructure and Construction: 3
+Infrastructure consultancy: 3
+InsurTech: 3
+Investment Management: 3
+Justice and Law: 3
+Justice and Law Enforcement: 3
+Justice/Legal: 3
+Landscaping and Grounds Maintenance: 3
+Law Enforcement: 3
+Law and Legal Services: 3
+Legal/Defence: 3
+Leisure and Fitness: 3
+Leisure and Hospitality: 3
+Leisure and Recreation: 3
+Life Science: 3
+Local Government/Town Planning: 3
+Logistics & Manufacturing: 3
+Logistics & Supply Chain: 3
+Logistics and Distribution: 3
+Logistics and Events: 3
+Logistics and Postal Services: 3
+Logistics/Distribution: 3
+Logistics/Warehouse: 3
+Luxury Goods: 3
+Manufacturing / Engineering: 3
+Manufacturing Engineering: 3
+Manufacturing Jobs: 3
+Manufacturing and Distribution: 3
+Manufacturing and Operations: 3
+Manufacturing/Food Industry: 3
+Manufacturing/Food Processing: 3
+Manufacturing/Food and Beverage: 3
+Manufacturing/Logistics: 3
+Manufacturing/Maintenance: 3
+Manufacturing/Production: 3
+Marine Engineering: 3
+Marketing and Advertising: 3
+Marketing and Communications: 3
+Marketing and Sales: 3
+Marketing/Advertising: 3
+Marketing/Sales: 3
+Media and Events: 3
+Media and Technology: 3
+Medical Affairs: 3
+Medical Device: 3
+Medical Device Engineering: 3
+Medical Sales: 3
+Membership and Associations: 3
+Non-Profit and Humanitarian: 3
+Non-Profit/Social Services: 3
+Non-profit/Philanthropy: 3
+Non-profit/Research: 3
+Non-profit/Social Services: 3
+Non-profit/Sustainability: 3
+Nonprofit: 3
+Nuclear Engineering: 3
+PR and Marketing: 3
+Packaging: 3
+Packaging and Supply: 3
+Pharmaceutical Consulting: 3
+Pharmaceuticals/Biotechnology: 3
+Pharmaceuticals/Healthcare: 3
+Pharmaceuticals/Pharmatech: 3
+Print & IT supplies distribution: 3
+Procurement and Supply Chain: 3
+Property Management and Construction: 3
+Property Management and Consultancy: 3
+Property Services: 3
+Public Health: 3
+Public Health Administration: 3
+Public Health and Social Work: 3
+Public Relations/Marketing: 3
+Public Safety and Corrections: 3
+Public Sector Administration: 3
+Public Sector/ Law Enforcement: 3
+Public Sector/Government: 3
+Public Sector/Local Government: 3
+Public Sector/Prison Services: 3
+Real Estate Consultancy: 3
+Real Estate Finance: 3
+Real Estate/Housing: 3
+Real Estate/Housing Association: 3
+Real Estate/Property Development: 3
+Recruitment & Consultancy: 3
+Recruitment and Consultancy: 3
+Recruitment and Human Resources: 3
+Recruitment/HR: 3
+Recruitment/HR Technology: 3
+Recruitment/Technology: 3
+Remote work/ Administration: 3
+Renewable Energy & Sustainable Technologies: 3
+Renewables: 3
+Rental/Leasing: 3
+Research: 3
+Research and Development: 3
+Research and Market Analysis: 3
+Retail & Leisure: 3
+Retail / Hospitality / Leisure: 3
+Retail Banking & Finance: 3
+Retail Marketing: 3
+Retail and Cosmetics: 3
+Retail/E-commerce: 3
+Retail/Electronics: 3
+Retail/Hair and Beauty: 3
+Retail/Trading: 3
+Retail/Wholesale: 3
+SaaS: 3
+Sales / Customer Service: 3
+Sales Intelligence: 3
+Sales Jobs consultancy: 3
+Sales and Administration: 3
+Sales and Customer Service: 3
+Sales and Customer Success: 3
+Sales and Events: 3
+Sales and Fundraising: 3
+Sales and Interiors: 3
+Sales and Retail: 3
+Sales and Security: 3
+Sales and Service: 3
+Sales and Technology: 3
+Sales, Customer Service and Account Management: 3
+Sales/Admin: 3
+Sales/Marketing: 3
+Salesforce, Technology: 3
+Science and Technology: 3
+Scientific Research: 3
+Security Services: 3
+Security and Customer Service: 3
+Security and Engineering: 3
+Security and Event Management: 3
+Security and Facilities Management: 3
+Security and Protection: 3
+Semiconductor industry: 3
+Shipbuilding and Marine Engineering: 3
+Social Housing: 3
+Social Housing and Regeneration: 3
+Social Services/Housing: 3
+Social Services/Social Work: 3
+Social Work/Housing: 3
+Software Development and Technology: 3
+Software Sales: 3
+Software and I.T sales: 3
+Software and SaaS: 3
+Sports Marketing/PR: 3
+Sports and Entertainment: 3
+Sports, Fashion, Events, and Media: 3
+Supply Chain & Logistics: 3
+Supply Chain Solutions: 3
+Supply Chain Technology: 3
+Sustainability: 3
+Sustainability and Environment: 3
+Sustainability and Environmental Consulting: 3
+Talent Representation: 3
+Teaching Jobs: 3
+Technology and Consulting: 3
+Technology and Data: 3
+Technology and Engineering: 3
+Technology and Services: 3
+Telecom: 3
+Telecoms/Construction: 3
+Tourism and Hospitality: 3
+Tourism and Transportation: 3
+Tourism/Hospitality: 3
+Trade & Construction Jobs: 3
+Transportation Technology: 3
+Transportation and Infrastructure: 3
+Transportation/Fleet Management: 3
+Transportation/Manufacturing: 3
+Transportation/Rail: 3
+Transportation/Rental Services: 3
+Travel and Hospitality: 3
+Water Industry: 3
+Water Resources Management: 3
+Water Treatment: 3
+Water and Wastewater: 3
+Water and Wastewater Engineering: 3
+Water and Wastewater Treatment: 3
+Water industry: 3
+Wine and Beverage: 3
+Health and Fitness: 2.975
+Healthcare/Social Work: 2.944
+Cybersecurity: 2.923
+Office Administration: 2.917
+Social work: 2.895
+Logistics/Transportation: 2.857
+Administrative/Office: 2.833
+Engineering Jobs: 2.833
+Food and Beverage: 2.833
+Real Estate/Property Management: 2.833
+Software: 2.833
+Security: 2.818
+IT Jobs: 2.812
+Marketing: 2.81
+Education/Teaching: 2.8
+Healthcare/Pharmaceutical: 2.8
+IT and Cyber Security: 2.8
+Retail/Food Service: 2.8
+Sales Jobs: 2.8
+Software as a Service (SaaS): 2.8
+Transportation/Infrastructure: 2.8
+Marketing/PR: 2.792
+Information Technology: 2.786
+Professional Services: 2.786
+Childcare: 2.778
+Social Work: 2.776
+Logistics and Warehouse: 2.773
+Administration: 2.762
+Human Resources: 2.752
+Aerospace: 2.75
+Biotechnology: 2.75
+Business: 2.75
+Charity & Voluntary: 2.75
+Cleaning and Maintenance: 2.75
+Construction and Property: 2.75
+Construction and Real Estate: 2.75
+Customer Service/Administration: 2.75
+Electrical Engineering: 2.75
+Electronics: 2.75
+Finance/IT: 2.75
+Finance/Insurance: 2.75
+Health and Wellness: 2.75
+Local Government: 2.75
+Marketing and Public Relations: 2.75
+Retail/Fashion: 2.75
+Scientific & QA Jobs: 2.75
+Security and Law Enforcement: 2.75
+Tech: 2.75
+IT and Technology: 2.719
+Aviation: 2.714
+Construction and Architecture: 2.714
+Environmental Science: 2.714
+Hospitality/Leisure: 2.714
+Media and Publishing: 2.714
+Administrative Support: 2.708
+Non-profit/Charity: 2.706
+Cyber Security: 2.7
+Scientific & QA: 2.7
+Social Care: 2.7
+HR & Recruitment: 2.699
+Logistics: 2.698
+Manufacturing: 2.696
+Social Services: 2.681
+Admin Jobs: 2.667
+Advertising/Marketing: 2.667
+Aerospace and Defense: 2.667
+Architecture and Construction: 2.667
+Cleaning and Hygiene: 2.667
+Construction and Civil Engineering: 2.667
+Construction and Engineering: 2.667
+Construction and Trade: 2.667
+Construction/Infrastructure: 2.667
+Digital Marketing: 2.667
+Electronics/Technology: 2.667
+Energy/Utilities: 2.667
+Environmental Consulting: 2.667
+Environmental Engineering: 2.667
+Food Manufacturing: 2.667
+Hospitality and Leisure: 2.667
+IT/Technology: 2.667
+Maintenance Jobs: 2.667
+Manufacturing/Industrial: 2.667
+Market Research: 2.667
+Marketing and PR: 2.667
+Medical Devices: 2.667
+Pharmaceutical: 2.667
+Property Management: 2.667
+Property and Real Estate: 2.667
+Recruitment/Human Resources: 2.667
+Tourism: 2.667
+Urban Planning: 2.667
+Waste Management: 2.667
+Healthcare & Nursing: 2.656
+Transportation: 2.652
+Accounting & Finance: 2.651
+Logistics and Supply Chain: 2.647
+Consultancy: 2.646
+Construction/Engineering: 2.643
+Travel and Tourism: 2.643
+Healthcare: 2.641
+Logistics & Warehouse: 2.638
+Beauty and Cosmetics: 2.636
+Consultancy Jobs: 2.636
+Entertainment: 2.636
+Publishing: 2.636
+Logistics and Transportation: 2.63
+Real Estate: 2.627
+Finance and Accounting: 2.625
+Public Sector: 2.625
+Finance: 2.621
+PR: 2.619
+Domestic Help & Cleaning: 2.615
+Media and Entertainment: 2.615
+Pharmaceuticals: 2.615
+Hospitality & Catering: 2.611
+Banking: 2.6
+Construction and Infrastructure: 2.6
+Construction/Real Estate: 2.6
+Fashion and Retail: 2.6
+Healthcare Technology: 2.6
+Non-Profit/Charity: 2.6
+Public Services: 2.6
+Software Engineering: 2.6
+Education: 2.593
+Telecommunications: 2.588
+Construction: 2.58
+IT: 2.58
+Automotive: 2.572
+Fintech: 2.571
+Food Service: 2.571
+Leisure and Sports: 2.571
+Technology/Software: 2.571
+Telecoms: 2.571
+Sales and Marketing: 2.567
+Insurance: 2.564
+Manufacturing/Engineering: 2.562
+Retail: 2.562
+Sales: 2.559
+Environmental Services: 2.556
+Renewable Energy: 2.556
+Transportation/Logistics: 2.556
+Hospitality: 2.555
+Engineering: 2.555
+Domestic help & Cleaning: 2.548
+Technology: 2.547
+Aerospace Engineering: 2.545
+Sales and Recruitment: 2.545
+Trade & Construction: 2.535
+Government: 2.533
+Finance/Banking: 2.526
+Financial Services: 2.525
+Consulting: 2.514
+Energy: 2.509
+Aerospace and Defence: 2.5
+Aerospace/Defense: 2.5
+Animal Care: 2.5
+Beauty and Wellness: 2.5
+Biopharmaceutical: 2.5
+Biopharmaceuticals: 2.5
+Business/Management: 2.5
+Chemicals: 2.5
+Cleaning Services: 2.5
+Construction and Manufacturing: 2.5
+Construction and Trades: 2.5
+Construction/Civil Engineering: 2.5
+Criminal Justice: 2.5
+Defense and Military: 2.5
+Digital Media: 2.5
+E-commerce: 2.5
+Electronics/Embedded Systems: 2.5
+Electronics/Engineering: 2.5
+Engineering and Manufacturing: 2.5
+Environmental Consultancy: 2.5
+Fashion/Textile: 2.5
+Finance and Administration: 2.5
+Finance and Insurance: 2.5
+Finance and Technology: 2.5
+Finance/Accounting: 2.5
+Financial Services and Technology: 2.5
+Government/Public Administration: 2.5
+Healthcare & Nursing Jobs: 2.5
+Healthcare and Social Services: 2.5
+Healthcare/Pharmaceuticals: 2.5
+Leisure: 2.5
+Logistics & Transportation: 2.5
+Maintenance and Repair: 2.5
+Management Consultancy: 2.5
+Manufacturing/FMCG: 2.5
+Media and Advertising: 2.5
+Medical Technology: 2.5
+Motor Trade: 2.5
+Non-Profit: 2.5
+Non-profit: 2.5
+Non-profit/NGO: 2.5
+Oil and Gas: 2.5
+Pet Care: 2.5
+Property: 2.5
+Public Relations (PR): 2.5
+Real Estate/Property: 2.5
+Remote Work/Online Jobs: 2.5
+Retail and Sales: 2.5
+Retail and Technology: 2.5
+Sales and Business Development: 2.5
+Semiconductor: 2.5
+Social Services/Non-Profit: 2.5
+Technology and Software: 2.5
+Trade and Construction: 2.5
+Transportation and Logistics: 2.5
+Energy and Utilities: 2.483
+Construction and Maintenance: 2.474
+Gaming: 2.462
+Customer Services: 2.461
+Public Administration: 2.455
+Public Administration and Government: 2.455
+Manufacturing and Engineering: 2.444
+Maintenance: 2.429
+Automotive Retail: 2.4
+Life Sciences: 2.4
+Recruitment/Consultancy: 2.4
+Utilities: 2.4
+Domestic help & Cleaning Jobs: 2.394
+Legal: 2.39
+Fashion: 2.385
+Law: 2.36
+Creative & Design Jobs: 2.357
+Public Relations: 2.346
+Accountancy: 2.333
+Aerospace/Aviation: 2.333
+Business Administration: 2.333
+Creative & Design: 2.333
+Education Technology: 2.333
+Education and Training: 2.333
+Higher Education: 2.333
+Media: 2.333
+Public Administration and Governance: 2.333
+Public Safety: 2.333
+Facilities Management: 2.323
+Recruitment: 2.319
+Software Development: 2.31
+Finance and Banking: 2.286
+Food Service/Hospitality: 2.286
+IT and Consulting: 2.286
+Architecture: 2.25
+Architecture and Design: 2.25
+Event Management: 2.25
+Legal Services: 2.25
+Customer Service: 2.213
+Domestic Services: 2.167
+Accountancy/Consulting: 2
+Accounting and Business Advisory: 2
+Administrative/Office Support: 2
+Aerospace & Manufacturing: 2
+Agricultural and Plant Engineering: 2
+Agriculture/Rural: 2
+Animation: 2
+Architecture and Interior Design: 2
+Arts and Entertainment: 2
+Arts, Entertainment & Recreation: 2
+Automation: 2
+Banking & Finance: 2
+Banking and Finance: 2
+Biotechnology/Pharmaceutical: 2
+Building Services: 2
+Building Services, FM and Support Sectors: 2
+Building and Construction: 2
+Career Transition and Sports: 2
+Charity & Conservation: 2
+Chemical Distribution: 2
+Chemical and Energy: 2
+Chemicals and Ingredients: 2
+Cleaning and Domestic Help: 2
+Cleaning/Janitorial: 2
+Cloud Computing: 2
+Construction Trades: 2
+Construction and Building: 2
+Construction and Development: 2
+Construction and Infrastructure Services: 2
+Construction and Mining: 2
+Construction/Architecture: 2
+Construction/Building: 2
+Construction/Building Materials: 2
+Construction/Housebuilding: 2
+Construction/Housing: 2
+Construction/Project Management: 2
+Construction/Property Development: 2
+Construction/Property Maintenance: 2
+Construction/Quarrying: 2
+Construction/Rail: 2
+Construction/Retail: 2
+Construction/Trade: 2
+Consumer Goods: 2
+Content Creation/PR: 2
+Corporate Business: 2
+Creative: 2
+Creative Agency: 2
+Creative/Design: 2
+Customer Service/Call Center: 2
+Data and Intelligence consultancy: 2
+Defence: 2
+Defense and Aerospace: 2
+Design and Research: 2
+Digital Agency: 2
+Digital Design and Build Agency: 2
+Digital Media and Performance Marketing: 2
+Ed Tech: 2
+EdTech: 2
+Education and Technology: 2
+Education/Non-Profit: 2
+Education/Online Learning: 2
+Electronics / Embedded Software: 2
+Electronics Technology: 2
+Electronics and Semiconductors: 2
+Energy and Power Systems: 2
+Energy sector: 2
+Engineering & Maintenance: 2
+Engineering & Science: 2
+Engineering and Advisory: 2
+Entertainment/PR: 2
+Environmental and Occupational Hygiene: 2
+Environmental consultancy: 2
+Executive Search Firm: 2
+Facilities & Property Management: 2
+Facilities Management and Professional Services: 2
+Farming/Agribusiness: 2
+Fashion Industry: 2
+Fashion Technology: 2
+Fashion/Apparel: 2
+Finance and Tax: 2
+Finance et Assurance: 2
+Finance/Wealth Management: 2
+Financial Markets: 2
+Financial Services/Banking: 2
+Financial Services/Reinsurance: 2
+Financial Technology: 2
+Fire and Security Installation: 2
+Food Industry: 2
+Food Sector: 2
+Food Tech: 2
+Game Development: 2
+Gaming and Betting: 2
+Gaming and Entertainment: 2
+Government and Public Administration: 2
+Government/Public Sector: 2
+Graphic Design: 2
+HR & Recruitment Jobs: 2
+Health & Beauty: 2
+Health & Social Care: 2
+Healthcare and Biotechnology: 2
+Healthcare and Clinical Research: 2
+Healthcare/Biotechnology: 2
+Heritage and Conservation: 2
+Hospitality Technology: 2
+Hospitality, Leisure, Entertainment: 2
+Hospitality/Entertainment: 2
+Household Help: 2
+Housekeeping/Cleaning: 2
+Housing and Construction: 2
+Human Resources/Recruitment: 2
+Humanitarian/Non-Profit: 2
+IT / Information Technology: 2
+IT Consultancy: 2
+IT and Defense: 2
+IT, Fintech, Blockchain, AI: 2
+IT/Fintech: 2
+IT/Software: 2
+IT/Software Development: 2
+Insurance Broker: 2
+Landscaping and Gardening: 2
+Law and Finance: 2
+Law and Legal: 2
+Legal Jobs: 2
+Legal/Finance: 2
+Logistics & Automotive: 2
+Logistics & Defence: 2
+Logistics & E-commerce: 2
+Maintenance and Building Services: 2
+Manufacturing and Logistics: 2
+Manufacturing/Furniture: 2
+Marketing and Digital Design: 2
+MedTech: 2
+Media and Communications: 2
+Media and Journalism: 2
+Medical Communications: 2
+Mental Health: 2
+Military/Defence: 2
+Military/Defense: 2
+Mining: 2
+Music: 2
+Music Industry: 2
+Non-Profit/Community: 2
+Non-Profit/NGO: 2
+Non-Profit/Religious: 2
+Non-profit/Gambling Support: 2
+Oil & Gas: 2
+Oil & Gas / Energy Corporate: 2
+Online Surveys/Admin Jobs: 2
+Other/General Jobs: 2
+PR & Communications: 2
+PR (Public Relations): 2
+PR and Communications: 2
+PR and Creative Agency: 2
+Pharmaceutical and Healthcare: 2
+Pharmaceutical industry: 2
+Power Engineering: 2
+Print and document management industry: 2
+Private Equity: 2
+Project Administration: 2
+Property & Construction: 2
+Property Jobs: 2
+Property/Construction: 2
+Public Administration and Justice: 2
+Public Administration and Safety: 2
+Recruitment Consultancy: 2
+Recruitment Sector: 2
+Recruitment and Sales: 2
+Recruitment and Staffing: 2
+Recruitment/Consulting: 2
+Recycling and Resource Management: 2
+Remote Work/Online Business: 2
+Remote Work/Online Opportunities: 2
+Renewable Energy and District Heating: 2
+Renewable Energy/EV/Mobility: 2
+Renewable Energy/Electric Vehicle: 2
+Residential Property: 2
+Retail Technology: 2
+Retail/Beauty: 2
+Retail/Ecommerce: 2
+Retail/Fast Food: 2
+Retail/Food: 2
+Retail/Food Industry: 2
+Retail/Travel: 2
+Ride-sharing/Gig Economy: 2
+SaaS, Sustainability, Transparency: 2
+Sales and Procurement: 2
+Sales/Admin/Customer Service/Account Management: 2
+Scientific Research and Development: 2
+Security and Customer Services: 2
+Security and Defence: 2
+Security and Surveillance: 2
+Social Services/Humanitarian: 2
+Social Work/Care: 2
+Social Work/Charity: 2
+Social work/Housing: 2
+Software and Digital Transformation: 2
+Software and Technology: 2
+Software as a Service (SaaS) and Technology: 2
+Sports Management: 2
+Sports Technology: 2
+Sports and Leisure: 2
+Sports and Recreation: 2
+Sports/Leisure: 2
+Sustainability Tech: 2
+Technology & Engineering: 2
+Technology and IT: 2
+Technology/Software Development: 2
+Technology/Telecommunications: 2
+Trade/Manufacturing: 2
+Translation and Content Creation: 2
+Translation and Interpretation: 2
+Translation and Interpreting: 2
+Translation/Language Services: 2
+Transport: 2
+Transportation/Airport Security: 2
+Transportation/Consulting: 2
+Transportation/Engineering: 2
+Transportation/Railway: 2
+Travel: 2
+Travel Industry: 2
+Utilities and infrastructure: 2
+Utility: 2
+Veterinary Medicine: 2
+Water Treatment, Water Hygiene, Commercial Plumbing: 2
+Web and Digital Agency: 2
+
+=== SAMPLE CASES (truncated) ===
+
+job_id: 2807800609
+title:  IFA Administrator
+domain: Accounting & Finance | sector: Accounting & Finance Jobs
+desc:   [Accounting & Finance] We are seeking an IFA Administrator to join our team. The successful candidate will be responsible for providing administrative support to our Independent Financial Advisors.
+tasks:  [Accounting & Finance] Provide administrative support to Independent Financial Advisors Manage and maintain accurate and up-to-date client records Process and reconcile financial transactions Prepare and send client reports and statements Maintain accurate and up-to-date knowledge of company policies and procedures Administrative experience Excellent communication and organizational skills Proficient in Microsoft Office Knowledge of accounting software Attention to detail
+kept:   ['Personal Financial Advisors', 'Accountants and Auditors', 'Bookkeeping, Accounting, and Auditing Clerks']
+drop:   ['Financial Examiners', 'First-Line Supervisors of Office and Administrative Support Workers', 'Financial Managers', 'New Accounts Clerks']
+
+job_id: 3102984587
+title:  SEO Account Manager
+domain: Digital Marketing | sector: PR
+desc:   [Digital Marketing] We are seeking an SEO Account Manager to join our team. The ideal candidate will have experience in SEO and be able to develop and implement effective SEO strategies for our clients.
+tasks:  [Digital Marketing] Develop and implement SEO strategies for clients Conduct keyword research and competitor analysis Create and optimize content for search engines Monitor and analyze website performance metrics Collaborate with cross-functional teams to achieve SEO goals SEO Content creation Keyword research Analytics Team collaboration
+kept:   ['Search Marketing Strategists', 'Marketing Managers']
+drop:   ['Advertising and Promotions Managers', 'Market Research Analysts and Marketing Specialists', 'Business Intelligence Analysts', 'Advertising Sales Agents', 'Sales Managers']
+
+job_id: 3203338615
+title:  Samsung Territory Manager - North Shields & Metro Centre
+domain: Sales and Marketing | sector: PR
+desc:   [Sales and Marketing] We are seeking a Territory Manager to join our team in North Shields & Metro Centre. As a Territory Manager, you will be responsible for managing a defined territory, building relationships with customers, and driving sales growth.
+tasks:  [Sales and Marketing] Manage a defined territory to achieve sales targets and business objectives Build and maintain strong relationships with customers to understand their needs and preferences Develop and implement sales strategies to drive growth and increase market share Collaborate with internal stakeholders to ensure effective communication and coordination Monitor and analyze sales performance to identify areas for improvement Sales and business development Customer relationship management Communication and negotiation Analytical and problem-solving skills Leadership and team management
+kept:   ['Sales Managers', 'Marketing Managers', 'Advertising and Promotions Managers']
+drop:   ['General and Operations Managers', 'Market Research Analysts and Marketing Specialists', 'Property, Real Estate, and Community Association Managers', 'Agents and Business Managers of Artists, Performers, and Athletes']
+
+job_id: 3360670856
+title:  Warehouse Operatives
+domain: Logistics | sector: Logistics & Warehouse Jobs
+desc:   [Logistics] We are seeking a Warehouse Operative to join our team in a fast-paced warehouse environment.
+tasks:  [Logistics] Receiving and processing warehouse stock Picking and packing orders for dispatch Loading and unloading goods from vehicles Maintaining a clean and organized warehouse environment Assisting with inventory management Physical stamina and ability to lift heavy loads Good communication and teamwork skills Basic math skills for inventory management Ability to work at height and operate machinery Attention to detail for accurate order fulfillment
+kept:   ['Shipping, Receiving, and Inventory Clerks', 'Stockers and Order Fillers', 'Laborers and Freight, Stock, and Material Movers, Hand']
+drop:   ['First-Line Supervisors of Material-Moving Machine and Vehicle Operators', 'Transportation, Storage, and Distribution Managers', 'Production, Planning, and Expediting Clerks', 'Order Clerks', 'Industrial Truck and Tractor Operators']
+
+job_id: 3404965013
+title:  .NET Developer - Thame
+domain: IT | sector: IT Jobs
+desc:   [IT] We are seeking a skilled.NET Developer to join our team in Thame. The successful candidate will be responsible for designing, developing, and maintaining high-quality software applications using.NET technologies.
+tasks:  [IT] Design and develop software applications using.NET technologies Collaborate with cross-functional teams to identify and prioritize project requirements Troubleshoot and resolve technical issues in existing software applications Develop and implement unit tests to ensure high-quality code Participate in code reviews to improve code quality and best practices .NET development C# programming ASP.NET SQL Server Agile development methodologies
+kept:   ['Software Developers', 'Web Developers']
+drop:   ['Software Quality Assurance Analysts and Testers', 'Database Architects', 'Computer Systems Engineers/Architects', 'Web Administrators', 'Information Technology Project Managers', 'Computer Programmers']
+
+job_id: 3415031828
+title:  Analysis Reporting Officer
+domain: Accounting & Finance | sector: Accounting & Finance Jobs
+desc:   [Accounting & Finance] We are seeking an Analysis Reporting Officer to join our team. The successful candidate will be responsible for preparing and presenting financial reports to stakeholders.
+tasks:  [Accounting & Finance] Prepare and present financial reports to stakeholders Analyze financial data to identify trends and insights Develop and maintain financial models and forecasts Collaborate with cross-functional teams to gather data and information Identify and implement process improvements Financial analysis and reporting Data analysis and interpretation Financial modeling and forecasting Communication and presentation Microsoft Excel
+kept:   ['Budget Analysts', 'Business Intelligence Analysts', 'Financial Quantitative Analysts']
+drop:   ['Financial Managers', 'Accountants and Auditors', 'Credit Analysts', 'News Analysts, Reporters, and Journalists', 'Fraud Examiners, Investigators and Analysts']
+
+job_id: 3396946566
+title:  New Business Development Executive
+domain: Sales | sector: Sales Jobs
+desc:   [Sales] We are seeking a highly motivated and results-driven New Business Development Executive to join our team. The ideal candidate will be responsible for identifying and pursuing new business opportunities, building relationships with key decision-makers, and driving revenue growth.
+tasks:  [Sales] Identify and pursue new business opportunities through research and outreach Build and maintain relationships with key decision-makers and stakeholders Develop and execute sales strategies to drive revenue growth Collaborate with cross-functional teams to achieve business objectives Analyze market trends and competitor activity to inform sales strategies Sales and business development Relationship building and negotiation Strategic thinking and planning Communication and presentation Data analysis and market research
+kept:   ['Sales Managers', 'Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products']
+drop:   ['Advertising and Promotions Managers', 'Market Research Analysts and Marketing Specialists', 'Advertising Sales Agents', 'Wind Energy Development Managers', 'Solar Sales Representatives and Assessors', 'Real Estate Sales Agents', 'Marketing Managers']
+
+job_id: 3411251755
+title:  German and Polish Customer Service Rep- Remote & Office working
+domain: Customer Service | sector: Customer Services Jobs
+desc:   [Customer Service] Customer Service Representative for German and Polish speaking customers
+tasks:  [Customer Service] Respond to customer inquiries via phone, email, and chat Resolve customer complaints and issues in a timely and professional manner Provide product information and answer questions about company services Maintain accurate records of customer interactions and issues Meet or exceed customer satisfaction targets Customer Service Communication Problem-solving Time management Language skills (German and Polish)
+kept:   ['Customer Service Representatives', 'Correspondence Clerks']
+drop:   ['Parts Salespersons', 'Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products', 'Cashiers', 'Bill and Account Collectors', 'Order Clerks', 'First-Line Supervisors of Personal Service Workers', 'Counter and Rental Clerks']
+
+job_id: 3419829714
+title:  Product Management Director, Global Merchant Repository
+domain: IT | sector: IT Jobs
+desc:   [IT] We are seeking a Product Management Director to lead the development and maintenance of our Global Merchant Repository.
+tasks:  [IT] Develop and execute product vision and strategy for the Global Merchant Repository Collaborate with cross-functional teams to drive product development and launch Define and prioritize product requirements and features Analyze market trends and competitor activity to inform product decisions Manage product roadmap and ensure alignment with business objectives Product Management Leadership Strategic Planning Communication Project Management
+kept:   ['Information Technology Project Managers', 'Business Intelligence Analysts']
+drop:   ['Marketing Managers', 'Supply Chain Managers', 'Commercial and Industrial Designers', 'Biofuels/Biodiesel Technology and Product Development Managers', 'Industrial Production Managers']
+
+job_id: 3596090690
+title:  Domestic Gas Engineer
+domain: Construction and Engineering | sector: Engineering Jobs
+desc:   [Construction and Engineering] We are seeking a skilled Domestic Gas Engineer to join our team. The successful candidate will be responsible for installing, maintaining, and repairing domestic gas appliances and systems.
+tasks:  [Construction and Engineering] Install, maintain, and repair domestic gas appliances and systems Conduct safety checks and inspections to ensure compliance with regulations Troubleshoot and diagnose faults in gas appliances and systems Provide excellent customer service and communicate effectively with clients Maintain accurate records of work completed and customer interactions Gas appliance installation and maintenance Troubleshooting and fault diagnosis Customer service and communication Time management and organization Health and safety regulations
+kept:   ['Home Appliance Repairers', 'Heating, Air Conditioning, and Refrigeration Mechanics and Installers']
+drop:   ['Gas Plant Operators', 'Gas Compressor and Gas Pumping Station Operators', 'Control and Valve Installers and Repairers, Except Mechanical Door', 'Mechanical Engineers', 'Petroleum Engineers', 'Solar Energy Systems Engineers']
+
+
+============================================================
+****** E5_LARGE ******
+============================================================
+=== GLOBAL METRICS ===
+jobs: 14000
+avg_candidates_before: 8.509
+avg_candidates_after: 2.608
+drop_rate: 0.6936
+empty_outputs_percent: 0.0
+it_leakage_share: 0.0687
+min_kept: 2
+max_kept: 3
+
+=== TOP KEPT OCCUPATIONS ===
+815  Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products
+631  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+587  Customer Service Representatives
+538  Software Developers
+480  Accountants and Auditors
+471  Personal Care Aides
+405  Home Health Aides
+393  Financial Managers
+373  Treasurers and Controllers
+359  Sales Managers
+349  First-Line Supervisors of Retail Sales Workers
+341  First-Line Supervisors of Food Preparation and Serving Workers
+335  Cooks, Restaurant
+323  Shipping, Receiving, and Inventory Clerks
+315  Bookkeeping, Accounting, and Auditing Clerks
+308  Heavy and Tractor-Trailer Truck Drivers
+308  First-Line Supervisors of Material-Moving Machine and Vehicle Operators
+304  Light Truck Drivers
+302  Software Quality Assurance Analysts and Testers
+297  Human Resources Specialists
+295  Teaching Assistants, Special Education
+289  Computer User Support Specialists
+287  Web Developers
+284  Architectural and Engineering Managers
+280  Healthcare Social Workers
+
+=== DOMAIN AVG KEPT ===
+Accounting: 3
+Accounting/Finance: 3
+Accounting/Finance, Administrative: 3
+Administration/Logistics: 3
+Administrative/Office Support: 3
+Advertising and Marketing: 3
+Aerospace & Defence: 3
+Aerospace Manufacturing: 3
+Aerospace and Technology: 3
+Aerospace/Automotive: 3
+Aerospace/Aviation: 3
+Aerospace/Defence/Space: 3
+Aerospace/Defense: 3
+Aerospace/Telecommunications: 3
+Agriculture and Construction: 3
+Agriculture/Food Science: 3
+Agriculture/Food and Beverage: 3
+Animal Care: 3
+Architecture and Engineering: 3
+Art and Auction House: 3
+Automation: 3
+Automotive Manufacturing: 3
+Automotive/Rental Industry: 3
+Banking & Finance: 3
+Banking and Finance: 3
+Biopharmaceutical and Medical Device: 3
+Biopharmaceuticals: 3
+Biotechnology and Biological Sciences: 3
+Biotechnology/Life Sciences: 3
+Biotechnology/Pharmaceuticals: 3
+Building and Construction: 3
+Business Support: 3
+Business and Finance: 3
+Business and Management: 3
+Charity & Conservation: 3
+Charity and Non-Profit: 3
+Chemical Distribution: 3
+Chemical Industry: 3
+Chemical and Energy: 3
+Chemical/Manufacturing: 3
+Chemicals: 3
+Chemicals and Ingredients: 3
+Chemicals and Materials: 3
+Civil Engineering/Construction: 3
+Cloud Computing: 3
+Commercial/Business: 3
+Construction Trades: 3
+Construction and Building: 3
+Construction and Consultancy: 3
+Construction and Engineering Services: 3
+Construction and Manufacturing: 3
+Construction and Property Management: 3
+Construction and Steel: 3
+Construction/Building Maintenance: 3
+Construction/Building Materials: 3
+Construction/Building Services: 3
+Construction/Civil Engineering: 3
+Construction/Housebuilding: 3
+Construction/Housing: 3
+Construction/Infrastructure: 3
+Construction/Maintenance: 3
+Construction/Property: 3
+Construction/Property Development: 3
+Construction/Quarrying: 3
+Construction/Rail: 3
+Construction/Rail & Infrastructure: 3
+Construction/Railway Engineering: 3
+Consumer Goods: 3
+Control Systems: 3
+Criminal Justice: 3
+Data Science: 3
+Data Science and Analytics: 3
+Data and Intelligence consultancy: 3
+Defence & Security: 3
+Defence and Government: 3
+Defence and Security: 3
+Defense and Security: 3
+Digital Agency: 3
+Digital Marketing and Creative Technology: 3
+Domestic Help: 3
+Domestic and Cleaning Services: 3
+Domestic/ Household Management: 3
+E-commerce and Logistics: 3
+Education/Childcare: 3
+Education/Library: 3
+Education/Library Services: 3
+Education/Non-Profit: 3
+Education/Social Work: 3
+Electrical Distribution: 3
+Electrical Trade: 3
+Electrical services: 3
+Electrical/Electronic Engineering: 3
+Electronics: 3
+Electronics / Embedded Software: 3
+Electronics Technology: 3
+Electronics and Manufacturing: 3
+Electronics and Semiconductors: 3
+Electronics manufacture and distribution: 3
+Electronics/Audio Technology: 3
+Electronics/Embedded Systems: 3
+Employment Research Consultancy: 3
+Energy & Environment: 3
+Energy and Chemicals: 3
+Energy and Environment: 3
+Energy and Sustainability: 3
+Energy and Waste consultancy: 3
+Energy sector: 3
+Engineering & Maintenance: 3
+Engineering & Manufacturing: 3
+Engineering and Advisory: 3
+Engineering and Consulting: 3
+Engineering/Construction: 3
+Engineering/Maintenance: 3
+Engineering/Manufacturing: 3
+Entertainment and Media: 3
+Entertainment/Event Management: 3
+Entertainment/PR: 3
+Environmental Conservation: 3
+Environmental Consultancy: 3
+Environmental Consulting: 3
+Environmental Regulation: 3
+Environmental Technology: 3
+Environmental and Occupational Hygiene: 3
+Environmental, Engineering and Strategic Consulting: 3
+Environmental, Health, and Safety: 3
+Environmental/Conservation: 3
+Environmental/Social Impact: 3
+Environmental/Sustainability: 3
+Environmental/Water Management: 3
+Estate Agency: 3
+Event Planning and A/V Technology: 3
+Executive Search and Recruitment: 3
+Executive Secretarial & Support: 3
+Facilities & Property Management: 3
+Farming/Agribusiness: 3
+Fashion/ Apparel: 3
+Finance and Administration: 3
+Finance and Business: 3
+Finance/Administration: 3
+Finance/Estate Agency: 3
+Finance/Financial Services: 3
+Finance/Investment Banking: 3
+Financial Services and Technology: 3
+Food Industry: 3
+Food Service/Hospitality: 3
+Foodservice: 3
+Funeral Services: 3
+Gaming and Entertainment: 3
+Global Manufacturing: 3
+Government and Defence: 3
+Government and Public Policy: 3
+Health & Beauty: 3
+Health & Social Care: 3
+Health Care: 3
+Health Tech: 3
+Health and Fitness Technology: 3
+Health and Social Care: 3
+Health and Social Care Recruitment: 3
+Healthcare & Biotechnology: 3
+Healthcare & Nursing Jobs: 3
+Healthcare Advertising: 3
+Healthcare and Clinical Research: 3
+Healthcare and Life Sciences (HCLS): 3
+Healthcare and Social Care: 3
+Healthcare and Social Services: 3
+Healthcare and Social Work: 3
+Healthcare and Technology: 3
+Healthcare/Non-profit: 3
+Healthcare/Social Services: 3
+Heavy Plant industry: 3
+Heritage and Conservation: 3
+Home Accessories Manufacturing: 3
+Home Automation and Security: 3
+Hospitality and Recreation: 3
+Hospitality, Leisure, Entertainment: 3
+Hospitality/Entertainment: 3
+Household Help: 3
+Housing and Property Management: 3
+IT & Technology: 3
+IT & Technology Recruitment: 3
+IT / Information Technology: 3
+IT Consultancy: 3
+IT Security: 3
+IT and Cyber Security: 3
+IT and Cybersecurity: 3
+IT and Defence: 3
+IT and Defense: 3
+IT and InfoSec: 3
+IT and Telecommunication: 3
+IT, Fintech, Blockchain, AI: 3
+IT/PropTech: 3
+IT/Telecoms Infrastructure: 3
+Industrial Automation: 3
+Industrial Engineering / Lean Manufacturing: 3
+Industrial Equipment Sales: 3
+Industrial Maintenance: 3
+Industrial Systems: 3
+Information Services: 3
+Information Technology and Cybersecurity: 3
+Justice and Law: 3
+Justice and Law Enforcement: 3
+Justice/Legal: 3
+Landscaping and Grounds Maintenance: 3
+Law and Legal: 3
+Leisure: 3
+Leisure and Fitness: 3
+Leisure and Hospitality: 3
+Leisure and Recreation: 3
+Logistics & Defence: 3
+Logistics & E-commerce: 3
+Logistics & Manufacturing: 3
+Logistics & Supply Chain: 3
+Logistics and Distribution: 3
+Logistics and Postal Services: 3
+Logistics/Distribution: 3
+Maintenance and Building Services: 3
+Manufacturing / Engineering: 3
+Manufacturing Engineering: 3
+Manufacturing Jobs: 3
+Manufacturing and Logistics: 3
+Manufacturing and Operations: 3
+Manufacturing/FMCG: 3
+Manufacturing/Food Industry: 3
+Manufacturing/Food and Beverage: 3
+Manufacturing/Furniture: 3
+Manufacturing/Logistics: 3
+Manufacturing/Maintenance: 3
+Marine Engineering: 3
+Marketing and Digital Design: 3
+Marketing and Public Relations: 3
+Marketing and Sales: 3
+Marketing/Advertising: 3
+Marketing/Sales: 3
+Media: 3
+Media and Advertising: 3
+Media and Communications: 3
+Media and Events: 3
+Media and Journalism: 3
+Medical Affairs: 3
+Mental Health: 3
+Music Industry: 3
+Non-Profit/Community: 3
+Non-Profit/Religious: 3
+Non-profit/Gambling Support: 3
+Non-profit/NGO: 3
+Non-profit/Philanthropy: 3
+Non-profit/Social Services: 3
+Non-profit/Sustainability: 3
+Nonprofit: 3
+Nuclear Engineering: 3
+Oil and Gas: 3
+PR & Communications: 3
+PR (Public Relations): 3
+PR and Communications: 3
+PR and Marketing: 3
+Pharmaceutical and Healthcare: 3
+Pharmaceutical industry: 3
+Pharmaceuticals/Healthcare: 3
+Pharmaceuticals/Pharmatech: 3
+Project Administration: 3
+Property & Construction: 3
+Property Jobs: 3
+Property Management and Consultancy: 3
+Property Services: 3
+Public Administration and Safety: 3
+Public Health: 3
+Public Health Administration: 3
+Public Health and Social Work: 3
+Public Relations/Marketing: 3
+Public Sector/ Law Enforcement: 3
+Public Sector/Local Government: 3
+Public Sector/Prison Services: 3
+Real Estate Consultancy: 3
+Real Estate Finance: 3
+Real Estate/Housing: 3
+Real Estate/Housing Association: 3
+Recruitment & Consultancy: 3
+Recruitment Sector: 3
+Recruitment and Consultancy: 3
+Recruitment and Human Resources: 3
+Recruitment and Staffing: 3
+Recruitment/HR Technology: 3
+Recycling and Resource Management: 3
+Remote Work/Online Business: 3
+Remote work/ Administration: 3
+Renewable Energy & Sustainable Technologies: 3
+Renewable Energy/Electric Vehicle: 3
+Research and Development: 3
+Research and Market Analysis: 3
+Retail & Leisure: 3
+Retail / Hospitality / Leisure: 3
+Retail Banking & Finance: 3
+Retail Marketing: 3
+Retail/Ecommerce: 3
+Retail/Food: 3
+Retail/Hair and Beauty: 3
+Retail/Trading: 3
+Retail/Travel: 3
+SaaS: 3
+SaaS, Sustainability, Transparency: 3
+Sales / Customer Service: 3
+Sales Intelligence: 3
+Sales Jobs consultancy: 3
+Sales and Administration: 3
+Sales and Business Development: 3
+Sales and Procurement: 3
+Sales and Retail: 3
+Sales and Security: 3
+Sales and Service: 3
+Sales and Technology: 3
+Sales, Customer Service and Account Management: 3
+Sales/Marketing: 3
+Salesforce, Technology: 3
+Science and Technology: 3
+Scientific Research: 3
+Scientific Research and Development: 3
+Security Services: 3
+Security and Customer Service: 3
+Security and Defence: 3
+Security and Engineering: 3
+Security and Event Management: 3
+Security and Facilities Management: 3
+Security and Surveillance: 3
+Shipbuilding and Marine Engineering: 3
+Social Services/Non-Profit: 3
+Social Services/Social Work: 3
+Software Sales: 3
+Software and I.T sales: 3
+Software and Technology: 3
+Sports and Entertainment: 3
+Sports and Leisure: 3
+Sports, Fashion, Events, and Media: 3
+Sports/Leisure: 3
+Supply Chain & Logistics: 3
+Sustainability: 3
+Sustainability and Environment: 3
+Sustainability and Environmental Consulting: 3
+Talent Representation: 3
+Teaching Jobs: 3
+Technology and Consulting: 3
+Technology/Software Development: 3
+Technology/Telecommunications: 3
+Telecoms/Construction: 3
+Tourism: 3
+Tourism and Transportation: 3
+Tourism/Hospitality: 3
+Trade & Construction Jobs: 3
+Trade/Manufacturing: 3
+Translation and Content Creation: 3
+Translation/Language Services: 3
+Transportation and Infrastructure: 3
+Transportation/Engineering: 3
+Transportation/Rail: 3
+Travel: 3
+Water Industry: 3
+Water Resources Management: 3
+Water Treatment: 3
+Water and Wastewater: 3
+Water and Wastewater Engineering: 3
+Water and Wastewater Treatment: 3
+Water industry: 3
+Web and Digital Agency: 3
+Wine and Beverage: 3
+Healthcare/Social Work: 2.944
+Security: 2.909
+Cyber Security: 2.9
+Social Care: 2.9
+Childcare: 2.889
+Healthcare/Social work: 2.875
+Property: 2.875
+Finance and Banking: 2.857
+Food Service: 2.857
+Pharmaceuticals: 2.846
+Education and Training: 2.833
+Engineering Jobs: 2.833
+Environmental Engineering: 2.833
+Food and Beverage: 2.833
+Marketing/PR: 2.833
+Property Management: 2.833
+Healthcare/Social Care: 2.818
+Public Administration and Government: 2.818
+Sales and Recruitment: 2.818
+Social work: 2.812
+Administration/Office Support: 2.8
+Automotive Retail: 2.8
+Construction/Real Estate: 2.8
+Market Research: 2.8
+Software Engineering: 2.8
+Transportation/Infrastructure: 2.8
+Human Resources: 2.798
+Information Technology: 2.786
+Marketing: 2.778
+Sales and Customer Service: 2.778
+Real Estate: 2.776
+Logistics and Warehouse: 2.773
+Cybersecurity: 2.769
+Logistics and Supply Chain: 2.765
+PR: 2.762
+Administrative Support: 2.75
+Architecture and Design: 2.75
+Automotive Sales: 2.75
+Biotechnology: 2.75
+Cleaning and Domestic Services: 2.75
+Construction and Real Estate: 2.75
+Construction and Trades: 2.75
+Event Management: 2.75
+Finance and Accounting: 2.75
+Finance/IT: 2.75
+Health and Wellness: 2.75
+Real Estate/Property: 2.75
+Sales and Marketing: 2.744
+Digital Marketing: 2.741
+Finance/Banking: 2.737
+Beauty and Cosmetics: 2.727
+Electronics Engineering: 2.727
+Entertainment: 2.727
+Public Administration: 2.727
+Social Services: 2.723
+Accounting & Finance: 2.72
+Logistics: 2.72
+IT and Technology: 2.719
+Construction and Architecture: 2.714
+Environmental Science: 2.714
+Logistics/Transportation: 2.714
+Telecommunications: 2.706
+Scientific & QA: 2.7
+Security and Law Enforcement: 2.7
+Utilities: 2.7
+HR & Recruitment: 2.699
+Sales: 2.691
+Social Work: 2.69
+Aerospace: 2.688
+Healthcare & Nursing: 2.687
+Transportation: 2.682
+Healthcare: 2.679
+Accountancy: 2.667
+Admin Jobs: 2.667
+Advertising/Marketing: 2.667
+Agriculture: 2.667
+Business/Corporate: 2.667
+Civil Engineering: 2.667
+Construction and Civil Engineering: 2.667
+Electronics/Technology: 2.667
+Facilities Management and Professional Services: 2.667
+Food Manufacturing: 2.667
+Government: 2.667
+Higher Education: 2.667
+Hospitality and Leisure: 2.667
+IT and Telecommunications: 2.667
+Law Enforcement: 2.667
+Maintenance Jobs: 2.667
+Manufacturing/Industrial: 2.667
+Marketing and PR: 2.667
+Medical Devices: 2.667
+Pharmaceutical: 2.667
+Public Administration and Governance: 2.667
+Real Estate/Property Management: 2.667
+Social Services/Housing: 2.667
+Technology and IT: 2.667
+Transportation/Logistics: 2.667
+Health and Fitness: 2.65
+Construction/Engineering: 2.643
+Professional Services: 2.643
+Scientific & QA Jobs: 2.643
+Facilities Management: 2.629
+Manufacturing: 2.626
+Cleaning and Maintenance: 2.625
+Electrical Engineering: 2.625
+Manufacturing/Engineering: 2.625
+Logistics & Warehouse: 2.621
+Hospitality: 2.621
+Media and Entertainment: 2.615
+Hospitality & Catering: 2.608
+Banking: 2.6
+Education/Teaching: 2.6
+Healthcare Technology: 2.6
+Healthcare/Pharmaceutical: 2.6
+Logistics/Warehouse: 2.6
+IT: 2.595
+Consulting: 2.595
+Non-profit/Charity: 2.588
+Administration: 2.587
+Education: 2.583
+Financial Services: 2.576
+Recruitment: 2.574
+Fintech: 2.571
+Leisure and Sports: 2.571
+Maintenance: 2.571
+Media and Publishing: 2.571
+Technology/Software: 2.571
+Technology: 2.566
+Public Sector: 2.562
+Automotive: 2.562
+Finance: 2.56
+Architecture and Construction: 2.556
+Construction and Trade: 2.556
+Renewable Energy: 2.556
+Construction: 2.552
+Engineering: 2.544
+Fashion: 2.538
+Public Relations: 2.538
+Construction and Infrastructure: 2.533
+Construction and Engineering: 2.519
+Administrative/Office: 2.5
+Advertising: 2.5
+Beauty and Wellness: 2.5
+Business: 2.5
+Charity & Voluntary: 2.5
+Construction and Facilities Management: 2.5
+Construction and Property: 2.5
+Customer Service/Administration: 2.5
+Defense and Aerospace: 2.5
+Defense and Military: 2.5
+Digital Media: 2.5
+E-commerce: 2.5
+Electrical Wholesale: 2.5
+Electronics/Engineering: 2.5
+Engineering and Manufacturing: 2.5
+Facilities Maintenance: 2.5
+Finance and Law: 2.5
+Finance and Technology: 2.5
+Finance/Accounting: 2.5
+Finance/Insurance: 2.5
+Finance/Investment: 2.5
+Finance/Wealth Management: 2.5
+Government/Local Government: 2.5
+Graphic Design: 2.5
+Healthcare Administration: 2.5
+Housing Association: 2.5
+IT Jobs: 2.5
+Legal Services: 2.5
+Local Government: 2.5
+Logistics & Transportation: 2.5
+Management Consultancy: 2.5
+Marketing and Advertising: 2.5
+Medical Sales: 2.5
+Medical Technology: 2.5
+Motor Trade: 2.5
+Non-Profit/Charity: 2.5
+Oil & Gas: 2.5
+Other/General Jobs: 2.5
+Procurement and Supply Chain: 2.5
+Recruitment/HR: 2.5
+Research: 2.5
+Residential Property: 2.5
+Retail and Sales: 2.5
+Retail and Technology: 2.5
+Retail/Fast Food: 2.5
+Semiconductor industry: 2.5
+Software Development: 2.5
+Tech: 2.5
+Technology and Software: 2.5
+Trade and Construction: 2.5
+Transportation and Logistics: 2.5
+Travel and Tourism: 2.5
+Waste Management: 2.5
+Energy: 2.491
+Logistics and Transportation: 2.481
+Consultancy: 2.479
+Retail: 2.478
+Domestic Help & Cleaning: 2.462
+Gaming: 2.462
+Consultancy Jobs: 2.455
+Domestic help & Cleaning: 2.452
+Energy and Utilities: 2.448
+Environmental Services: 2.444
+Manufacturing and Engineering: 2.444
+Non-Profit: 2.438
+Trade & Construction: 2.432
+Aviation: 2.429
+Creative & Design Jobs: 2.429
+Hospitality/Leisure: 2.429
+IT and Consulting: 2.429
+Telecoms: 2.429
+Domestic help & Cleaning Jobs: 2.424
+Insurance: 2.418
+Aerospace and Defence: 2.417
+Education/Training: 2.4
+Fashion and Retail: 2.4
+Life Sciences: 2.4
+Public Services: 2.4
+Software as a Service (SaaS): 2.4
+Legal: 2.39
+Architecture: 2.375
+Creative & Design: 2.375
+Construction and Maintenance: 2.368
+Aerospace Engineering: 2.364
+Publishing: 2.364
+Customer Services: 2.348
+Aerospace and Defense: 2.333
+Business Administration: 2.333
+Defence and Aerospace: 2.333
+Education Recruitment: 2.333
+Education Technology: 2.333
+Energy/Utilities: 2.333
+Healthcare/IT: 2.333
+IT/Technology: 2.333
+Manufacturing and Distribution: 2.333
+Property and Real Estate: 2.333
+Recruitment/Human Resources: 2.333
+Software: 2.333
+Law: 2.324
+Biopharmaceutical: 2.25
+Domestic Services: 2.25
+Financial Technology: 2.25
+Government/Public Administration: 2.25
+Office Administration: 2.25
+Pet Care: 2.25
+Retail/Food Service: 2.2
+Sales Jobs: 2.2
+Customer Service: 2.128
+Remote Work/Online Opportunities: 2.118
+Academia/Research: 2
+Accountancy/Consulting: 2
+Accounting and Business Advisory: 2
+Accounting and Finance: 2
+Administration/Office: 2
+Administration/Office Management: 2
+Advertising/PR: 2
+Aerospace & Manufacturing: 2
+Aerospace/Defence: 2
+Agricultural and Plant Engineering: 2
+Agriculture/Rural: 2
+Agriculture/Supply Chain: 2
+Animal Welfare and Non-Profit: 2
+Animation: 2
+Architecture and Interior Design: 2
+Arts and Entertainment: 2
+Arts, Entertainment & Recreation: 2
+Audio-Visual: 2
+Automotive Engineering: 2
+Automotive and Luxury Goods: 2
+Automotive/Mechanical trade: 2
+Automotive/Motorsport Engineering: 2
+Biotechnology/Pharmaceutical: 2
+Building Services: 2
+Building Services, FM and Support Sectors: 2
+Business/Management: 2
+Career Transition and Sports: 2
+Civil & Structural engineering: 2
+Cleaning Services: 2
+Cleaning and Domestic Help: 2
+Cleaning and Hygiene: 2
+Cleaning and Hygiene Services: 2
+Cleaning/Janitorial: 2
+Comms / Marketing / PR: 2
+Community Development: 2
+Construction Manufacturing: 2
+Construction Materials: 2
+Construction and Building Materials: 2
+Construction and Development: 2
+Construction and Infrastructure Services: 2
+Construction and Mining: 2
+Construction/Architecture: 2
+Construction/Building: 2
+Construction/Cleaning: 2
+Construction/Equipment Rental: 2
+Construction/Project Management: 2
+Construction/Property Maintenance: 2
+Construction/Retail: 2
+Construction/Trade: 2
+Content Creation/PR: 2
+Corporate Business: 2
+Corporate Finance: 2
+Creative: 2
+Creative Agency: 2
+Creative/Design: 2
+Customer Service/Call Center: 2
+Defence: 2
+Defense and Government: 2
+Design and Creative: 2
+Design and Research: 2
+Digital Design and Build Agency: 2
+Digital Media and Performance Marketing: 2
+Digital and Content Creative: 2
+Digital retail, Tech: 2
+Digital/Technology: 2
+Document Management: 2
+Domestic/Cleaning: 2
+E-commerce/Fashion: 2
+Ecommerce: 2
+Ecommerce Fashion: 2
+Ed Tech: 2
+EdTech: 2
+Education and Technology: 2
+Education/Online Learning: 2
+Education/Recruitment: 2
+Electrical/Electronics: 2
+Electro-mechanical Engineering: 2
+Electronics Manufacturing: 2
+Electronics/Telecommunications: 2
+Energy & Natural Resources: 2
+Energy Services: 2
+Energy Trading: 2
+Energy and Power Systems: 2
+Energy/Engineering: 2
+Energy/Geoscience: 2
+Engineering & Science: 2
+Engineering and Process Sector Industries: 2
+Engineering/Technology: 2
+Environmental consultancy: 2
+Events: 2
+Executive Search Firm: 2
+FMCG: 2
+FMCG (Fast-Moving Consumer Goods): 2
+Fashion Industry: 2
+Fashion Retail: 2
+Fashion Technology: 2
+Fashion and Apparel: 2
+Fashion/Apparel: 2
+Fashion/Textile: 2
+Fashion/Textiles: 2
+FinTech: 2
+Finance and Consulting: 2
+Finance and Insurance: 2
+Finance and Tax: 2
+Finance et Assurance: 2
+Finance/ Banking: 2
+Finance/Trading: 2
+Financial Markets: 2
+Financial Planning: 2
+Financial Services/Banking: 2
+Financial Services/Reinsurance: 2
+Financial Technology (FinTech): 2
+Fire and Security: 2
+Fire and Security Installation: 2
+Food Processing: 2
+Food Production: 2
+Food Sector: 2
+Food Tech: 2
+Game Development: 2
+Gaming and Betting: 2
+Government and Public Administration: 2
+Government and Public Sector: 2
+Government/Non-Profit: 2
+Government/Public Sector: 2
+HR & Recruitment Jobs: 2
+Healthcare and Biotechnology: 2
+Healthcare/Biotechnology: 2
+Healthcare/Hospitality: 2
+Healthcare/Pharmaceuticals: 2
+Heritage and Tourism: 2
+Hospitality Technology: 2
+Hospitality and Office Administration: 2
+Hospitality/Hotel: 2
+Household Services: 2
+Housekeeping/Cleaning: 2
+Housing and Construction: 2
+Human Resources/Recruitment: 2
+Humanitarian/Non-Profit: 2
+Hygiene Operations: 2
+IT / Telecoms: 2
+IT Consulting: 2
+IT and Software: 2
+IT and Software Development: 2
+IT and Telecommunication Services: 2
+IT/Fintech: 2
+IT/Operations: 2
+IT/Software: 2
+IT/Software Development: 2
+IT/Sports: 2
+IT/Telecoms: 2
+Industrial: 2
+Infrastructure and Construction: 2
+Infrastructure consultancy: 2
+InsurTech: 2
+Insurance Broker: 2
+Investment Management: 2
+Landscaping and Gardening: 2
+Law and Finance: 2
+Law and Legal Services: 2
+Legal Jobs: 2
+Legal/Defence: 2
+Legal/Finance: 2
+Life Science: 2
+Local Government/Town Planning: 2
+Logistics & Automotive: 2
+Logistics and Events: 2
+Luxury Goods: 2
+Maintenance and Repair: 2
+Manufacturing/Food Processing: 2
+Manufacturing/Production: 2
+Marketing and Communications: 2
+MedTech: 2
+Media and Technology: 2
+Medical Communications: 2
+Medical Device: 2
+Medical Device Engineering: 2
+Membership and Associations: 2
+Military/Defence: 2
+Military/Defense: 2
+Mining: 2
+Music: 2
+Non-Profit and Humanitarian: 2
+Non-Profit/NGO: 2
+Non-Profit/Social Services: 2
+Non-profit: 2
+Non-profit/Research: 2
+Oil & Gas / Energy Corporate: 2
+Online Surveys/Admin Jobs: 2
+PR and Creative Agency: 2
+Packaging: 2
+Packaging and Supply: 2
+Pharmaceutical Consulting: 2
+Pharmaceuticals/Biotechnology: 2
+Power Engineering: 2
+Print & IT supplies distribution: 2
+Print and document management industry: 2
+Private Equity: 2
+Property Management and Construction: 2
+Property/Construction: 2
+Public Administration and Justice: 2
+Public Relations (PR): 2
+Public Safety: 2
+Public Safety and Corrections: 2
+Public Sector Administration: 2
+Public Sector/Government: 2
+Real Estate/Property Development: 2
+Recruitment Consultancy: 2
+Recruitment and Sales: 2
+Recruitment/Consultancy: 2
+Recruitment/Consulting: 2
+Recruitment/Technology: 2
+Remote Work/Online Jobs: 2
+Renewable Energy and District Heating: 2
+Renewable Energy/EV/Mobility: 2
+Renewables: 2
+Rental/Leasing: 2
+Retail Technology: 2
+Retail and Cosmetics: 2
+Retail/Beauty: 2
+Retail/E-commerce: 2
+Retail/Electronics: 2
+Retail/Fashion: 2
+Retail/Food Industry: 2
+Retail/Wholesale: 2
+Ride-sharing/Gig Economy: 2
+Sales and Customer Success: 2
+Sales and Events: 2
+Sales and Fundraising: 2
+Sales and Interiors: 2
+Sales/Admin: 2
+Sales/Admin/Customer Service/Account Management: 2
+Security and Customer Services: 2
+Security and Protection: 2
+Semiconductor: 2
+Social Housing: 2
+Social Housing and Regeneration: 2
+Social Services/Humanitarian: 2
+Social Work/Care: 2
+Social Work/Charity: 2
+Social Work/Housing: 2
+Social work/Housing: 2
+Software Development and Technology: 2
+Software and Digital Transformation: 2
+Software and SaaS: 2
+Software as a Service (SaaS) and Technology: 2
+Sports Management: 2
+Sports Marketing/PR: 2
+Sports Technology: 2
+Sports and Recreation: 2
+Supply Chain Solutions: 2
+Supply Chain Technology: 2
+Sustainability Tech: 2
+Technology & Engineering: 2
+Technology and Data: 2
+Technology and Engineering: 2
+Technology and Services: 2
+Telecom: 2
+Tourism and Hospitality: 2
+Translation and Interpretation: 2
+Translation and Interpreting: 2
+Transport: 2
+Transportation Technology: 2
+Transportation/Airport Security: 2
+Transportation/Consulting: 2
+Transportation/Fleet Management: 2
+Transportation/Manufacturing: 2
+Transportation/Railway: 2
+Transportation/Rental Services: 2
+Travel Industry: 2
+Travel and Hospitality: 2
+Urban Planning: 2
+Utilities and infrastructure: 2
+Utility: 2
+Veterinary Medicine: 2
+Water Treatment, Water Hygiene, Commercial Plumbing: 2
+
+=== SAMPLE CASES (truncated) ===
+
+job_id: 3138377268
+title:  Corporate Partnerships Manager
+domain: Sales | sector: Sales Jobs
+desc:   [Sales] We are seeking a Corporate Partnerships Manager to develop and execute strategic partnerships with key corporate clients.
+tasks:  [Sales] Develop and execute strategic partnerships with key corporate clients Identify and pursue new business opportunities Build and maintain strong relationships with clients Collaborate with internal teams to drive business growth Negotiate and close deals Strategic thinking Communication Negotiation Relationship building Business development
+kept:   ['Sales Managers', 'Marketing Managers']
+drop:   ['Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products', 'Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products', 'Real Estate Sales Agents', 'Advertising Sales Agents', 'Fundraising Managers', 'Agents and Business Managers of Artists, Performers, and Athletes', 'Advertising and Promotions Managers']
+
+job_id: 3214430140
+title:  English Teacher - ECT
+domain: Education | sector: Teaching Jobs
+desc:   [Education] We are seeking an English Teacher to join our team at an international school in [location].
+tasks:  [Education] Plan and deliver engaging lessons to students of various age groups and levels Assess student progress and provide constructive feedback Develop and implement curriculum materials and assessments Maintain a safe and inclusive learning environment Communicate with parents and colleagues to ensure student success Teaching English as a Second Language (TESL) Lesson planning and curriculum development Classroom management and organization Communication and interpersonal skills Assessment and evaluation techniques
+kept:   ['Adult Basic Education, Adult Secondary Education, and English as a Second Language Instructors', 'Career/Technical Education Teachers, Secondary School']
+drop:   ['Self-Enrichment Teachers', 'Tutors', 'Secondary School Teachers, Except Special and Career/Technical Education', 'English Language and Literature Teachers, Postsecondary', 'Education Teachers, Postsecondary', 'Interpreters and Translators', 'Special Education Teachers, Elementary School']
+
+job_id: 2693452465
+title:  Senior Logistics Co-Ordinator
+domain: Logistics and Supply Chain | sector: IT Jobs
+desc:   [Logistics and Supply Chain] We are seeking a highly organized and detail-oriented Senior Logistics Coordinator to join our team.
+tasks:  [Logistics and Supply Chain] Coordinate and manage the movement of goods and materials within the supply chain Develop and implement logistics strategies to improve efficiency and reduce costs Collaborate with cross-functional teams to ensure timely delivery of products Analyze and resolve logistics-related issues and discrepancies Maintain accurate records and reports of logistics activities Logistics management Supply chain management Communication and collaboration Problem-solving and analytical skills Time management and organization
+kept:   ['Logisticians', 'Logistics Analysts', 'Transportation, Storage, and Distribution Managers']
+drop:   ['Supply Chain Managers', 'Shipping, Receiving, and Inventory Clerks', 'Logistics Engineers']
+
+job_id: 3246852497
+title:  Warehouse Administrator
+domain: Logistics | sector: Logistics & Warehouse Jobs
+desc:   [Logistics] We are seeking a highly organized and detail-oriented Warehouse Administrator to join our team.
+tasks:  [Logistics] Manage and maintain accurate inventory levels and records Coordinate with warehouse staff to ensure efficient warehouse operations Process and fulfill customer orders in a timely manner Maintain a clean and organized warehouse environment Perform data entry and reporting tasks Inventory management Data entry Time management Communication Organizational skills
+kept:   ['Transportation, Storage, and Distribution Managers', 'Shipping, Receiving, and Inventory Clerks', 'Order Clerks']
+drop:   ['Packers and Packagers, Hand', 'Weighers, Measurers, Checkers, and Samplers, Recordkeeping', 'Logisticians', 'Data Warehousing Specialists', 'Logistics Analysts', 'Logistics Engineers']
+
+job_id: 3273835546
+title:  Catering Assistant, Bannockburn Primary School (Part Time, Term Time)
+domain: Education | sector: Part time Jobs
+desc:   [Education] Catering Assistant
+tasks:  [Education] Assist with the preparation and serving of meals Maintain a clean and hygienic kitchen environment Support the catering team with food preparation and presentation Assist with the ordering and stock control of food and supplies Maintain accurate records of food consumption and stock levels Food safety and hygiene Teamwork and communication Time management and organization Basic food preparation and presentation Cash handling and stock control
+kept:   ['Cooks, Institution and Cafeteria', 'Food Preparation Workers']
+drop:   ['First-Line Supervisors of Food Preparation and Serving Workers', 'Cooks, Short Order', 'Cooks, Restaurant', 'Dining Room and Cafeteria Attendants and Bartender Helpers', 'Waiters and Waitresses']
+
+job_id: 3392576627
+title:  Logistics Administrator
+domain: Logistics | sector: Accounting & Finance Jobs
+desc:   [Logistics] We are seeking a highly organized and detail-oriented Logistics Administrator to join our team.
+tasks:  [Logistics] Manage and coordinate the movement of goods and materials Maintain accurate records and reports of inventory levels and shipments Coordinate with suppliers and carriers to ensure timely delivery Process and verify shipping documents and customs forms Troubleshoot and resolve any logistical issues that may arise Inventory management Supply chain management Communication and coordination Data entry and record-keeping Problem-solving
+kept:   ['Transportation, Storage, and Distribution Managers', 'Shipping, Receiving, and Inventory Clerks', 'Logisticians']
+drop:   ['Couriers and Messengers', 'Weighers, Measurers, Checkers, and Samplers, Recordkeeping', 'Cargo and Freight Agents', 'Logistics Analysts', 'Logistics Engineers', 'First-Line Supervisors of Material-Moving Machine and Vehicle Operators']
+
+job_id: 2925276357
+title:  Lead Engineer - Elec biased - London
+domain: Engineering | sector: Engineering Jobs
+desc:   [Engineering] We are seeking a Lead Engineer to join our team in London. The successful candidate will be responsible for leading a team of engineers and overseeing the development of electrical systems.
+tasks:  [Engineering] Lead a team of engineers in the development of electrical systems Oversee the design and implementation of electrical systems Collaborate with cross-functional teams to ensure project delivery Develop and implement electrical system testing and validation plans Ensure compliance with industry standards and regulations Leadership Electrical engineering Project management Team management Communication
+kept:   ['Electrical Engineers', 'Electronics Engineers, Except Computer', 'First-Line Supervisors of Mechanics, Installers, and Repairers']
+drop:   ['Validation Engineers', 'Electrical Power-Line Installers and Repairers', 'Robotics Engineers', 'Nanosystems Engineers', 'Mechatronics Engineers', 'Microsystems Engineers']
+
+job_id: 3382122201
+title:  Social Care Assistants - Eskgreen Care Home
+domain: Healthcare | sector: Social work Jobs
+desc:   [Healthcare] We are seeking a compassionate and caring Social Care Assistant to join our team at Eskgreen Care Home.
+tasks:  [Healthcare] Supporting residents with daily living activities, such as bathing, dressing, and grooming Assisting with medication administration and monitoring Maintaining accurate records of resident care and progress Providing emotional support and companionship to residents Collaborating with the care team to develop and implement care plans Communication skills Empathy and compassion Basic first aid and medication administration Time management and organization Teamwork and collaboration
+kept:   ['Personal Care Aides', 'Home Health Aides', 'Nursing Assistants']
+drop:   ['Maids and Housekeeping Cleaners', 'Shampooers', 'Social and Human Service Assistants', 'Midwives', 'Healthcare Social Workers', 'Psychiatrists']
+
+job_id: 3439193680
+title:  Waitress/Waiter - Oxford, Oxfordshire
+domain: Hospitality & Catering | sector: Hospitality & Catering Jobs
+desc:   [Hospitality & Catering] We are looking for a friendly and enthusiastic Waitress/Waiter to join our team in Oxford, Oxfordshire.
+tasks:  [Hospitality & Catering] Take orders from customers and serve food and drinks in a timely manner Maintain a clean and organized dining area Handle customer complaints and resolve issues in a professional manner Work effectively as part of a team to ensure excellent customer service Process payments and handle cash transactions Excellent communication and interpersonal skills Ability to work in a fast-paced environment Basic math skills for handling cash transactions Knowledge of food and beverage menu Ability to work as part of a team
+kept:   ['Waiters and Waitresses', 'Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop']
+drop:   ['Dining Room and Cafeteria Attendants and Bartender Helpers', 'Cooks, Short Order', 'Food Servers, Nonrestaurant', 'Bartenders', 'First-Line Supervisors of Food Preparation and Serving Workers']
+
+job_id: 3758938656
+title:  Gas Upskill to Dual Fuel Smart Meter Installer
+domain: Energy | sector: Energy
+desc:   [Energy] We are seeking a Dual Fuel Smart Meter Installer to join our team. As a Dual Fuel Smart Meter Installer, you will be responsible for installing and maintaining smart meters for gas and electricity.
+tasks:  [Energy] Install and commission smart meters for gas and electricity Perform routine maintenance and repairs on existing meters Troubleshoot and diagnose issues with meters and associated equipment Work at heights and in confined spaces Maintain accurate records of installations and maintenance activities Electrical installation and maintenance Gas installation and maintenance Working at heights and in confined spaces Troubleshooting and diagnostic skills Record-keeping and documentation
+kept:   ['Control and Valve Installers and Repairers, Except Mechanical Door', 'Electrical and Electronics Repairers, Powerhouse, Substation, and Relay']
+drop:   ['Meter Readers, Utilities', 'Gas Compressor and Gas Pumping Station Operators', 'Heating, Air Conditioning, and Refrigeration Mechanics and Installers', 'Biomass Plant Technicians', 'Power Distributors and Dispatchers', 'Tire Repairers and Changers']
+
+
+============================================================
+****** GTE_LARGE ******
+============================================================
+=== GLOBAL METRICS ===
+jobs: 14000
+avg_candidates_before: 8.208
+avg_candidates_after: 2.610
+drop_rate: 0.6820
+empty_outputs_percent: 0.0
+it_leakage_share: 0.0876
+min_kept: 2
+max_kept: 3
+
+=== TOP KEPT OCCUPATIONS ===
+566  Software Developers
+514  Computer Systems Engineers/Architects
+453  Financial Managers
+429  Information Technology Project Managers
+419  Personal Care Aides
+400  Chefs and Head Cooks
+400  Treasurers and Controllers
+389  Cooks, Institution and Cafeteria
+372  Healthcare Social Workers
+357  Customer Service Representatives
+355  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+352  Human Resources Specialists
+325  Sales Managers
+319  Accountants and Auditors
+314  Retail Salespersons
+313  Mental Health and Substance Abuse Social Workers
+310  Food Service Managers
+303  Nursing Assistants
+281  Packers and Packagers, Hand
+279  Industrial Truck and Tractor Operators
+275  Registered Nurses
+268  Secretaries and Administrative Assistants, Except Legal, Medical, and Executive
+268  Laborers and Freight, Stock, and Material Movers, Hand
+260  Shipping, Receiving, and Inventory Clerks
+257  First-Line Supervisors of Retail Sales Workers
+
+=== DOMAIN AVG KEPT ===
+Academia/Research: 3
+Accountancy/Consulting: 3
+Accounting and Business Advisory: 3
+Accounting/Finance: 3
+Accounting/Finance, Administrative: 3
+Administration/Logistics: 3
+Administration/Office Management: 3
+Administration/Office Support: 3
+Advertising and Marketing: 3
+Aerospace & Defence: 3
+Aerospace and Technology: 3
+Aerospace/Automotive: 3
+Aerospace/Telecommunications: 3
+Agriculture/Food Science: 3
+Agriculture/Food and Beverage: 3
+Agriculture/Rural: 3
+Agriculture/Supply Chain: 3
+Animal Welfare and Non-Profit: 3
+Architecture and Design: 3
+Architecture and Engineering: 3
+Automation: 3
+Automotive Engineering: 3
+Automotive Manufacturing: 3
+Automotive/Mechanical trade: 3
+Banking & Finance: 3
+Biotechnology and Biological Sciences: 3
+Biotechnology/Pharmaceutical: 3
+Building Services, FM and Support Sectors: 3
+Building and Construction: 3
+Business and Finance: 3
+Career Transition and Sports: 3
+Charity & Conservation: 3
+Charity and Non-Profit: 3
+Chemical Industry: 3
+Chemical/Manufacturing: 3
+Chemicals and Ingredients: 3
+Chemicals and Materials: 3
+Civil & Structural engineering: 3
+Cleaning and Domestic Services: 3
+Cleaning and Hygiene Services: 3
+Cleaning/Janitorial: 3
+Cloud Computing: 3
+Community Development: 3
+Construction Manufacturing: 3
+Construction Trades: 3
+Construction and Consultancy: 3
+Construction and Engineering Services: 3
+Construction and Facilities Management: 3
+Construction and Manufacturing: 3
+Construction and Property Management: 3
+Construction/Architecture: 3
+Construction/Building Maintenance: 3
+Construction/Building Materials: 3
+Construction/Infrastructure: 3
+Construction/Project Management: 3
+Construction/Property: 3
+Construction/Property Development: 3
+Construction/Retail: 3
+Content Creation/PR: 3
+Corporate Finance: 3
+Creative Agency: 3
+Customer Service/Administration: 3
+Data Science: 3
+Defence: 3
+Defence & Security: 3
+Defence and Government: 3
+Defence and Security: 3
+Defense and Government: 3
+Design and Creative: 3
+Digital Marketing and Creative Technology: 3
+Digital Media and Performance Marketing: 3
+Digital and Content Creative: 3
+Digital retail, Tech: 3
+Domestic/ Household Management: 3
+E-commerce and Logistics: 3
+E-commerce/Fashion: 3
+Education Technology: 3
+Education/Childcare: 3
+Education/Library Services: 3
+Education/Recruitment: 3
+Education/Social Work: 3
+Electrical Distribution: 3
+Electrical Trade: 3
+Electrical/Electronic Engineering: 3
+Electro-mechanical Engineering: 3
+Electronics: 3
+Electronics / Embedded Software: 3
+Electronics Manufacturing: 3
+Electronics and Manufacturing: 3
+Electronics and Semiconductors: 3
+Electronics manufacture and distribution: 3
+Electronics/Audio Technology: 3
+Electronics/Engineering: 3
+Electronics/Technology: 3
+Electronics/Telecommunications: 3
+Employment Research Consultancy: 3
+Energy Services: 3
+Energy Trading: 3
+Energy and Chemicals: 3
+Energy and Environment: 3
+Energy and Power Systems: 3
+Energy and Sustainability: 3
+Energy and Waste consultancy: 3
+Energy/Engineering: 3
+Engineering & Maintenance: 3
+Engineering & Manufacturing: 3
+Engineering & Science: 3
+Engineering and Advisory: 3
+Engineering and Consulting: 3
+Engineering and Process Sector Industries: 3
+Engineering/Maintenance: 3
+Engineering/Manufacturing: 3
+Entertainment and Media: 3
+Entertainment/Event Management: 3
+Environmental Conservation: 3
+Environmental Consultancy: 3
+Environmental Regulation: 3
+Environmental Technology: 3
+Environmental and Occupational Hygiene: 3
+Environmental, Engineering and Strategic Consulting: 3
+Environmental/Social Impact: 3
+Environmental/Sustainability: 3
+Environmental/Water Management: 3
+Event Planning and A/V Technology: 3
+Executive Search Firm: 3
+Executive Secretarial & Support: 3
+Fashion and Apparel: 3
+Fashion/ Apparel: 3
+Fashion/Textiles: 3
+FinTech: 3
+Finance and Business: 3
+Finance and Consulting: 3
+Finance and Insurance: 3
+Finance and Tax: 3
+Finance et Assurance: 3
+Finance/ Banking: 3
+Finance/Estate Agency: 3
+Finance/Financial Services: 3
+Finance/Investment: 3
+Finance/Investment Banking: 3
+Finance/Trading: 3
+Financial Markets: 3
+Financial Planning: 3
+Financial Services/Banking: 3
+Financial Services/Reinsurance: 3
+Fire and Security: 3
+Food Processing: 3
+Gaming and Betting: 3
+Government and Defence: 3
+Government and Public Policy: 3
+Government and Public Sector: 3
+Government/Non-Profit: 3
+Health & Social Care: 3
+Health Care: 3
+Health and Social Care: 3
+Health and Social Care Recruitment: 3
+Health and Wellness: 3
+Healthcare & Nursing Jobs: 3
+Healthcare and Clinical Research: 3
+Healthcare and Life Sciences (HCLS): 3
+Healthcare and Social Care: 3
+Healthcare and Social Services: 3
+Healthcare and Social Work: 3
+Healthcare and Technology: 3
+Healthcare/Biotechnology: 3
+Healthcare/Hospitality: 3
+Healthcare/Non-profit: 3
+Healthcare/Social Services: 3
+Heritage and Tourism: 3
+Hospitality Technology: 3
+Hospitality and Office Administration: 3
+Hospitality and Recreation: 3
+Hospitality/Entertainment: 3
+Hospitality/Hotel: 3
+Household Help: 3
+Household Services: 3
+Housekeeping/Cleaning: 3
+Housing and Property Management: 3
+Hygiene Operations: 3
+IT / Information Technology: 3
+IT / Telecoms: 3
+IT Consultancy: 3
+IT Security: 3
+IT and Consulting: 3
+IT and Cybersecurity: 3
+IT and Defence: 3
+IT and Defense: 3
+IT and InfoSec: 3
+IT and Software: 3
+IT and Telecommunication: 3
+IT and Telecommunication Services: 3
+IT, Fintech, Blockchain, AI: 3
+IT/Fintech: 3
+IT/PropTech: 3
+IT/Software Development: 3
+IT/Telecoms: 3
+Industrial: 3
+Industrial Automation: 3
+Industrial Engineering / Lean Manufacturing: 3
+Industrial Equipment Sales: 3
+Industrial Maintenance: 3
+Industrial Systems: 3
+Information Services: 3
+Infrastructure and Construction: 3
+Investment Management: 3
+Justice and Law: 3
+Justice and Law Enforcement: 3
+Justice/Legal: 3
+Landscaping and Grounds Maintenance: 3
+Law Enforcement: 3
+Legal Services: 3
+Legal/Defence: 3
+Legal/Finance: 3
+Leisure and Fitness: 3
+Life Science: 3
+Local Government/Town Planning: 3
+Logistics & Automotive: 3
+Logistics & Defence: 3
+Logistics & E-commerce: 3
+Logistics & Manufacturing: 3
+Logistics & Supply Chain: 3
+Logistics and Distribution: 3
+Logistics and Events: 3
+Logistics/Distribution: 3
+Luxury Goods: 3
+Maintenance and Building Services: 3
+Maintenance and Repair: 3
+Management Consultancy: 3
+Manufacturing / Engineering: 3
+Manufacturing Engineering: 3
+Manufacturing Jobs: 3
+Manufacturing and Distribution: 3
+Manufacturing/Food Processing: 3
+Manufacturing/Food and Beverage: 3
+Manufacturing/Industrial: 3
+Manufacturing/Logistics: 3
+Manufacturing/Production: 3
+Marine Engineering: 3
+Marketing and Advertising: 3
+Marketing and Communications: 3
+Marketing and Sales: 3
+Marketing/Sales: 3
+Media and Communications: 3
+Media and Technology: 3
+Medical Affairs: 3
+Medical Device: 3
+Mental Health: 3
+Military/Defence: 3
+Motor Trade: 3
+Music Industry: 3
+Non-Profit and Humanitarian: 3
+Non-Profit/Community: 3
+Non-Profit/Religious: 3
+Non-Profit/Social Services: 3
+Non-profit/Gambling Support: 3
+Non-profit/Sustainability: 3
+Nonprofit: 3
+Nuclear Engineering: 3
+PR & Communications: 3
+PR and Creative Agency: 3
+PR and Marketing: 3
+Pharmaceutical industry: 3
+Pharmaceuticals/Pharmatech: 3
+Procurement and Supply Chain: 3
+Property Management and Construction: 3
+Property Management and Consultancy: 3
+Property/Construction: 3
+Public Administration and Justice: 3
+Public Health: 3
+Public Health Administration: 3
+Public Health and Social Work: 3
+Public Safety and Corrections: 3
+Public Sector Administration: 3
+Public Sector/ Law Enforcement: 3
+Public Sector/Government: 3
+Real Estate Consultancy: 3
+Real Estate Finance: 3
+Real Estate/Housing: 3
+Real Estate/Housing Association: 3
+Real Estate/Property Development: 3
+Recruitment & Consultancy: 3
+Recruitment Consultancy: 3
+Recruitment and Human Resources: 3
+Recruitment and Sales: 3
+Recruitment/HR: 3
+Recruitment/HR Technology: 3
+Recruitment/Human Resources: 3
+Recycling and Resource Management: 3
+Remote Work/Online Business: 3
+Remote Work/Online Jobs: 3
+Remote work/ Administration: 3
+Renewable Energy & Sustainable Technologies: 3
+Research: 3
+Research and Market Analysis: 3
+Retail / Hospitality / Leisure: 3
+Retail Technology: 3
+Retail and Cosmetics: 3
+Retail and Sales: 3
+Retail/Beauty: 3
+Retail/E-commerce: 3
+Retail/Ecommerce: 3
+Retail/Electronics: 3
+Retail/Food: 3
+Retail/Hair and Beauty: 3
+Retail/Trading: 3
+Retail/Wholesale: 3
+Ride-sharing/Gig Economy: 3
+Sales and Business Development: 3
+Sales and Events: 3
+Sales and Fundraising: 3
+Sales and Interiors: 3
+Sales and Service: 3
+Sales, Customer Service and Account Management: 3
+Sales/Admin: 3
+Sales/Admin/Customer Service/Account Management: 3
+Sales/Marketing: 3
+Science and Technology: 3
+Scientific Research: 3
+Security Services: 3
+Security and Customer Service: 3
+Security and Defence: 3
+Security and Facilities Management: 3
+Security and Protection: 3
+Security and Surveillance: 3
+Semiconductor: 3
+Shipbuilding and Marine Engineering: 3
+Social Housing: 3
+Social Housing and Regeneration: 3
+Social Services/Humanitarian: 3
+Social Services/Non-Profit: 3
+Social Work/Care: 3
+Social Work/Housing: 3
+Social work/Housing: 3
+Software: 3
+Software Sales: 3
+Software and Digital Transformation: 3
+Software and SaaS: 3
+Software as a Service (SaaS): 3
+Sports Marketing/PR: 3
+Sports Technology: 3
+Supply Chain & Logistics: 3
+Supply Chain Technology: 3
+Sustainability Tech: 3
+Sustainability and Environment: 3
+Sustainability and Environmental Consulting: 3
+Teaching Jobs: 3
+Technology & Engineering: 3
+Technology and Consulting: 3
+Technology and Software: 3
+Telecoms/Construction: 3
+Trade/Manufacturing: 3
+Translation and Content Creation: 3
+Transportation and Infrastructure: 3
+Transportation/Consulting: 3
+Transportation/Fleet Management: 3
+Transportation/Infrastructure: 3
+Transportation/Manufacturing: 3
+Transportation/Rail: 3
+Transportation/Rental Services: 3
+Travel: 3
+Utility: 3
+Water Industry: 3
+Water Resources Management: 3
+Water Treatment, Water Hygiene, Commercial Plumbing: 3
+Water and Wastewater: 3
+Health and Fitness: 2.95
+Healthcare/Social Work: 2.944
+Information Technology: 2.929
+Pharmaceuticals: 2.923
+Office Administration: 2.917
+Electronics Engineering: 2.909
+Healthcare/Social Care: 2.909
+Public Administration and Government: 2.909
+Childcare: 2.889
+Sales and Customer Service: 2.889
+Administrative Support: 2.875
+Electrical Engineering: 2.875
+Healthcare/Social work: 2.875
+Social work: 2.866
+Leisure and Sports: 2.857
+Logistics/Transportation: 2.857
+Technology/Software: 2.857
+Cybersecurity: 2.846
+Agriculture: 2.833
+Environmental Engineering: 2.833
+Food Manufacturing: 2.833
+Marketing/Advertising: 2.833
+Human Resources: 2.829
+Administration: 2.81
+Banking: 2.8
+Construction and Infrastructure: 2.8
+Construction/Real Estate: 2.8
+Education/Training: 2.8
+Healthcare Technology: 2.8
+Logistics/Warehouse: 2.8
+Public Services: 2.8
+Security and Law Enforcement: 2.8
+Social Care: 2.8
+Social Work: 2.793
+Marketing/PR: 2.792
+Manufacturing and Engineering: 2.778
+Aerospace and Defence: 2.75
+Business: 2.75
+Construction and Property: 2.75
+Criminal Justice: 2.75
+Finance and Accounting: 2.75
+Government/Public Administration: 2.75
+IT Jobs: 2.75
+Marketing and Public Relations: 2.75
+Media and Advertising: 2.75
+Public Sector: 2.75
+Social Services/Social Work: 2.75
+Tech: 2.75
+IT and Technology: 2.742
+Healthcare & Nursing: 2.741
+HR & Recruitment: 2.74
+Market Research: 2.733
+Security: 2.727
+Scientific & QA: 2.725
+Aviation: 2.714
+Construction/Engineering: 2.714
+Environmental Science: 2.714
+Food Service/Hospitality: 2.714
+Maintenance: 2.714
+Logistics and Supply Chain: 2.706
+Construction and Engineering: 2.704
+Cyber Security: 2.7
+Utilities: 2.7
+Transportation: 2.697
+Automotive: 2.696
+Accounting & Finance: 2.688
+Aerospace: 2.688
+Marketing: 2.683
+Telecommunications: 2.676
+IT: 2.674
+Real Estate: 2.672
+Accountancy: 2.667
+Accounting: 2.667
+Administrative/Office: 2.667
+Advertising/Marketing: 2.667
+Aerospace and Defense: 2.667
+Business/Corporate: 2.667
+Cleaning and Domestic Help: 2.667
+Construction and Civil Engineering: 2.667
+Education and Training: 2.667
+Energy/Utilities: 2.667
+Engineering Jobs: 2.667
+Environmental Services: 2.667
+Environmental/Conservation: 2.667
+Healthcare/IT: 2.667
+Hospitality and Leisure: 2.667
+IT and Telecommunications: 2.667
+Maintenance Jobs: 2.667
+Marketing and PR: 2.667
+Media: 2.667
+Medical Devices: 2.667
+Property Management: 2.667
+Public Administration and Governance: 2.667
+Public Safety: 2.667
+Real Estate/Property Management: 2.667
+Sales and Administration: 2.667
+Sales and Technology: 2.667
+Social Services/Housing: 2.667
+Transportation/Logistics: 2.667
+Urban Planning: 2.667
+Waste Management: 2.667
+Healthcare: 2.663
+Hospitality & Catering: 2.655
+Manufacturing: 2.644
+Professional Services: 2.643
+Finance: 2.638
+Beauty and Cosmetics: 2.636
+Public Administration: 2.636
+Digital Marketing: 2.63
+Manufacturing/Engineering: 2.625
+Consulting: 2.622
+Sales: 2.619
+Social Services: 2.617
+Logistics: 2.615
+Technology: 2.604
+Automotive Retail: 2.6
+Education/Teaching: 2.6
+Fashion and Retail: 2.6
+IT and Cyber Security: 2.6
+Retail/Food Service: 2.6
+Sales and Marketing: 2.6
+Software Engineering: 2.6
+Education: 2.599
+Engineering: 2.583
+Construction and Maintenance: 2.579
+Creative & Design Jobs: 2.571
+Finance and Banking: 2.571
+Hospitality/Leisure: 2.571
+PR: 2.571
+Scientific & QA Jobs: 2.571
+Telecoms: 2.571
+Financial Services: 2.568
+Non-Profit: 2.562
+Construction and Trade: 2.556
+Admin Jobs: 2.538
+Gaming: 2.538
+Software Development: 2.534
+Non-Profit/Charity: 2.533
+Finance/Banking: 2.526
+Hospitality: 2.516
+Recruitment: 2.511
+Logistics & Warehouse: 2.508
+Legal: 2.506
+Aerospace/Defense: 2.5
+Arts and Entertainment: 2.5
+Automotive Sales: 2.5
+Banking and Finance: 2.5
+Beauty and Wellness: 2.5
+Business/Management: 2.5
+Chemicals: 2.5
+Cleaning Services: 2.5
+Cleaning and Maintenance: 2.5
+Construction and Trades: 2.5
+Construction/Civil Engineering: 2.5
+Construction/Housebuilding: 2.5
+Creative & Design: 2.5
+Defense and Aerospace: 2.5
+Defense and Security: 2.5
+Digital Agency: 2.5
+Digital Media: 2.5
+E-commerce: 2.5
+Ecommerce: 2.5
+Education/Library: 2.5
+Electrical Wholesale: 2.5
+Electronics/Embedded Systems: 2.5
+Engineering and Manufacturing: 2.5
+Environmental consultancy: 2.5
+Estate Agency: 2.5
+Facilities Maintenance: 2.5
+Fashion Retail: 2.5
+Finance and Administration: 2.5
+Finance and Law: 2.5
+Finance and Technology: 2.5
+Finance/Accounting: 2.5
+Finance/IT: 2.5
+Finance/Wealth Management: 2.5
+Financial Services and Technology: 2.5
+Financial Technology: 2.5
+Healthcare Administration: 2.5
+Healthcare and Biotechnology: 2.5
+Healthcare/Pharmaceuticals: 2.5
+Leisure and Recreation: 2.5
+Local Government: 2.5
+Manufacturing/FMCG: 2.5
+Non-profit: 2.5
+Non-profit/NGO: 2.5
+Oil & Gas: 2.5
+Property: 2.5
+Public Relations (PR): 2.5
+Real Estate/Property: 2.5
+Renewable Energy: 2.5
+Renewables: 2.5
+Residential Property: 2.5
+Retail and Technology: 2.5
+Sales and Retail: 2.5
+Semiconductor industry: 2.5
+Software and Technology: 2.5
+Technology and Engineering: 2.5
+Telecom: 2.5
+Trade and Construction: 2.5
+Transportation and Logistics: 2.5
+Construction: 2.487
+Energy and Utilities: 2.483
+Consultancy: 2.479
+Energy: 2.473
+Customer Services: 2.472
+Government: 2.467
+Aerospace Engineering: 2.455
+Domestic help & Cleaning Jobs: 2.455
+Publishing: 2.455
+Sales and Recruitment: 2.455
+Retail: 2.445
+Architecture and Construction: 2.444
+Facilities Management: 2.435
+Construction and Architecture: 2.429
+Food Service: 2.429
+Media and Publishing: 2.429
+Travel and Tourism: 2.429
+Trade & Construction: 2.417
+Biotechnology: 2.417
+Non-profit/Charity: 2.412
+Healthcare/Pharmaceutical: 2.4
+Life Sciences: 2.4
+Sales Jobs: 2.4
+Pharmaceutical: 2.389
+Construction and Real Estate: 2.375
+Law: 2.375
+Logistics & Transportation: 2.375
+Logistics and Transportation: 2.37
+Insurance: 2.364
+Fintech: 2.357
+Aerospace/Aviation: 2.333
+Civil Engineering: 2.333
+Cleaning and Hygiene: 2.333
+Defence and Aerospace: 2.333
+Education Recruitment: 2.333
+Environmental Consulting: 2.333
+Facilities Management and Professional Services: 2.333
+Food and Beverage: 2.333
+Property and Real Estate: 2.333
+Technology and IT: 2.333
+Tourism: 2.333
+Logistics and Warehouse: 2.318
+Consultancy Jobs: 2.273
+Entertainment: 2.273
+Public Relations: 2.269
+Domestic help & Cleaning: 2.262
+Architecture: 2.25
+Biopharmaceutical: 2.25
+Event Management: 2.25
+Finance/Insurance: 2.25
+Pet Care: 2.25
+Retail/Fashion: 2.25
+Media and Entertainment: 2.231
+Customer Service: 2.213
+Recruitment/Consultancy: 2.2
+Domestic Services: 2.167
+Domestic Help & Cleaning: 2.154
+Fashion: 2.154
+Remote Work/Online Opportunities: 2.118
+Accounting and Finance: 2
+Administration/Office: 2
+Administrative/Office Support: 2
+Advertising: 2
+Advertising/PR: 2
+Aerospace & Manufacturing: 2
+Aerospace Manufacturing: 2
+Aerospace/Defence: 2
+Aerospace/Defence/Space: 2
+Agricultural and Plant Engineering: 2
+Agriculture and Construction: 2
+Animal Care: 2
+Animation: 2
+Architecture and Interior Design: 2
+Art and Auction House: 2
+Arts, Entertainment & Recreation: 2
+Audio-Visual: 2
+Automotive and Luxury Goods: 2
+Automotive/Motorsport Engineering: 2
+Automotive/Rental Industry: 2
+Biopharmaceutical and Medical Device: 2
+Biopharmaceuticals: 2
+Biotechnology/Life Sciences: 2
+Biotechnology/Pharmaceuticals: 2
+Building Services: 2
+Business Administration: 2
+Business Support: 2
+Business and Management: 2
+Charity & Voluntary: 2
+Chemical Distribution: 2
+Chemical and Energy: 2
+Civil Engineering/Construction: 2
+Commercial/Business: 2
+Comms / Marketing / PR: 2
+Construction Materials: 2
+Construction and Building: 2
+Construction and Building Materials: 2
+Construction and Development: 2
+Construction and Infrastructure Services: 2
+Construction and Mining: 2
+Construction and Steel: 2
+Construction/Building: 2
+Construction/Building Services: 2
+Construction/Cleaning: 2
+Construction/Equipment Rental: 2
+Construction/Housing: 2
+Construction/Maintenance: 2
+Construction/Property Maintenance: 2
+Construction/Quarrying: 2
+Construction/Rail: 2
+Construction/Rail & Infrastructure: 2
+Construction/Railway Engineering: 2
+Construction/Trade: 2
+Consumer Goods: 2
+Control Systems: 2
+Corporate Business: 2
+Creative: 2
+Creative/Design: 2
+Customer Service/Call Center: 2
+Data Science and Analytics: 2
+Data and Intelligence consultancy: 2
+Defense and Military: 2
+Design and Research: 2
+Digital Design and Build Agency: 2
+Digital/Technology: 2
+Document Management: 2
+Domestic Help: 2
+Domestic and Cleaning Services: 2
+Domestic/Cleaning: 2
+Ecommerce Fashion: 2
+Ed Tech: 2
+EdTech: 2
+Education and Technology: 2
+Education/Non-Profit: 2
+Education/Online Learning: 2
+Electrical services: 2
+Electrical/Electronics: 2
+Electronics Technology: 2
+Energy & Environment: 2
+Energy & Natural Resources: 2
+Energy sector: 2
+Energy/Geoscience: 2
+Engineering/Construction: 2
+Engineering/Technology: 2
+Entertainment/PR: 2
+Environmental, Health, and Safety: 2
+Events: 2
+Executive Search and Recruitment: 2
+FMCG: 2
+FMCG (Fast-Moving Consumer Goods): 2
+Facilities & Property Management: 2
+Farming/Agribusiness: 2
+Fashion Industry: 2
+Fashion Technology: 2
+Fashion/Apparel: 2
+Fashion/Textile: 2
+Finance/Administration: 2
+Financial Technology (FinTech): 2
+Fire and Security Installation: 2
+Food Industry: 2
+Food Production: 2
+Food Sector: 2
+Food Tech: 2
+Foodservice: 2
+Funeral Services: 2
+Game Development: 2
+Gaming and Entertainment: 2
+Global Manufacturing: 2
+Government and Public Administration: 2
+Government/Local Government: 2
+Government/Public Sector: 2
+Graphic Design: 2
+HR & Recruitment Jobs: 2
+Health & Beauty: 2
+Health Tech: 2
+Health and Fitness Technology: 2
+Healthcare & Biotechnology: 2
+Healthcare Advertising: 2
+Heavy Plant industry: 2
+Heritage and Conservation: 2
+Higher Education: 2
+Home Accessories Manufacturing: 2
+Home Automation and Security: 2
+Hospitality, Leisure, Entertainment: 2
+Housing Association: 2
+Housing and Construction: 2
+Human Resources/Recruitment: 2
+Humanitarian/Non-Profit: 2
+IT & Technology: 2
+IT & Technology Recruitment: 2
+IT Consulting: 2
+IT and Software Development: 2
+IT/Operations: 2
+IT/Software: 2
+IT/Sports: 2
+IT/Technology: 2
+IT/Telecoms Infrastructure: 2
+Information Technology and Cybersecurity: 2
+Infrastructure consultancy: 2
+InsurTech: 2
+Insurance Broker: 2
+Landscaping and Gardening: 2
+Law and Finance: 2
+Law and Legal: 2
+Law and Legal Services: 2
+Legal Jobs: 2
+Leisure: 2
+Leisure and Hospitality: 2
+Logistics and Postal Services: 2
+Manufacturing and Logistics: 2
+Manufacturing and Operations: 2
+Manufacturing/Food Industry: 2
+Manufacturing/Furniture: 2
+Manufacturing/Maintenance: 2
+Marketing and Digital Design: 2
+MedTech: 2
+Media and Events: 2
+Media and Journalism: 2
+Medical Communications: 2
+Medical Device Engineering: 2
+Medical Sales: 2
+Medical Technology: 2
+Membership and Associations: 2
+Military/Defense: 2
+Mining: 2
+Music: 2
+Non-Profit/NGO: 2
+Non-profit/Philanthropy: 2
+Non-profit/Research: 2
+Non-profit/Social Services: 2
+Oil & Gas / Energy Corporate: 2
+Oil and Gas: 2
+Online Surveys/Admin Jobs: 2
+Other/General Jobs: 2
+PR (Public Relations): 2
+PR and Communications: 2
+Packaging: 2
+Packaging and Supply: 2
+Pharmaceutical Consulting: 2
+Pharmaceutical and Healthcare: 2
+Pharmaceuticals/Biotechnology: 2
+Pharmaceuticals/Healthcare: 2
+Power Engineering: 2
+Print & IT supplies distribution: 2
+Print and document management industry: 2
+Private Equity: 2
+Project Administration: 2
+Property & Construction: 2
+Property Jobs: 2
+Property Services: 2
+Public Administration and Safety: 2
+Public Relations/Marketing: 2
+Public Sector/Local Government: 2
+Public Sector/Prison Services: 2
+Recruitment Sector: 2
+Recruitment and Consultancy: 2
+Recruitment and Staffing: 2
+Recruitment/Consulting: 2
+Recruitment/Technology: 2
+Renewable Energy and District Heating: 2
+Renewable Energy/EV/Mobility: 2
+Renewable Energy/Electric Vehicle: 2
+Rental/Leasing: 2
+Research and Development: 2
+Retail & Leisure: 2
+Retail Banking & Finance: 2
+Retail Marketing: 2
+Retail/Fast Food: 2
+Retail/Food Industry: 2
+Retail/Travel: 2
+SaaS: 2
+SaaS, Sustainability, Transparency: 2
+Sales / Customer Service: 2
+Sales Intelligence: 2
+Sales Jobs consultancy: 2
+Sales and Customer Success: 2
+Sales and Procurement: 2
+Sales and Security: 2
+Salesforce, Technology: 2
+Scientific Research and Development: 2
+Security and Customer Services: 2
+Security and Engineering: 2
+Security and Event Management: 2
+Social Work/Charity: 2
+Software Development and Technology: 2
+Software and I.T sales: 2
+Software as a Service (SaaS) and Technology: 2
+Sports Management: 2
+Sports and Entertainment: 2
+Sports and Leisure: 2
+Sports and Recreation: 2
+Sports, Fashion, Events, and Media: 2
+Sports/Leisure: 2
+Supply Chain Solutions: 2
+Sustainability: 2
+Talent Representation: 2
+Technology and Data: 2
+Technology and Services: 2
+Technology/Software Development: 2
+Technology/Telecommunications: 2
+Tourism and Hospitality: 2
+Tourism and Transportation: 2
+Tourism/Hospitality: 2
+Trade & Construction Jobs: 2
+Translation and Interpretation: 2
+Translation and Interpreting: 2
+Translation/Language Services: 2
+Transport: 2
+Transportation Technology: 2
+Transportation/Airport Security: 2
+Transportation/Engineering: 2
+Transportation/Railway: 2
+Travel Industry: 2
+Travel and Hospitality: 2
+Utilities and infrastructure: 2
+Veterinary Medicine: 2
+Water Treatment: 2
+Water and Wastewater Engineering: 2
+Water and Wastewater Treatment: 2
+Water industry: 2
+Web and Digital Agency: 2
+Wine and Beverage: 2
+
+=== SAMPLE CASES (truncated) ===
+
+job_id: 3246830182
+title:  Business Intelligence Analyst
+domain: IT | sector: IT Jobs
+desc:   [IT] We are seeking a Business Intelligence Analyst to join our team. The successful candidate will be responsible for analyzing data to inform business decisions, creating reports, and developing data visualizations.
+tasks:  [IT] Analyze complex data sets to identify trends and insights Develop and maintain business intelligence reports and dashboards Collaborate with stakeholders to understand business needs and requirements Design and implement data visualizations to communicate insights Develop and maintain data models and databases Data analysis and visualization SQL and database management Business intelligence tools (e.g. Tableau, Power BI) Data modeling and data warehousing Communication and presentation skills
+kept:   ['Business Intelligence Analysts', 'Data Warehousing Specialists', 'Database Architects']
+drop:   ['Database Administrators', 'Geographic Information Systems Technologists and Technicians', 'Budget Analysts', 'Computer Systems Analysts', 'Computer and Information Systems Managers']
+
+job_id: 3433188529
+title:  Head Chef - The One Elm
+domain: Hospitality & Catering | sector: Hospitality & Catering Jobs
+desc:   [Hospitality & Catering] We are seeking a Head Chef to lead our kitchen team at The One Elm. As a Head Chef, you will be responsible for the overall culinary direction of the restaurant, including menu development, food preparation, and staff management.
+tasks:  [Hospitality & Catering] Develop and implement new menu ideas and recipes Manage kitchen staff and maintain a clean and safe working environment Oversee food preparation and presentation to ensure high-quality dishes Maintain inventory and control costs Ensure compliance with health and safety regulations Leadership Menu planning and development Food safety and hygiene Staff management Inventory control
+kept:   ['Chefs and Head Cooks', 'Food Service Managers']
+drop:   ['Cooks, Institution and Cafeteria', 'Cooks, Restaurant', 'Dining Room and Cafeteria Attendants and Bartender Helpers', 'Food Preparation Workers', 'Cooks, Private Household']
+
+job_id: 3416976541
+title:  Marketing Executive
+domain: Marketing | sector: PR
+desc:   [Marketing] We are seeking a Marketing Executive to join our team. The successful candidate will be responsible for developing and implementing marketing strategies to drive business growth and brand awareness.
+tasks:  [Marketing] Develop and implement marketing strategies to drive business growth and brand awareness Create and manage marketing campaigns across various channels Analyze market trends and competitor activity to inform marketing decisions Collaborate with cross-functional teams to align marketing efforts with business objectives Monitor and report on marketing performance metrics Marketing strategy Digital marketing Data analysis Communication Project management
+kept:   ['Marketing Managers', 'Market Research Analysts and Marketing Specialists']
+drop:   ['Advertising and Promotions Managers', 'Search Marketing Strategists', 'Public Relations Specialists', 'Chief Executives', 'Human Resources Managers', 'Fundraisers']
+
+job_id: 3450201979
+title:  Mechanical Design Engineer
+domain: Engineering | sector: Engineering Jobs
+desc:   [Engineering] We are seeking a Mechanical Design Engineer to join our team. The successful candidate will be responsible for designing and developing mechanical systems and products.
+tasks:  [Engineering] Design and develop mechanical systems and products Collaborate with cross-functional teams to ensure design meets customer requirements Create detailed designs and specifications for mechanical components and systems Conduct feasibility studies and analyze design alternatives Develop and maintain design documentation and records SolidWorks CATIA Finite Element Analysis (FEA) Computer-Aided Design (CAD) Mechanical Engineering Principles
+kept:   ['Mechanical Engineers', 'Mechanical Engineering Technologists and Technicians']
+drop:   ['Mechanical Drafters', 'Microsystems Engineers', 'Mechatronics Engineers', 'Manufacturing Engineers']
+
+job_id: 3446760999
+title:  Contract Customer Service Manager
+domain: Customer Services | sector: Customer Services Jobs
+desc:   [Customer Services] Contract Customer Service Manager
+tasks:  [Customer Services] Manage and lead a team of customer service representatives Develop and implement customer service strategies Monitor and analyze customer feedback and satisfaction Collaborate with other departments to resolve customer issues Ensure customer service standards are met Leadership Communication Problem-solving Time management Customer service
+kept:   ['Customer Service Representatives', 'First-Line Supervisors of Personal Service Workers', 'First-Line Supervisors of Office and Administrative Support Workers']
+drop:   ['General and Operations Managers', 'Chefs and Head Cooks', 'Food Service Managers', 'Compliance Managers', 'Compensation and Benefits Managers', 'Labor Relations Specialists']
+
+job_id: 2924123179
+title:  Senior Community Mental Health Nurse ( £3000 Welcome Enhancement )
+domain: Healthcare | sector: Healthcare & Nursing Jobs
+desc:   [Healthcare] We are seeking a Senior Community Mental Health Nurse to join our team.
+tasks:  [Healthcare] Assess and develop care plans for patients with mental health issues Provide mental health support and guidance to patients and their families Collaborate with other healthcare professionals to deliver comprehensive care Conduct home visits and assessments in the community Maintain accurate and up-to-date patient records Mental health nursing Assessment and care planning Communication and interpersonal skills Leadership and teamwork Record-keeping and documentation
+kept:   ['Advanced Practice Psychiatric Nurses', 'Psychiatric Technicians', 'Acute Care Nurses']
+drop:   ['Psychiatrists', 'Mental Health Counselors', 'Medical and Health Services Managers', 'Community Health Workers', 'Critical Care Nurses']
+
+job_id: 3091340404
+title:  Engineering Estimator
+domain: Engineering | sector: Engineering Jobs
+desc:   [Engineering] Engineering Estimator role supporting Project Manager in Ammanford-based client
+tasks:  [Engineering] Outline engineering and project coordination from inception to completion Estimate pricing and prepare quotations Evaluate best design and meet client specification within a unit production system Liaise and coordinate with production heads and other staff Control design change and finalise customer approval Engineering Estimating CAD Project coordination Communication
+kept:   ['Mechanical Drafters', 'Industrial Engineering Technologists and Technicians', 'Mechanical Engineering Technologists and Technicians']
+drop:   ['Industrial Engineers', 'Cabinetmakers and Bench Carpenters', 'Mechanical Engineers', 'Architectural and Engineering Managers', 'Cost Estimators', 'Manufacturing Engineers']
+
+job_id: 3134775761
+title:  Customer Assistant-Operations/Backstage-Redhill
+domain: Retail | sector: Retail Jobs
+desc:   [Retail] Customer Assistant-Operations/Backstage-Redhill
+tasks:  [Retail] Serve and sell across all channels brilliantly well Deliver 'best in town' standards through presentation standards, availability and keeping the store clean and tidy Serve our customers efficiently and brilliantly well - on the shop floor and at service points Skilled to utilise all digital tools and communication channels to do the job Share customer and colleague feedback to help us do things better Customer service Communication Digital tools Time management Teamwork
+kept:   ['Retail Salespersons', 'Counter and Rental Clerks']
+drop:   ['Stockers and Order Fillers', 'Online Merchants', 'Demonstrators and Product Promoters', 'Door-to-Door Sales Workers, News and Street Vendors, and Related Workers', 'Costume Attendants', 'Retail Loss Prevention Specialists', 'Receptionists and Information Clerks', 'Customer Service Representatives']
+
+job_id: 3037590466
+title:  Paid Social Account Director
+domain: Public Relations | sector: PR
+desc:   [Public Relations] Paid Social Account Director at MediaCom
+tasks:  [Public Relations] Develop and implement comprehensive social media strategies to drive business growth Manage and optimize paid social media campaigns across multiple platforms Collaborate with cross-functional teams to align social media efforts with overall business objectives Analyze campaign performance and provide data-driven insights to inform future strategies Stay up-to-date with the latest social media trends and platform updates Social media marketing Campaign management Data analysis Team collaboration Communication strategy
+kept:   ['Public Relations Specialists', 'Advertising and Promotions Managers', 'Search Marketing Strategists']
+drop:   ['Meeting, Convention, and Event Planners', 'Fundraisers', 'Media Technical Directors/Managers', 'Advertising Sales Agents', 'Telecommunications Line Installers and Repairers']
+
+job_id: 3078596990
+title:  Pitch Washer & Site maintenance
+domain: Automotive | sector: Domestic help & Cleaning Jobs
+desc:   [Automotive] Pitch Washer & Site maintenance for a family run car business
+tasks:  [Automotive] Wash cars Clean showroom and offices Hand over re-cleans of sold cars Keep forecourt clean and tidy Maintain site cleanliness Cleaning Attention to detail Teamwork Time management Physical labor
+kept:   ['Automotive Body and Related Repairers', 'Cleaners of Vehicles and Equipment', 'Automotive and Watercraft Service Attendants']
+drop:   ['Janitors and Cleaners, Except Maids and Housekeeping Cleaners', 'Helpers--Painters, Paperhangers, Plasterers, and Stucco Masons', 'Automotive Service Technicians and Mechanics', 'Maintenance Workers, Machinery', 'Tire Builders', 'Parts Salespersons']
+

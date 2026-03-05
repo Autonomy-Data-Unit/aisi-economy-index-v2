@@ -1,0 +1,220 @@
+==========================================================================================
+DEEPSEEK + BGE AUDIT REPORT (DRIFT + INTEGRITY + RANDOM QA)
+==========================================================================================
+generated_at: 2026-03-05T13:36:03
+llm_model: DeepSeek-R1-Distill-Qwen-32B
+prompt_hash_sha256: d7b7f401cab205f2e374ca73078dd696be03fb172e97f3b505ce6e79455a8a67
+cwd: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod
+jsonl_base_dir: /projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/prod/llm_negative_selection/deepseek/bge_large
+npz_base_dir: /projects/a5u/adu_dev/aisi-economy-index/aisi_economy_index/store/AISI_demo/stage_3/prod/llm_negative_selection/bge_large
+out_dir: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601
+jsonl_glob: *.jsonl
+
+GLOBAL METRICS
+jobs: 8426
+avg_candidates_before: 7.772015191075243
+avg_candidates_after: 2.625207690481842
+drop_rate: 0.6622230366332249
+empty_final_percent: 0.0
+final_gt_max_percent: 0.0
+final_has_dupes_percent: 0.0
+final_not_subset_percent: 0.0
+missing_context_percent: 0.0
+ctx_full_text_is_title_only_percent: 0.0
+it_drift_jobs: 109
+it_drift_percent: 1.2936150011868028
+managerial_drift_jobs: 695
+managerial_drift_percent: 8.248279136007595
+selected_for_rerun_jobs: 773
+selected_for_rerun_percent: 9.173985283645859
+before_count_percentiles: {'p05': 6, 'p25': 7, 'p50': 8, 'p75': 9, 'p95': 10}
+after_count_percentiles: {'p05': 2, 'p25': 2, 'p50': 3, 'p75': 3, 'p95': 3}
+
+it_kept_label_share: 0.0982
+
+SCHEMA COUNTS
+
+ANOMALY COUNTS (non drift)
+
+PER MONTH SUMMARY (jobs, empty_final%, missing_ctx%, subset_violation%)
+adzuna_month14: jobs=8426, empty_final%=0.00, missing_ctx%=0.00, final_not_subset%=0.00, it_drift%=1.29, mgr_drift%=8.25
+
+TOP KEPT OCCUPATIONS (top 25)
+   406  Information Technology Project Managers
+   392  Software Developers
+   360  Sales Managers
+   341  Customer Service Representatives
+   295  Computer Systems Engineers/Architects
+   293  Personal Care Aides
+   279  Chefs and Head Cooks
+   262  Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop
+   260  Stockers and Order Fillers
+   260  Financial Managers
+   253  Home Health Aides
+   247  Secretaries and Administrative Assistants, Except Legal, Medical, and Executive
+   245  Food Service Managers
+   235  Retail Salespersons
+   233  Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products
+   223  Accountants and Auditors
+   221  Human Resources Specialists
+   220  Human Resources Managers
+   207  Marketing Managers
+   200  Tutors
+   196  Web Developers
+   195  Mental Health and Substance Abuse Social Workers
+   186  Nursing Assistants
+   184  Healthcare Social Workers
+   180  Cooks, Institution and Cafeteria
+
+PROMPT USED (truncated to 2000 chars)
+------------------------------------------------------------------------------------------
+Return ONLY a valid JSON object with exactly one key "drop". No extra text.
+<|im_end|>
+
+<|im_start|>user
+Return ONLY a valid JSON object with exactly one key "drop". No prose. No markdown.
+
+TASK
+Audit occupation matches. DROP candidates that are NOT functional matches for the job.
+
+KEEP POLICY
+There are {n_candidates} candidates (1-based).
+- Default: KEEP 2–3 candidates.
+- KEEP 1 ONLY if you are certain every other candidate is clearly wrong.
+- If more than 3 are valid, drop the most generic ones to fit the 3-candidate cap.
+- When in doubt, KEEP rather than DROP if functionally plausible.
+
+RANKING NOTE
+Candidates are ranked by cosine similarity (rank 1 = highest cosine). This is a weak prior.
+Do NOT assume rank 1 is correct.
+
+JOB CONTEXT (SOURCE OF TRUTH)
+Title: {job_ad_title}
+Sector: {job_sector_category}
+Domain: {domain}
+Tasks: {tasks_str}
+{full_block}
+CANDIDATES (1-based)
+{numbered}
+
+ANCHOR (FUNCTION FIRST)
+- Identify the functional anchor from title + tasks (function, not seniority).
+- You MUST keep the anchor unless core evidence contradicts it.
+- Title keyword lock: if the title contains a clear functional keyword and a direct-match candidate exists, you MUST keep it.
+
+GATES
+- Manager rule (staff-only): if title does NOT include Manager/Lead/Director/Head/Supervisor, DROP manager/supervisor occupations unless tasks explicitly mention managing STAFF (team, colleagues, direct reports) OR rotas/shifts OR hiring/recruitment OR training/performance reviews OR budgeting/P&L.
+  Notes: "manage prisoners/customers/stock/projects" is NOT staff management unless it also mentions managing a team.
+  Frontline preference: if a clear frontline occupation matching the title exists (e.g., cleaner, cook, retail salesperson, warehouse worker, builder), prefer it and DROP manager/supervisor roles unless the title itself includes Manager/Lead/Supervisor.
+
+- Inspector rule: DROP inspector/auditor/compliance occupations unless tasks explicitly mention inspection/audit/compliance che ...[truncated]
+------------------------------------------------------------------------------------------
+
+OUTPUT FILES
+audit_summary_json: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_AUDIT_SUMMARY.json
+anomalies_jsonl: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_ANOMALIES.jsonl
+random_samples_json: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_RANDOM_SAMPLES.jsonl
+second_pass_rerun_jsonl: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_SECOND_PASS_RERUN.jsonl
+second_pass_job_ids_json: /lus/lfs1aip2/projects/a5u/adu_dev/aisi-economy-index/nbs/AISI_demo/Stage_3_negative_selection/prod/reports/deepseek_bge_audit/20260305_133601/20260305_133601_SECOND_PASS_JOB_IDS.json
+
+RANDOM QA SAMPLES (any)
+
+job_id: 3207286278 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Team Leader - Care
+domain: Healthcare | sector: Social work Jobs
+desc: [Healthcare] We are seeking a Team Leader to lead our care team, providing guidance and support to our care workers.
+tasks: [Healthcare] Lead and manage a team of care workers Develop and implement care plans for clients Conduct regular team meetings and performance reviews Ensure compliance with care standards and regulations Recruit and train new team members Leadership Communication Problem-solving Time management Team management
+full_ad: ABOUT THE ROLE A Golden Hello is just one of the ways we’ll reward you when you join Barchester in this role. As a Team Leader at a Barchester care home, you’ll help to make our residents’ lives stimulating and fulfilling so that we can deliver the person-centred care and support they deserve. Always focusing on respecting our residents’ independence, privacy, dignity and choice, you’ll lead and supervise our Carers and Senior Carers with the support of a Registered Nurse or Care Practitioner. We’ll rely on you to make sure individual care plans are followed to the letter so that we can achieve the highest standards. You’ll also ensure each r ...[truncated]
+kept: ['Healthcare Social Workers', 'Personal Care Aides', 'Medical and Health Services Managers']
+candidates: ['Healthcare Social Workers', 'Spa Managers', 'Personal Care Aides', 'Medical and Health Services Managers', 'Recreation Workers', 'First-Line Supervisors of Personal Service Workers', 'Patient Representatives', 'Psychiatric Aides', 'Home Health Aides']
+
+job_id: 3210228674 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': True, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Retail Senior Team Member
+domain: Retail | sector: Retail Jobs
+desc: [Retail] We are seeking a Retail Senior Team Member to join our team.
+tasks: [Retail] Provide exceptional customer service to customers Process transactions and handle customer payments Maintain a clean and organized store environment Assist with visual merchandising and store displays Support sales floor operations Communication Problem-solving Time management Teamwork Sales
+full_ad: Location 83 High Street Harborne B17 9NR About You already know you can trust Greggs for a top-notch breakfast and lunch, but did you know we’re also bringing evening meals to the Nation With exciting new products ready to launch in the evenings, we need some great people to serve them If you’re a bit of a night-owl, or have other day commitments, you could be just the person we need to keep our loyal customers fed with a tasty Greggs in the evening. Pay £9.87 per hour, paid weekly Contract type Permanent About you This 20 hour a week vacancy has arisen to support evening trade in the shop. We’re looking for you to be available between the ho ...[truncated]
+kept: ['Retail Salespersons', 'First-Line Supervisors of Retail Sales Workers']
+candidates: ['Retail Salespersons', 'Stockers and Order Fillers', 'Cashiers', 'Order Clerks', 'Customer Service Representatives', 'First-Line Supervisors of Retail Sales Workers', 'First-Line Supervisors of Non-Retail Sales Workers', 'Wholesale and Retail Buyers, Except Farm Products', 'Retail Loss Prevention Specialists']
+
+job_id: 3214046881 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Strategy& Deals - Manager - Financial Services - London
+domain: Financial Services | sector: Accounting & Finance Jobs
+desc: [Financial Services] We are seeking a Strategy& Deals Manager to join our Financial Services team in London.
+tasks: [Financial Services] Develop and execute strategic plans to drive business growth and expansion Manage and lead cross-functional teams to deliver deals and projects Analyze market trends and competitor activity to inform business decisions Build and maintain relationships with key stakeholders and clients Identify and pursue new business opportunities Strategic planning Leadership Project management Communication Business development
+full_ad: In Deals we solve the important problems that stand in the way of value being created, sustained, realised or protected for our clients - working together to aid responsible recovery and growth. We put together major mergers and acquisitions and resolve business crises - from international take-over bids to financial crime investigations and cases of insolvency. Our teams work on iconic deals with national and global clients as well as operating and investing in businesses, new ventures and entrepreneurs in our local market and communities. It’s both a responsibility and a privilege to guide our clients through moments that matter deeply to t ...[truncated]
+kept: ['Financial Managers', 'Investment Fund Managers', 'Business Intelligence Analysts']
+candidates: ['Financial Managers', 'Investment Fund Managers', 'Advertising and Promotions Managers', 'Business Intelligence Analysts', 'Marketing Managers', 'Securities, Commodities, and Financial Services Sales Agents', 'Fundraising Managers']
+
+job_id: 3216154684 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Retail Customer Service (CSM) 30hrs
+domain: Retail | sector: Retail Jobs
+desc: [Retail] Retail Customer Service Representative
+tasks: [Retail] Respond to customer inquiries via phone, email, or in-person Resolve customer complaints and issues in a professional manner Process customer transactions and handle returns Maintain a clean and organized store environment Work collaboratively with sales team to meet sales goals Excellent communication and interpersonal skills Problem-solving and conflict resolution skills Time management and organizational skills Basic math skills and accuracy with handling cash and credit transactions Ability to work in a fast-paced environment
+full_ad: At Entain, our Customer Service Managers are great listeners, part of their local community, we help everyone be part of the entertainment we provide. We keep it real. Bring your character to a Retail Customer Service Manager role and you can be yourself, building relationships with our customers and making sure that they enjoy our products and services responsibly. With flexibility, energy and great customer focus, we’ll support you to build a great career. What do you need to be successful? You must be 18 years old or over to work in one of our betting shops. Passion for delivering great customer service The ability to build positive relati ...[truncated]
+kept: ['Retail Salespersons', 'Customer Service Representatives']
+candidates: ['Retail Salespersons', 'Customer Service Representatives', 'First-Line Supervisors of Retail Sales Workers', 'Cashiers', 'Stockers and Order Fillers', 'Wholesale and Retail Buyers, Except Farm Products', 'Retail Loss Prevention Specialists']
+
+job_id: 3171957724 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Frontend Engineer
+domain: Software Development | sector: IT Jobs
+desc: [Software Development] We are seeking a skilled Frontend Engineer to join our team. The ideal candidate will have experience with modern web technologies and a passion for building scalable and user-friendly interfaces.
+tasks: [Software Development] Design and develop visually appealing and user-friendly interfaces Collaborate with cross-functional teams to identify and prioritize project requirements Write clean, modular, and well-documented code Troubleshoot and debug issues in the frontend of web applications Stay up-to-date with the latest frontend technologies and trends JavaScript HTML/CSS React Angular TypeScript
+full_ad: Company Description We believe in the power of ingenuity to build a positive human future in a technology-driven world. As strategies, technologies and innovation collide, we create opportunity from complexity. Our diverse teams of experts combine innovative thinking and breakthrough use of technologies to progress further, faster. Our clients adapt and transform, and together we achieve enduring results. An innovation and transformation consultancy, we are over 3,200 specialists in consumer, defence and security, energy and utilities, financial services, government, health and life sciences, manufacturing, and transport. Our people are strat ...[truncated]
+kept: ['Web Developers', 'Software Developers', 'Software Quality Assurance Analysts and Testers']
+candidates: ['Web Developers', 'Software Developers', 'Software Quality Assurance Analysts and Testers', 'Electrical and Electronic Engineering Technologists and Technicians', 'Graphic Designers', 'Robotics Engineers', 'Validation Engineers', 'Microsystems Engineers']
+
+job_id: 3203660367 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Frontend Engineer - Angular - Remote
+domain: Software Development | sector: IT Jobs
+desc: [Software Development] We are seeking a skilled Frontend Engineer to join our team. The ideal candidate will have experience with Angular and be able to work independently.
+tasks: [Software Development] Develop and maintain high-quality frontend code for web applications Collaborate with cross-functional teams to design and implement new features Troubleshoot and resolve frontend-related issues Optimize application performance and user experience Stay up-to-date with the latest Angular and web development trends Angular JavaScript HTML/CSS TypeScript Git
+full_ad: I'm currently working with a global business that are looking for a Frontend Software Engineer to join their team. If successful you will be using the latest technologies to create and deliver data analytics and intelligence to their clients. For their products they use a variety of technologies with the key frameworks being Django to provide the back-end/API and Angular for the web-based user interface. You will have a deep understanding of Angular and be excited by the prospect of expanding your knowledge to be able to contribute to back-end development tasks. Django experience is not essential. They take a data-driven approach to risk that ...[truncated]
+kept: ['Web Developers', 'Software Developers', 'Web Administrators']
+candidates: ['Web Developers', 'Software Developers', 'Web Administrators', 'Software Quality Assurance Analysts and Testers', 'Computer Programmers', 'Validation Engineers', 'Robotics Engineers', 'Desktop Publishers', 'Microsystems Engineers']
+
+job_id: 3201063343 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Customer Delivery Driver
+domain: Logistics | sector: Logistics & Warehouse Jobs
+desc: [Logistics] We are seeking a Customer Delivery Driver to join our team. As a Customer Delivery Driver, you will be responsible for delivering packages to customers in a timely and efficient manner.
+tasks: [Logistics] Deliver packages to customers in a timely and efficient manner Operate a company vehicle safely and follow all traffic laws Manage delivery routes and schedules to ensure timely delivery Communicate with customers to resolve any delivery issues Maintain accurate records of deliveries and customer interactions Valid driver's license Excellent communication and customer service skills Ability to work independently and manage time effectively Basic computer skills and knowledge of GPS navigation Physical stamina to lift and carry packages
+full_ad: Job Advert To be employed in this role you must have held a full driving licence for at least one year, and be able to drive a 3.5 ton automatic van. You must also have no more than six points on your licence and pass a basic level safeguarding check. About the Role A great customer experience. That's what our drivers are out to deliver. From loading up, fuelling and checking the van for the next route, or giving a customer a call so they know what time their shopping will arrive, everything we do is with our customers in mind. Join our growing delivery team, and you'll be the face of Asda for our home shopping customers. You're in the drivin ...[truncated]
+kept: ['Driver/Sales Workers', 'Couriers and Messengers', 'Logisticians']
+candidates: ['Driver/Sales Workers', 'Dispatchers, Except Police, Fire, and Ambulance', 'Couriers and Messengers', 'Shuttle Drivers and Chauffeurs', 'Logisticians', 'Bus Drivers, Transit and Intercity']
+
+job_id: 3219698214 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Travel Consultant Apprenticeship
+domain: Travel and Tourism | sector: Travel Jobs
+desc: [Travel and Tourism] Join our team as a Travel Consultant Apprentice and gain hands-on experience in the travel industry.
+tasks: [Travel and Tourism] Assist in the preparation of travel itineraries and documentation Provide customer service to clients via phone, email, and in-person Research and stay up-to-date on travel industry trends and developments Collaborate with colleagues to resolve customer complaints and issues Maintain accurate records and databases of client information Excellent communication and customer service skills Strong organizational and time management skills Ability to work in a fast-paced environment Basic knowledge of travel industry software and systems Proficiency in Microsoft Office Suite
+full_ad: Whilst beginning to learn about the business and how we operate, you will be provided with ongoing training and support to help develop your customer service and selling skills. You will learn how to adapt to working within a fast paced sales environment, gain travel product knowledge and develop confidence and flair which will enable you to meet customer’s needs. This apprenticeship is perfect to develop your passion for travel. Working in the sales division requires hard work, excellent customer service skills and a firm grasp on product knowledge. With a positive and results driven attitude, you will recommend a range of holiday experience ...[truncated]
+kept: ['Travel Agents', 'Reservation and Transportation Ticket Agents and Travel Clerks', 'Travel Guides']
+candidates: ['Travel Agents', 'Reservation and Transportation Ticket Agents and Travel Clerks', 'Travel Guides', 'Tour Guides and Escorts', 'Customer Service Representatives', 'Passenger Attendants']
+
+job_id: 3190519979 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Car Parking Officer (NON VETTING)
+domain: Transportation | sector: Customer Services Jobs
+desc: [Transportation] We are seeking a Car Parking Officer to join our team.
+tasks: [Transportation] Manage car parking operations, including issuing parking permits and fines Monitor and control car parking areas to ensure compliance with parking regulations Provide customer service and respond to customer queries Maintain accurate records of parking transactions and incidents Enforce parking regulations and issue fines as necessary Customer Service Communication Time Management Problem Solving Attention to Detail
+full_ad: Delivering a range of car parking services. You will carry out a range of car park management duties to a high standard ensuring a high quality service is delivered. You will: Assist and advise the public, staff and visitors with their parking needs. Deal with queries and resolve problems. Efficiently operate and use car parking systems. Ensure a professional image is presented at all times. To succeed in this role you will need: A professional approach with sound judgement and integrity Excellent customer service skills Good communication skills Be computer literate Enjoy working on your own initiative and as part of a team To be educated to ...[truncated]
+kept: ['Parking Attendants', 'Traffic Technicians']
+candidates: ['Parking Attendants', 'Automotive and Watercraft Service Attendants', 'Traffic Technicians', 'Dispatchers, Except Police, Fire, and Ambulance', 'Compliance Officers', 'First-Line Supervisors of Material-Moving Machine and Vehicle Operators', 'Shuttle Drivers and Chauffeurs', 'First-Line Supervisors of Personal Service Workers']
+
+job_id: 3208827504 | month=adzuna_month14
+flags: {'it_drift': False, 'managerial_drift': False, 'empty_final': False, 'final_gt_max': False, 'final_has_dupes': False, 'final_not_subset': False, 'missing_context': False, 'ctx_full_text_is_title_only': False}
+title: Sales Assistant
+domain: Sales | sector: Sales Jobs
+desc: [Sales] We are seeking a Sales Assistant to join our team. The successful candidate will be responsible for supporting our sales team in achieving sales targets and providing excellent customer service.
+tasks: [Sales] Respond to customer inquiries and resolve any issues in a timely and professional manner Maintain accurate records of customer interactions and sales data Assist in preparing sales reports and presentations Develop and maintain relationships with existing and potential customers Provide product information and demonstrations to customers Excellent communication and interpersonal skills Strong problem-solving and analytical skills Ability to work in a fast-paced environment Basic computer skills and proficiency in Microsoft Office Sales and customer service experience
+full_ad: No previous experience in sales required - Sales Assistant Are you looking for full time work in Leicester? Do you have experience talking to customers face to face? Want a role that offers fantastic financial rewards, opportunities to travel abroad and career progression? Our client is on the lookout for ambitious job seekers to start as Sales Assistants with their Leicester team. The Sales Assistants will be representing clients locally, nationally and internationally. This is the perfect opportunity for someone looking to start their career in sales. This is an exciting opportunity to get a foot in the door with a company who provide a uni ...[truncated]
+kept: ['Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products', 'Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products']
+candidates: ['Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products', 'Customer Service Representatives', 'Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products', 'Sales Engineers', 'Parts Salespersons', 'Real Estate Sales Agents', 'Advertising Sales Agents', 'Retail Salespersons']
