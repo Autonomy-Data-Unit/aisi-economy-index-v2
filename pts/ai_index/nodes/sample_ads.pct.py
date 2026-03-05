@@ -39,6 +39,21 @@ show_node_vars(run_name='test_local')
 #|export
 from ai_index import const
 from pathlib import Path
+from ai_index.utils import get_adzuna_conn
+
+# %%
+ctx.vars['sample_n']
+
+# %%
+#|export
+conn = get_adzuna_conn(read_only=True)
+res = conn.execute("""
+    SELECT id as ad_id FROM ads
+""").fetchdf()
+conn.close()
+
+# %%
+res['ad_id']
 
 # %%
 from ai_index.utils import get_adzuna_conn
@@ -58,6 +73,9 @@ conn.close()
 from ai_index.utils import get_ads_by_id
 
 res = get_ads_by_id([2675965976], columns=["title", "category_id"])
+
+# %%
+res
 
 # %%
 res = get_ads_by_id([2675965976])

@@ -4,3 +4,9 @@ def main(adzuna_meta, ctx, print) -> {"ads_manifest": dict}:
     """Sample job ads for processing (or pass through all if sample_n=0)."""
     from ai_index import const
     from pathlib import Path
+    from ai_index.utils import get_adzuna_conn
+    conn = get_adzuna_conn(read_only=True)
+    res = conn.execute("""
+        SELECT id as ad_id FROM ads
+    """).fetchdf()
+    conn.close()

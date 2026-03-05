@@ -1,5 +1,5 @@
 [defaults]
-sample_n = 0
+sample_n = 10
 sample_seed = 42
 embedding_model = "text-embedding-3-large"
 cosine_mode = "api"

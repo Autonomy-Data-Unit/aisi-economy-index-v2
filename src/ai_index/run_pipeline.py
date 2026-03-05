@@ -56,15 +56,19 @@ def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
     merged_globals = {**default_globals, **run_globals}
     merged_globals["run_name"] = run_name
 
-    # Convert values to strings for NodeVariable compatibility
-    global_node_vars = {k: str(v) for k, v in merged_globals.items()}
+    # Convert to (str_value, type_name) tuples so netrun preserves types
+    _TYPE_MAP = {int: "int", float: "float", bool: "bool", str: "str"}
+    def _to_node_var(v):
+        return (str(v), _TYPE_MAP.get(type(v), "str"))
+
+    global_node_vars = {k: _to_node_var(v) for k, v in merged_globals.items()}
 
     # Merge per-node: defaults <- run overrides
     all_node_names = set(default_node) | set(run_node)
     per_node_vars = {}
     for node_name in all_node_names:
         merged = {**default_node.get(node_name, {}), **run_node.get(node_name, {})}
-        per_node_vars[node_name] = {k: str(v) for k, v in merged.items()}
+        per_node_vars[node_name] = {k: _to_node_var(v) for k, v in merged.items()}
 
     return global_node_vars, per_node_vars
 

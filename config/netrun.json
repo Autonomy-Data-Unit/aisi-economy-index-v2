@@ -39,7 +39,7 @@
     }
   },
   "max_epochs": 1,
-  "project_root_override": "../",
+  "project_root_override": "../../../",
   "graph": {
     "nodes": [
       {
@@ -65,7 +65,7 @@
       },
       {
         "name": "fetch_adzuna",
-        "description": "Download raw Adzuna job ads from S3, insert into DuckDB, and deduplicate by ID (earliest date_created wins).",
+        "description": "Download raw Adzuna job ads from S3 to monthly parquets.",
         "execution_config": {
           "run_on_startup": true,
           "node_vars": {
@@ -96,8 +96,12 @@
         "extra": {
           "ui": {
             "position": {
-              "x": 559,
-              "y": 165
+              "x": 270,
+              "y": 135
+            },
+            "dimensions": {
+              "width": 204,
+              "height": 117
             }
           }
         },
@@ -108,12 +112,7 @@
         "type": "node"
       }
     ],
-    "edges": [
-      {
-        "source_str": "fetch_adzuna.adzuna_meta",
-        "target_str": "sample_ads.adzuna_meta"
-      }
-    ],
+    "edges": [],
     "extra": {
       "ui": {
         "interactionMode": "pan"
