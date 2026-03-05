@@ -30,6 +30,9 @@ def main(ctx, print) -> {"adzuna_meta": dict}:
 from dev_utils import set_node_func_args
 set_node_func_args()
 
+# %% [markdown]
+# # Function body
+
 # %%
 #|export
 import os
@@ -44,7 +47,7 @@ import pyarrow.parquet as pq
 from ai_index.const import adzuna_store_path
 
 s3_prefix = ctx.vars["adzuna_s3_prefix"]
-years_filter = ctx.vars.get("years", "")
+years_filter = ctx.vars["years"]
 
 # Parse bucket and key prefix from s3_prefix (format: "bucket/key/prefix")
 bucket_name, _, key_prefix = s3_prefix.partition("/")

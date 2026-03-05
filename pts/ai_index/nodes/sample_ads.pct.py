@@ -28,16 +28,17 @@ def main(dedup_meta, ctx, print) -> {"ads_manifest": dict}:
 # Retrieve input arguments
 
 # %%
-from dev_utils import set_node_func_args
-set_node_func_args()
+from dev_utils import *
+set_node_func_args(run_name='test_local')
+show_node_vars()
+
+# %% [markdown]
+# # Function body
 
 # %%
 #|export
 from ai_index import const
 from pathlib import Path
-
-# %%
-const.store_path
 
 # %%
 import pyarrow.dataset as ds

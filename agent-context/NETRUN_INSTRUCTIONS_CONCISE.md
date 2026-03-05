@@ -144,7 +144,7 @@ Allocation methods: `round-robin` (default), `random`, `least-busy`.
 
 Global: `"node_vars": {"key": {"value": "val", "type": "str"}}` — types: `str`, `int`, `float`, `bool`, `json`.
 Per-node override: same structure inside `execution_config.node_vars`.
-Access: `ctx.vars.get("key")`.
+Access: `ctx.vars["key"]`.
 
 ## Caching
 

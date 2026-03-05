@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -162,7 +162,7 @@ def _get_node_func(config: NetConfig, node_name: str):
 
 # %%
 #|export
-async def _get_input_salvo(config: NetConfig, node_name: str) -> dict[str, list]:
+async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = True) -> dict[str, list]:
     """Get input salvo for a node — from cache if available, otherwise by running upstream.
 
     Returns:
@@ -171,10 +171,12 @@ async def _get_input_salvo(config: NetConfig, node_name: str) -> dict[str, list]
     async with Net(config, run_startup_nodes=False) as net:
         cached = net.get_cached_input_salvos(node_name)
         if cached:
-            print(f"set_node_func_args: using cached inputs for '{node_name}' ({len(cached)} cached run(s))")
+            if verbose:
+                print(f"set_node_func_args: using cached inputs for '{node_name}' ({len(cached)} cached run(s))")
             return cached[-1]  # already dict[str, list[Any]]
 
-        print(f"set_node_func_args: no cache for '{node_name}', running upstream nodes...")
+        if verbose:
+            print(f"set_node_func_args: no cache for '{node_name}', running upstream nodes...")
         salvos = await net.run_to_targets(node_name)
         if not salvos:
             return {}  # startup node with no input ports
@@ -200,7 +202,7 @@ def _run_async(coro):
 _SPECIAL_PARAMS = frozenset({"ctx", "print"})
 
 
-def set_node_func_args(node_name: str | None = None, *, return_args=False, load_env=True):
+def set_node_func_args(node_name: str | None = None, *, run_name: str | None = None, return_args=False, load_env=True, verbose=False):
     """Populate the caller's namespace with the inputs a pipeline node would receive.
 
     Loads input data for a node from the netrun cache (or by running upstream
@@ -240,7 +242,7 @@ def set_node_func_args(node_name: str | None = None, *, return_args=False, load_
         import ipynbname
         node_name = ipynbname.name()
 
-    config = _load_net_config()
+    config = _load_net_config(run_name)
 
     # Resolve bare name to prefixed name (e.g. "embed_onet" -> "matching.embed_onet")
     try:
@@ -258,7 +260,7 @@ def set_node_func_args(node_name: str | None = None, *, return_args=False, load_
     func = _get_node_func(config, name)
 
     # Retrieve input salvo (cached or computed)
-    salvo = _run_async(_get_input_salvo(config, name))
+    salvo = _run_async(_get_input_salvo(config, name, verbose=verbose))
 
     # Extract port values — each port typically has one packet
     args = {}
@@ -284,3 +286,126 @@ def set_node_func_args(node_name: str | None = None, *, return_args=False, load_
     # Set in caller's globals
     caller_globals = sys._getframe(1).f_globals
     caller_globals.update(args)
+
+# %% [markdown]
+# ## Show node vars
+
+# %%
+#|export
+def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: str | None = None, load_env=True):
+    """Print the node variables available to a pipeline node.
+
+    Shows global and per-node variables with their values, types, and source
+    (global, inherited, or node-level override).
+
+    Args:
+        node_name: The node name (e.g. ``"fetch_adzuna"``). If omitted,
+            inferred from the current Jupyter notebook filename.
+        *filter_names: Optional variable names to filter by. If provided,
+            only these variables are shown.
+        run_name: Which run definition to use. Defaults to RUN_NAME env var,
+            then ``"baseline"``.
+        load_env: If True (default), load ``.env`` via dotenv first.
+
+    Example::
+
+        from dev_utils import show_node_vars
+        show_node_vars()                        # all vars for current node
+        show_node_vars("fetch_adzuna")          # all vars for a specific node
+        show_node_vars("fetch_adzuna", "years") # only the "years" var
+    """
+    if load_env:
+        from dotenv import load_dotenv
+        load_dotenv()
+
+    inferred = node_name is None
+    if inferred:
+        import ipynbname
+        node_name = ipynbname.name()
+
+    config = _load_net_config(run_name)
+
+    try:
+        name = _resolve_node_name(config, node_name)
+    except ValueError as e:
+        if inferred:
+            raise ValueError(
+                f"Node name '{node_name}' was inferred from the notebook filename "
+                f"but no matching node was found in the graph. "
+                f"Pass the node name explicitly if it differs from the notebook name."
+            ) from e
+        raise
+
+    resolved_config = config.resolve_env_vars()
+
+    # Collect global vars
+    global_vars: dict[str, NodeVariable] = dict(resolved_config.node_vars or {})
+
+    # Collect raw per-node vars (before inherit resolution)
+    per_node_raw: dict[str, NodeVariable] = {}
+    if resolved_config.graph:
+        for node in resolved_config.graph.nodes:
+            if node.name == name:
+                if node.execution_config and node.execution_config.node_vars:
+                    per_node_raw = dict(node.execution_config.node_vars)
+                break
+
+    # Build display rows: (var_name, value, type, source)
+    all_var_names = sorted(set(global_vars) | set(per_node_raw))
+    if filter_names:
+        all_var_names = [n for n in all_var_names if n in filter_names]
+
+    rows = []
+    for var_name in all_var_names:
+        in_global = var_name in global_vars
+        in_node = var_name in per_node_raw
+
+        if in_node and per_node_raw[var_name].inherit:
+            if per_node_raw[var_name].value is not None:
+                # Inherited with override
+                gvar = global_vars[var_name]
+                value = per_node_raw[var_name].value
+                var_type = gvar.type
+                source = "inherited (overridden)"
+            else:
+                # Pure inherit — uses global value
+                gvar = global_vars[var_name]
+                value = gvar.value
+                var_type = gvar.type
+                source = "inherited"
+        elif in_node:
+            # Node-only var (no inherit)
+            nvar = per_node_raw[var_name]
+            value = nvar.value
+            var_type = nvar.type
+            source = "node-level"
+        else:
+            # Global only (not declared at node level)
+            gvar = global_vars[var_name]
+            value = gvar.value
+            var_type = gvar.type
+            source = "global"
+
+        rows.append((var_name, value, var_type, source))
+
+    # Print table
+    if not rows:
+        print(f"No node vars for '{name}'")
+        return
+
+    # Column widths
+    headers = ("Name", "Value", "Type", "Source")
+    col_widths = [len(h) for h in headers]
+    str_rows = []
+    for var_name, value, var_type, source in rows:
+        vals = (var_name, repr(value), var_type, source)
+        str_rows.append(vals)
+        for i, v in enumerate(vals):
+            col_widths[i] = max(col_widths[i], len(v))
+
+    fmt = "  ".join(f"{{:<{w}}}" for w in col_widths)
+    print(f"Node vars for '{name}':")
+    print(fmt.format(*headers))
+    print(fmt.format(*("-" * w for w in col_widths)))
+    for vals in str_rows:
+        print(fmt.format(*vals))

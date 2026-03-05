@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -30,6 +30,9 @@ def main(adzuna_meta, ctx, print) -> {"dedup_meta": dict}:
 # %%
 from dev_utils import set_node_func_args
 set_node_func_args()
+
+# %% [markdown]
+# # Function body
 
 # %%
 #|export

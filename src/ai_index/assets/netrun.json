@@ -55,8 +55,8 @@
           "ui": {
             "descriptionExpanded": false,
             "position": {
-              "x": 150,
-              "y": 300
+              "x": 12,
+              "y": 12
             }
           }
         },
@@ -75,14 +75,15 @@
             "years": {
               "inherit": true
             }
-          }
+          },
+          "signals": []
         },
         "extra": {
           "ui": {
             "descriptionExpanded": true,
             "position": {
-              "x": 30,
-              "y": 540
+              "x": 12,
+              "y": 134
             }
           }
         },
@@ -97,10 +98,10 @@
         "description": "Deduplicate Adzuna job ads by ID across months.",
         "extra": {
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
-              "x": 270,
-              "y": 540
+              "x": 262,
+              "y": 141
             }
           }
         },
@@ -113,18 +114,11 @@
       {
         "name": "sample_ads",
         "description": "Sample job ads for processing (or pass through all if sample_n=0).",
-        "execution_config": {
-          "node_vars": {
-            "years": {
-              "inherit": true
-            }
-          }
-        },
         "extra": {
           "ui": {
             "position": {
-              "x": 555,
-              "y": 540
+              "x": 559,
+              "y": 165
             }
           }
         },
