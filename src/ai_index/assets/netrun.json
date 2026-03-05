@@ -29,9 +29,6 @@
     },
     "topk": {
       "type": "int"
-    },
-    "years": {
-      "type": "str"
     }
   },
   "storage": {
@@ -68,19 +65,19 @@
       },
       {
         "name": "fetch_adzuna",
-        "description": "Download raw Adzuna job ads from S3 to monthly parquets.",
+        "description": "Download raw Adzuna job ads from S3, insert into DuckDB, and deduplicate by ID (earliest date_created wins).",
         "execution_config": {
           "run_on_startup": true,
           "node_vars": {
             "years": {
-              "inherit": true
+              "value": ""
             }
           },
           "signals": []
         },
         "extra": {
           "ui": {
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "position": {
               "x": 12,
               "y": 134
@@ -90,24 +87,6 @@
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.fetch_adzuna.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "dedup_adzuna",
-        "description": "Deduplicate Adzuna job ads by ID across months.",
-        "extra": {
-          "ui": {
-            "descriptionExpanded": true,
-            "position": {
-              "x": 262,
-              "y": 141
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.dedup_adzuna.main"
         },
         "type": "node"
       },
@@ -132,11 +111,7 @@
     "edges": [
       {
         "source_str": "fetch_adzuna.adzuna_meta",
-        "target_str": "dedup_adzuna.adzuna_meta"
-      },
-      {
-        "source_str": "dedup_adzuna.dedup_meta",
-        "target_str": "sample_ads.dedup_meta"
+        "target_str": "sample_ads.adzuna_meta"
       }
     ],
     "extra": {

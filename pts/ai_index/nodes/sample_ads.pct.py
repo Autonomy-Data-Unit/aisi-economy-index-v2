@@ -19,7 +19,7 @@
 
 # %%
 #|set_func_signature
-def main(dedup_meta, ctx, print) -> {"ads_manifest": dict}:
+def main(adzuna_meta, ctx, print) -> {"ads_manifest": dict}:
     """Sample job ads for processing (or pass through all if sample_n=0)."""
     ...
 
@@ -30,7 +30,7 @@ def main(dedup_meta, ctx, print) -> {"ads_manifest": dict}:
 # %%
 from dev_utils import *
 set_node_func_args(run_name='test_local')
-show_node_vars()
+show_node_vars(run_name='test_local')
 
 # %% [markdown]
 # # Function body
@@ -41,25 +41,24 @@ from ai_index import const
 from pathlib import Path
 
 # %%
-import pyarrow.dataset as ds
+from ai_index.utils import get_adzuna_conn
 
-dataset = ds.dataset(
-    const.store_path / "inputs/adzuna",
-    format="parquet",
-)
+conn = get_adzuna_conn(read_only=True)
 
-table = dataset.to_table(columns=["id", "__filename"])
+# Summary: row counts per year/month
+counts = conn.execute("""
+    SELECT year, month, COUNT(*) as n
+    FROM ads GROUP BY year, month
+    ORDER BY year, month
+""").fetchdf()
+print(counts.to_string(index=False))
+conn.close()
 
 # %%
-# Group by filename
-grouped = table.group_by("__filename").aggregate([("id", "list")])
+from ai_index.utils import get_ads_by_id
 
-def filename_to_datestr(filename):
-    p = Path(filename)
-    return f"{p.parts[-2]}-{p.parts[-1].split('.')[0].split('_')[1]}"
+res = get_ads_by_id([2675965976], columns=["title", "category_id"])
 
-# Convert to dict
-filename_to_ids = {
-    filename_to_datestr(row["__filename"]): set(row["id_list"])
-    for row in grouped.to_pylist()
-}
+# %%
+res = get_ads_by_id([2675965976])
+res.to_pandas()

@@ -27,7 +27,8 @@ embed_models_config_path = assets_path / "embed_models.toml"
 adulib_cache_path = store_path / "adulib_cache"
 
 onet_store_path = inputs_path / "onet"
-adzuna_store_path = inputs_path / "adzuna"
+adzuna_db_path = inputs_path / "adzuna.duckdb"
+adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
 
 pipeline_store_path = store_path / "pipeline"
 run_defs_path = assets_path / "run_defs.toml"
