@@ -53,10 +53,10 @@
         },
         "extra": {
           "ui": {
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "position": {
-              "x": 660,
-              "y": 225
+              "x": 150,
+              "y": 300
             }
           }
         },
@@ -79,7 +79,7 @@
         },
         "extra": {
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
               "x": 30,
               "y": 540
@@ -111,24 +111,6 @@
         "type": "node"
       },
       {
-        "name": "build_onet_desc",
-        "description": "Build role and task description texts for O*NET occupations.",
-        "extra": {
-          "ui": {
-            "descriptionExpanded": true,
-            "position": {
-              "x": 900,
-              "y": 225
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.build_onet_desc.main"
-        },
-        "type": "node"
-      },
-      {
         "name": "sample_ads",
         "description": "Sample job ads for processing (or pass through all if sample_n=0).",
         "execution_config": {
@@ -151,144 +133,6 @@
           "func": "ai_index.nodes.sample_ads.main"
         },
         "type": "node"
-      },
-      {
-        "name": "embed_onet",
-        "description": "Embed O*NET occupation descriptions with the configured embedding model.",
-        "execution_config": {
-          "node_vars": {
-            "embedding_model": {
-              "inherit": true
-            }
-          }
-        },
-        "extra": {
-          "ui": {
-            "descriptionExpanded": true,
-            "position": {
-              "x": 1170,
-              "y": 225
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.embed_onet.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "bc_ads_manifest",
-        "description": "Broadcast ads_manifest to embedding and LLM filter nodes.",
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 855,
-              "y": 540
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.bc_ads_manifest.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "embed_job_ads",
-        "description": "Embed job ad texts with per-month incremental caching.",
-        "execution_config": {
-          "node_vars": {
-            "embedding_model": {
-              "inherit": true
-            }
-          }
-        },
-        "extra": {
-          "ui": {
-            "descriptionExpanded": true,
-            "position": {
-              "x": 1170,
-              "y": 405
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.embed_job_ads.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "compute_cosine_similarities",
-        "description": "Compute top-K cosine similarity between job ads and O*NET occupations.",
-        "execution_config": {
-          "node_vars": {
-            "cosine_mode": {
-              "inherit": true
-            },
-            "topk": {
-              "inherit": true
-            }
-          }
-        },
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 1575,
-              "y": 300
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.compute_cosine_similarities.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "llm_filter_candidates",
-        "description": "LLM negative selection to filter cosine similarity candidates.",
-        "execution_config": {
-          "node_vars": {
-            "llm_model": {
-              "inherit": true
-            }
-          }
-        },
-        "extra": {
-          "ui": {
-            "portGroups": {
-              "in:__all__": false
-            },
-            "position": {
-              "x": 1935,
-              "y": 540
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.llm_filter_candidates.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "compute_weights",
-        "description": "Normalize kept candidate scores to per-job occupation weights.",
-        "extra": {
-          "ui": {
-            "position": {
-              "x": 2280,
-              "y": 540
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.compute_weights.main"
-        },
-        "type": "node"
       }
     ],
     "edges": [
@@ -297,45 +141,14 @@
         "target_str": "dedup_adzuna.adzuna_meta"
       },
       {
-        "source_str": "fetch_onet.onet_tables",
-        "target_str": "build_onet_desc.onet_tables"
-      },
-      {
         "source_str": "dedup_adzuna.dedup_meta",
         "target_str": "sample_ads.dedup_meta"
-      },
-      {
-        "source_str": "build_onet_desc.onet_desc",
-        "target_str": "embed_onet.onet_desc"
-      },
-      {
-        "source_str": "sample_ads.ads_manifest",
-        "target_str": "bc_ads_manifest.ads_manifest"
-      },
-      {
-        "source_str": "bc_ads_manifest.ads_manifest_embed",
-        "target_str": "embed_job_ads.ads_manifest"
-      },
-      {
-        "source_str": "bc_ads_manifest.ads_manifest_llm",
-        "target_str": "llm_filter_candidates.ads_manifest"
-      },
-      {
-        "source_str": "embed_onet.onet_embed_meta",
-        "target_str": "compute_cosine_similarities.onet_embed_meta"
-      },
-      {
-        "source_str": "embed_job_ads.job_embed_meta",
-        "target_str": "compute_cosine_similarities.job_embed_meta"
-      },
-      {
-        "source_str": "compute_cosine_similarities.candidates_meta",
-        "target_str": "llm_filter_candidates.candidates_meta"
-      },
-      {
-        "source_str": "llm_filter_candidates.filtered_meta",
-        "target_str": "compute_weights.filtered_meta"
       }
-    ]
+    ],
+    "extra": {
+      "ui": {
+        "interactionMode": "pan"
+      }
+    }
   }
 }

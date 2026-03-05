@@ -15,7 +15,7 @@ dtype = "float16"
 backend = "vllm"
 job_name = "llm_generate"
 time = "02:00:00"
-setup = false
+setup = true
 
 # Models
 
@@ -30,6 +30,13 @@ model = "gemini/gemini-2.0-flash"
 [models.qwen-7b-local]
 mode = "local"
 model = "Qwen/Qwen2.5-7B-Instruct"
+
+[models."qwen-0.5b-mac"]
+mode = "local"
+model = "Qwen/Qwen2.5-0.5B-Instruct"
+device = "cpu"
+dtype = "float32"
+batch_size = 16
 
 [models.qwen-7b-sbatch]
 mode = "sbatch"

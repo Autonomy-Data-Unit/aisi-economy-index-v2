@@ -8,94 +8,40 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined across `src/ai_index/assets/netrun.json` (parent) and 7 subgraph files in `src/ai_index/assets/subgraphs/`. Subgraphs are flattened at resolution time — node names get prefixed (e.g., `embed_onet` → `job_ad_matching.embed_onet`).
+The pipeline is defined in `src/ai_index/assets/netrun.json`. It currently contains 4 nodes and 2 edges — a data preparation stage. The matching, scoring, and analysis stages have been removed and will be rebuilt.
 
 ```
-  ┌─────────────────┐
-  │ [data_prep]      │
-  │  fetch_onet      │
-  │  load_job_ads    │
-  └──┬───────────┬───┘
-     │onet_tables│job_ads
-     │           │
-     │       bc_job_ads (parent)
-     │        ├──┬───────────┐
-     ▼        │  │           │
-  ┌──────────────────────────────────────────────────────┐
-  │ [exposure_scores]                                     │
-  │  bc_onet_tables ─┬► build_onet_descriptions           │
-  │                  └► build_onet_eval_dfs               │
-  │                       │         │        │            │
-  │                       ▼         ▼        ▼            │
-  │              score_task_exp   score_    score_         │
-  │                    │         presence   felten         │
-  │                    └────┬───────┘──────┘              │
-  │                         ▼                             │
-  │                aggregate_soc_exposure                  │
-  └──┬──────────────────────┬─────────────────────────────┘
-     │descriptions          │exposure_scores
-     ▼                      │
-  ┌──────────────────────┐  │  bc_exposure_scores (parent)
-  │ [job_ad_matching]    │  │   ├──────────────┐
-  │  bc_desc ─► embed_   │  │   │              │
-  │  job_ads ─► onet     │  │   ▼              ▼
-  │             │        │  │  ┌──────────┐  ┌─────────────────┐
-  │             ▼        │  │  │[benchmark│  │ [generate_index] │
-  │          cos_sim     │  │  │_exposure]│  │  combine_job_    │
-  │             │        │  │  │benchmark │  │  exposure ◄──────┤
-  │             ▼        │  │  │_exposure │  └────────┬─────────┘
-  │          llm_filter  │  │  └──────────┘           │
-  └──────────┬───────────┘  │              job_exposure_index
-             │weighted_codes│                         │
-             └──────────────┼─────────► [generate_    │
-                            └────────►    index]      │
-                                                      ▼
-                                         ┌────────────────────────┐
-                                         │ [index_analysis]        │
-                                         │  bc_job_exp ─┬► agg_geo│
-                                         │              └► summary│
-                                         └────────────────────────┘
+  fetch_onet (run_on_startup)
+     │
+     │ onet_tables
+     ▼
+  (not yet connected to downstream)
+
+
+  fetch_adzuna (run_on_startup)
+     │
+     │ adzuna_meta
+     ▼
+  dedup_adzuna
+     │
+     │ dedup_meta
+     ▼
+  sample_ads
+     │
+     │ ads_manifest
+     ▼
+  (not yet connected to downstream)
 ```
 
-### Parent graph (2 nodes + 7 subgraphs, 11 edges)
-- `bc_job_ads` — Fan out job_ads to matching (×2) and generate_index (×1)
-- `bc_exposure_scores` — Fan out to benchmark (×1) and generate_index (×1)
-- 7 subgraphs: `data_prep`, `exposure_scores`, `job_ad_matching`, `benchmark_exposure_scores`, `benchmark_job_ad_matching`, `generate_index`, `index_analysis`
+### Nodes (4 total, no subgraphs)
+- `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database. Output: `onet_tables`
+- `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to monthly parquets. Output: `adzuna_meta`. Inherits `years` node_var.
+- `dedup_adzuna` — Deduplicate Adzuna job ads by ID across months. Input: `adzuna_meta`, Output: `dedup_meta`
+- `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=0`). Input: `dedup_meta`, Output: `ads_manifest`. Inherits `years` node_var.
 
-### `data_prep` subgraph (2 nodes, 0 edges)
-- `fetch_onet` (run_on_startup) — Download O\*NET 30.0 database
-- `load_job_ads` (run_on_startup) — Load job advertisement dataset
-- Exposed out: `onet_tables`, `job_ads`
+### Planned pipeline stages (not yet implemented)
 
-### `exposure_scores` subgraph (8 nodes, 10 edges)
-- `bc_onet_tables` → `build_onet_descriptions` + `build_onet_eval_dfs`
-- `score_task_exposure` — GPT task-level 3-level scoring, aggregated to SOC
-- `score_presence` — Humanness scoring (physical, emotional, creative)
-- `score_felten` — Felten ability exposure scoring (multiple scenarios)
-- `aggregate_soc_exposure` — Merge + normalize all score types at SOC level
-- Exposed in: `onet_tables`; out: `descriptions`, `exposure_scores`
-
-### `job_ad_matching` subgraph (5 nodes, 5 edges)
-- `embed_onet` — Embed O\*NET occupations with BGE-large (894×1024 float16)
-- `embed_job_ads` — Embed job ads with BGE-large (N×1024 float16)
-- `compute_cosine_similarity` — Top-K candidate matches (top-5 role + top-5 task)
-- `llm_filter_candidates` — LLM negative selection → normalized weights per job
-- Exposed in: `descriptions`, `job_ads_embed`, `job_ads_llm`; out: `weighted_codes`
-
-### `benchmark_exposure_scores` subgraph (1 node, 0 edges)
-- `benchmark_exposure` — Benchmarking stats for exposure scores
-- Exposed in: `exposure_scores`; out: `benchmark`
-
-### `benchmark_job_ad_matching` subgraph (placeholder, 0 nodes)
-
-### `generate_index` subgraph (1 node, 0 edges)
-- `combine_job_exposure` — Weighted sum of matched exposure scores → per-job AI exposure
-- Exposed in: `weighted_codes`, `exposure_scores`, `job_ads`; out: `job_exposure_index`
-
-### `index_analysis` subgraph (3 nodes, 2 edges)
-- `aggregate_geography` — Aggregate by geographic dimensions
-- `compute_summary_stats` — Summary statistics and visualizations
-- Exposed in: `job_exposure_index`; out: `geography_index`, `summary`
+The full pipeline will eventually include exposure scoring, job-ad-to-occupation matching, and index generation stages. These were present in an earlier iteration but have been removed for a rebuild. See the Old Repository Reference section for context on the intended pipeline.
 
 ### Node Function Paths
 
@@ -103,7 +49,7 @@ Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nod
 
 ### Old Pipeline Reference
 
-The old pipeline (now superseded by the DAG above) had four stages:
+The old pipeline (to be rebuilt) had these stages:
 1. **Embedding Generation** — `nbs/isambard/2026_01/00_transformers_for_origin_and_target.ipynb`
 2. **Cosine Similarity Search** — `nbs/isambard/2026_01/01_cosine_sim_target_vs_origin.ipynb`
 3. **LLM Filtering** — `nbs/isambard/2026_01/02_llm_negative_selection.ipynb`
@@ -118,10 +64,11 @@ The old pipeline (now superseded by the DAG above) had four stages:
 - **Python 3.12+**
 - **uv** - Package management
 - **sentence-transformers** - BGE-large embeddings
-- **torch** - GPU inference (LLaMA 3.1-8B)
+- **torch** - GPU inference
 - **pandas / polars** - Data manipulation
 - **pydantic** - Configuration and data validation
 - **isambard_utils** - Isambard HPC interaction (SSH, rsync, Slurm, env setup)
+- **llm_runner** - Local/remote GPU model execution (embeddings, LLM generate, cosine similarity)
 - **adulib[llm]** - LLM API abstraction (used in api execution mode)
 
 ## Running the Pipeline
@@ -138,6 +85,7 @@ Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`
 
 ### Key files
 - `pts/ai_index/run_pipeline.pct.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
+- `pts/ai_index/const.pct.py` — Path constants (`assets_path`, `store_path`, `inputs_path`, config paths)
 - `src/ai_index/assets/run_defs.toml` — Run definitions
 - `src/ai_index/assets/netrun.json` — Pipeline graph with unfilled node_var placeholders
 
@@ -149,7 +97,7 @@ Defines named pipeline configurations. `[defaults]` provides base values; `[runs
 
 ```toml
 [defaults]
-years = "2025"           # Comma-delimited year filter ("" = all years)
+years = ""               # Comma-delimited year filter ("" = all years)
 sample_n = 0             # 0 = full run, N = sample N ads
 sample_seed = 42
 embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
@@ -160,9 +108,9 @@ llm_model = "gpt-5.2"   # Key into llm_models.toml
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)
 sample_n = 10
-[runs.test_api]          # API mode test
-[runs.test_local]        # Local GPU mode test
-[runs.test_sbatch]       # Isambard sbatch mode test
+[runs.test_api]          # API mode test (10 ads, text-embedding-3-large, gpt-5.2)
+[runs.test_local]        # Local CPU test (10 ads, bge-large-mac, qwen-0.5b-mac)
+[runs.test_sbatch]       # Isambard sbatch test (10 ads, bge-large-sbatch, qwen-7b-sbatch)
 ```
 
 ### `embed_models.toml` — Embedding model configs
@@ -181,14 +129,28 @@ dtype = "float16"
 batch_size = 64
 job_name = "embed"
 time = "01:00:00"
-setup = false
+setup = true
 
+[models."text-embedding-3-small"]
+mode = "api"
+model = "text-embedding-3-small"
 [models."text-embedding-3-large"]
 mode = "api"
 model = "text-embedding-3-large"
 [models.bge-large-local]
 mode = "local"
 model = "BAAI/bge-large-en-v1.5"
+[models.bge-large-mac]    # CPU/float32 for Mac testing
+mode = "local"
+model = "BAAI/bge-large-en-v1.5"
+device = "cpu"
+dtype = "float32"
+[models.gemini-embed]     # Gemini API with retry config
+mode = "api"
+model = "gemini/gemini-embedding-001"
+batch_size = 10
+retry_delay = 65
+max_retries = 20
 [models.bge-large-sbatch]
 mode = "sbatch"
 model = "BAAI/bge-large-en-v1.5"
@@ -214,14 +176,23 @@ dtype = "float16"
 backend = "vllm"
 job_name = "llm_generate"
 time = "02:00:00"
-setup = false
+setup = true
 
 [models."gpt-5.2"]
 mode = "api"
 model = "openai/gpt-5.2"
+[models.gemini-2-flash]
+mode = "api"
+model = "gemini/gemini-2.0-flash"
 [models.qwen-7b-local]
 mode = "local"
 model = "Qwen/Qwen2.5-7B-Instruct"
+[models."qwen-0.5b-mac"]  # CPU/float32 for Mac testing
+mode = "local"
+model = "Qwen/Qwen2.5-0.5B-Instruct"
+device = "cpu"
+dtype = "float32"
+batch_size = 16
 [models.qwen-7b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"
@@ -236,6 +207,7 @@ Configures the Isambard AI Phase 2 cluster connection. Symlinked from `src/isamb
 [isambard]
 project_dir = "/projects/a5u/ai-index-v2"
 hf_cache_dir = "{project_dir}/hf_cache"
+logs_dir = "{project_dir}/logs"
 partition = "workq"
 default_gpus = 1
 default_cpus = 16
@@ -243,6 +215,7 @@ default_mem = "80G"
 default_time = "12:00:00"
 cuda_module = "cudatoolkit/24.11_12.6"
 python_version = "3.12"
+torch_index_url = "https://download.pytorch.org/whl/cu126"
 ```
 
 ### `netrun.json` — Pipeline graph
@@ -257,16 +230,9 @@ Execution mode is determined per-model via the `mode` field in `embed_models.tom
 
 | Mode | Description |
 |------|-------------|
-| `api` | No GPU needed: embeddings via OpenAI API, cosine sim via numpy, LLM via `adulib.llm.async_single` |
-| `local` | Direct CUDA on current machine (sentence-transformers, torch) |
+| `api` | No GPU needed: embeddings via OpenAI/Gemini API, cosine sim via numpy, LLM via `adulib.llm` (litellm) |
+| `local` | Direct CUDA on current machine (sentence-transformers, torch). Mac variants use CPU/float32. |
 | `sbatch` | Orchestrate from local: serialize inputs, submit SBATCH job to Isambard, wait, download results |
-
-### Node structure pattern
-
-GPU nodes (`embed_onet`, `embed_job_ads`, `compute_cosine_similarities`, `llm_filter_candidates`) follow this pattern:
-1. Read model key from `ctx.vars` (e.g., `embedding_model`)
-2. Call utility function with model key — mode is resolved from the TOML config
-3. For sbatch mode: `maybe_run_remote()` guard handles the full remote lifecycle
 
 ### Key files
 - `pts/ai_index/utils.pct.py` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
@@ -283,12 +249,12 @@ Model-key-based utility functions used by pipeline nodes. Each function resolves
 
 ### Public functions
 - **`embed(texts, *, model, **kwargs) -> np.ndarray`** — Embed texts. Routes by mode:
-  - `api`: `adulib.llm.batch_embeddings` (litellm → OpenAI/Gemini/etc.)
+  - `api`: `adulib.llm.batch_embeddings` (litellm -> OpenAI/Gemini/etc.)
   - `local`: `llm_runner.embed.run_embeddings` (sentence-transformers, CUDA)
   - `sbatch`: `isambard_utils.orchestrate.run_remote("embed", ...)`
 - **`aembed(texts, *, model, **kwargs) -> np.ndarray`** — Async version of `embed`
 - **`llm_generate(prompts, *, model, **kwargs) -> list[str]`** — Generate LLM responses. Routes by mode:
-  - `api`: `llm_runner.llm.run_llm_generate` with `backend="api"` (adulib → litellm)
+  - `api`: `llm_runner.llm.run_llm_generate` with `backend="api"` (adulib -> litellm)
   - `local`: `llm_runner.llm.run_llm_generate` with `backend="transformers"` (CUDA)
   - `sbatch`: `isambard_utils.orchestrate.run_remote("llm_generate", ...)`
 - **`allm_generate(prompts, *, model, **kwargs) -> list[str]`** — Async version
@@ -330,7 +296,7 @@ The `orchestrate` module handles the full sbatch lifecycle:
 
 ### Running integration tests
 ```bash
-python -m isambard_utils_tests.test_integration
+pytest src/tests/isambard_utils/
 ```
 Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancellation. Requires active Clifton cert.
 
@@ -339,22 +305,41 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 ```
 ├── nblite.toml              # nblite config (export pipelines)
 ├── pyproject.toml            # Package config (ai-index)
-├── .env                      # Environment variables (ISAMBARD_HOST, ISAMBARD_PROJECT_DIR)
-├── isambard_config.toml      # Symlink to src/isambard_utils/assets/config.toml
+├── .env                      # Environment variables (ISAMBARD_HOST, ADZUNA_S3_PREFIX, etc.)
+├── isambard_config.toml      # Symlink -> src/isambard_utils/assets/config.toml
+├── netrun.json               # Symlink -> src/ai_index/assets/netrun.json
+├── run_defs.toml             # Symlink -> src/ai_index/assets/run_defs.toml
+├── embed_models.toml         # Symlink -> src/ai_index/assets/embed_models.toml
+├── llm_models.toml           # Symlink -> src/ai_index/assets/llm_models.toml
 ├── agent-context/            # Reference docs for netrun & nblite
 ├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
+│   ├── const.pct.py          # Path constants
+│   ├── utils.pct.py          # embed(), llm_generate(), cosine_topk()
+│   ├── run_pipeline.pct.py   # Pipeline runner
+│   └── nodes/                # Node functions (4 nodes)
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 │   └── assets/
-│       ├── netrun.json       # Netrun parent graph (subgraph references + cross-subgraph edges)
-│       └── subgraphs/        # 7 subgraph definitions (data_prep, exposure_scores, job_ad_matching, ...)
+│       ├── netrun.json       # Pipeline graph
+│       ├── run_defs.toml     # Run definitions
+│       ├── embed_models.toml # Embedding model configs
+│       └── llm_models.toml   # LLM model configs
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
+├── nbs/isambard_utils/       # Isambard notebooks (auto-generated)
 ├── src/isambard_utils/       # Isambard utils Python modules (auto-generated)
 │   └── assets/
-│       └── config.toml       # Isambard cluster config (project_dir, partition, etc.)
-├── pts/isambard_utils_tests/ # Isambard integration tests (.pct.py) - EDIT THESE
-├── src/isambard_utils_tests/ # Isambard test modules (auto-generated)
-├── pts/tests/                # Test notebooks (.pct.py)
+│       └── config.toml       # Isambard cluster config
+├── pts/llm_runner/           # LLM runner (embed, cosine, LLM generate) - EDIT THESE
+├── nbs/llm_runner/           # LLM runner notebooks (auto-generated)
+├── src/llm_runner/           # LLM runner Python modules (auto-generated)
+├── pts/dev_utils/            # Development utilities (set_node_func_args, etc.)
+├── nbs/dev_utils/            # Dev utils notebooks (auto-generated)
+├── src/dev_utils/            # Dev utils Python modules (auto-generated)
+├── pts/examples/             # Example notebooks
+├── nbs/examples/             # Example notebooks (.ipynb, auto-generated)
+├── pts/tests/                # Test notebooks (.pct.py) - EDIT THESE
+│   ├── isambard_utils/       # Isambard integration + unit tests
+│   └── llm_runner/           # LLM runner tests
 ├── nbs/tests/                # Test notebooks (.ipynb, auto-generated)
 ├── src/tests/                # Test modules (auto-generated)
 └── .claude/skills/           # Netrun skill docs for Claude
@@ -363,7 +348,7 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 ## Development Workflow
 
 ### Where to edit code
-- **Edit `.pct.py` files in `pts/ai_index/`** - these are the source of truth
+- **Edit `.pct.py` files in `pts/`** - these are the source of truth
 - **Never edit files in `src/`** - they are auto-generated and will be overwritten
 - **Exception: `__init__.py` files** — nblite skips dunder-named files (`__init__`, `__main__`, etc.) during module export. These must be edited directly in `src/` and kept in sync with the corresponding `pts/.../__init__.pct.py` notebook.
 - After editing `.pct.py` files, run: `nbl export --reverse && nbl export`
@@ -381,12 +366,15 @@ nbl new pts/ai_index/foo.pct.py  # Create new notebook
 ```
 nbs -> lib        (nbs/ai_index/*.ipynb -> src/ai_index/*.py)
 nbs -> pts        (nbs/ai_index/*.ipynb -> pts/ai_index/*.pct.py)
-nbs_tests -> lib_tests
-nbs_tests -> pts_tests
-nbs_isambard -> lib_isambard        (isambard_utils package)
+nbs_tests -> lib_tests          (nbs/tests/ -> src/tests/)
+nbs_tests -> pts_tests          (nbs/tests/ -> pts/tests/)
+nbs_isambard -> lib_isambard    (nbs/isambard_utils/ -> src/isambard_utils/)
 nbs_isambard -> pts_isambard
-nbs_isambard_tests -> lib_isambard_tests
-nbs_isambard_tests -> pts_isambard_tests
+nbs_dev -> lib_dev              (nbs/dev_utils/ -> src/dev_utils/)
+nbs_dev -> pts_dev
+nbs_examples -> pts_examples    (nbs/examples/ -> pts/examples/, no lib)
+nbs_runner -> lib_runner        (nbs/llm_runner/ -> src/llm_runner/)
+nbs_runner -> pts_runner
 ```
 
 ### Testing

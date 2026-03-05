@@ -1,5 +1,5 @@
 [defaults]
-years = "2025"
+years = ""
 sample_n = 0
 sample_seed = 42
 embedding_model = "text-embedding-3-large"
@@ -21,9 +21,9 @@ llm_model = "gpt-5.2"
 
 [runs.test_local]
 sample_n = 10
-embedding_model = "bge-large-local"
-cosine_mode = "local"
-llm_model = "qwen-7b-local"
+embedding_model = "bge-large-mac"
+cosine_mode = "api"
+llm_model = "qwen-0.5b-mac"
 
 [runs.test_sbatch]
 sample_n = 10

@@ -7,7 +7,8 @@ def main(ctx, print) -> {"adzuna_meta": dict}:
     import tempfile
     
     import boto3
-    import pandas as pd
+    import pyarrow as pa
+    import pyarrow.json as paj
     import pyarrow.parquet as pq
     
     from ai_index.const import adzuna_store_path
@@ -69,28 +70,30 @@ def main(ctx, print) -> {"adzuna_meta": dict}:
                 continue
     
             # Download each S3 file to temp, convert to parquet one at a time.
-            # Each file is ~2 GB JSONL (~744k rows). We convert each to a temp parquet
-            # to free memory, then use pyarrow's dataset reader to merge them.
+            # Uses pyarrow JSON reader (much faster + lower memory than pd.read_json).
             tmp_dir = tempfile.mkdtemp()
             tmp_parquets = []
             total_rows = 0
+            n_files = len(data_keys)
             for i, key in enumerate(sorted(data_keys)):
-                print(f"fetch_adzuna: downloading s3://{bucket_name}/{key}")
+                print(f"fetch_adzuna: [{i+1}/{n_files}] downloading s3://{bucket_name}/{key}")
                 tmp_json = f"{tmp_dir}/day_{i}.json"
                 s3.download_file(bucket_name, key, tmp_json)
-                df_day = pd.read_json(tmp_json, lines=True)
+                # Use pyarrow's native JSON reader — columnar, parallelized C++
+                read_opts = paj.ReadOptions(block_size=1 << 26)  # 64 MB blocks
+                table = paj.read_json(tmp_json, read_options=read_opts)
                 tmp_pq = f"{tmp_dir}/day_{i}.parquet"
-                df_day.to_parquet(tmp_pq, compression="snappy")
+                pq.write_table(table, tmp_pq, compression="snappy")
                 tmp_parquets.append(tmp_pq)
-                total_rows += len(df_day)
-                print(f"  -> {len(df_day)} rows")
-                del df_day
+                n_rows = table.num_rows
+                total_rows += n_rows
+                print(f"  -> {n_rows} rows")
+                del table
                 os.remove(tmp_json)
     
             if tmp_parquets:
                 # Build unified schema from all day parquets (metadata only, no data loading).
                 # Different day files may have columns in different order.
-                import pyarrow as pa
                 all_fields = {}
                 for p in tmp_parquets:
                     schema = pq.read_schema(p)

@@ -22,7 +22,7 @@
 # ```
 
 # %%
-#|default_exp test_models
+#|default_exp isambard_utils.test_models
 
 # %%
 #|export
