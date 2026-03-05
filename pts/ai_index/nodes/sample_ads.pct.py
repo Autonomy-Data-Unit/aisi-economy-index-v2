@@ -18,8 +18,12 @@
 #|export_as_func true
 
 # %%
+#|top_export
+import numpy as np
+
+# %%
 #|set_func_signature
-def main(adzuna_meta, ctx, print) -> {"ads_manifest": dict}:
+def main(adzuna_meta, ctx, print) -> np.ndarray:
     """Sample job ads for processing (or pass through all if sample_n=0)."""
     ...
 
@@ -41,8 +45,8 @@ from ai_index import const
 from pathlib import Path
 from ai_index.utils import get_adzuna_conn
 
-# %%
-ctx.vars['sample_n']
+# %% [markdown]
+# Get all ad IDs
 
 # %%
 #|export
@@ -51,32 +55,20 @@ res = conn.execute("""
     SELECT id as ad_id FROM ads
 """).fetchdf()
 conn.close()
+ad_ids = res['ad_id']
+
+# %% [markdown]
+# Construct a sample. If the `sample_n == -1` then we use all samples.
 
 # %%
-res['ad_id']
+#|export
+if ctx.vars['sample_n'] == -1:
+    sample_ad_ids = None
+elif ctx.vars['sample_n'] < 0:
+    raise ValueError(f"sample_n must be >= 0, got {ctx.vars['sample_n']}")
+else:
+    np.random.seed(ctx.vars['sample_seed'])
+    sample_ad_ids = np.random.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
 
 # %%
-from ai_index.utils import get_adzuna_conn
-
-conn = get_adzuna_conn(read_only=True)
-
-# Summary: row counts per year/month
-counts = conn.execute("""
-    SELECT year, month, COUNT(*) as n
-    FROM ads GROUP BY year, month
-    ORDER BY year, month
-""").fetchdf()
-print(counts.to_string(index=False))
-conn.close()
-
-# %%
-from ai_index.utils import get_ads_by_id
-
-res = get_ads_by_id([2675965976], columns=["title", "category_id"])
-
-# %%
-res
-
-# %%
-res = get_ads_by_id([2675965976])
-res.to_pandas()
+sample_ad_ids #|func_return_line
