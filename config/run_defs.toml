@@ -1,11 +1,12 @@
 [defaults]
-years = ""
 sample_n = 0
 sample_seed = 42
 embedding_model = "text-embedding-3-large"
 cosine_mode = "api"
 topk = 5
 llm_model = "gpt-5.2"
+[defaults.fetch_adzuna]
+fetch_years = "all"
 
 [runs.baseline]
 # inherits all defaults

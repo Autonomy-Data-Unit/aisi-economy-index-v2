@@ -57,7 +57,6 @@ ignore-vcs = true
 sources = ["src"]
 packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner"]
 include = [
-    "src/ai_index/assets/**",
     "src/ai_index/scripts/**",
     "src/isambard_utils/assets/**",
 ]

@@ -9,7 +9,6 @@ import importlib
 import inspect
 import sys
 from collections import namedtuple
-from importlib import resources
 from pathlib import Path
 
 from netrun.core import Net, NetConfig
@@ -25,10 +24,10 @@ def _load_net_config(run_name: str | None = None) -> NetConfig:
             Defaults to RUN_NAME env var, then "baseline".
     """
     import os
-    from ai_index.const import run_defs_path
+    from ai_index.const import run_defs_path, netrun_config_path
     from ai_index.run_pipeline import _load_run_defs, _resolve_run_defs
 
-    config_path = resources.files("ai_index.assets") / "netrun.json"
+    config_path = netrun_config_path
     run_name = run_name or os.environ.get("RUN_NAME", "baseline")
     run_defs = _load_run_defs(run_defs_path)
     global_vars, node_vars = _resolve_run_defs(run_defs, run_name)
@@ -286,6 +285,14 @@ def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: s
 
     config = _load_net_config(run_name)
 
+    # Load raw config (without run_defs) to get declared types, since
+    # global_node_vars injection replaces NodeVariable objects and loses type info.
+    from ai_index.const import netrun_config_path
+    raw_config = NetConfig.from_file(str(netrun_config_path))
+    declared_types: dict[str, str] = {
+        k: v.type for k, v in (raw_config.node_vars or {}).items()
+    }
+
     try:
         name = _resolve_node_name(config, node_name)
     except ValueError as e:
@@ -323,29 +330,23 @@ def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: s
 
         if in_node and per_node_raw[var_name].inherit:
             if per_node_raw[var_name].value is not None:
-                # Inherited with override
                 gvar = global_vars[var_name]
                 value = per_node_raw[var_name].value
-                var_type = gvar.type
                 source = "inherited (overridden)"
             else:
-                # Pure inherit — uses global value
                 gvar = global_vars[var_name]
                 value = gvar.value
-                var_type = gvar.type
                 source = "inherited"
         elif in_node:
-            # Node-only var (no inherit)
             nvar = per_node_raw[var_name]
             value = nvar.value
-            var_type = nvar.type
             source = "node-level"
         else:
-            # Global only (not declared at node level)
             gvar = global_vars[var_name]
             value = gvar.value
-            var_type = gvar.type
             source = "global"
+
+        var_type = declared_types.get(var_name, global_vars.get(var_name, per_node_raw.get(var_name)).type)
 
         rows.append((var_name, value, var_type, source))
 
@@ -359,7 +360,7 @@ def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: s
     col_widths = [len(h) for h in headers]
     str_rows = []
     for var_name, value, var_type, source in rows:
-        vals = (var_name, repr(value), var_type, source)
+        vals = (var_name, str(value), var_type, source)
         str_rows.append(vals)
         for i, v in enumerate(vals):
             col_widths[i] = max(col_widths[i], len(v))
