@@ -89,7 +89,8 @@
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
-          "func": "ai_index.nodes.fetch_adzuna.main"
+          "func": "ai_index.nodes.fetch_adzuna.main",
+          "manual_output": false
         },
         "type": "node"
       },

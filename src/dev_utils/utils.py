@@ -136,7 +136,8 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
     Returns:
         dict mapping port_name -> list of packet values.
     """
-    async with Net(config, run_startup_nodes=False) as net:
+    net = Net(config)
+    try:
         cached = net.get_cached_input_salvos(node_name)
         if cached:
             if verbose:
@@ -145,10 +146,23 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
 
         if verbose:
             print(f"set_node_func_args: no cache for '{node_name}', running upstream nodes...")
+            _running = {}
+            def _on_start(name, epoch_id):
+                print(f"  Running {name}...", end="", flush=True)
+                _running[epoch_id] = name
+            def _on_end(name, epoch_id, record):
+                if epoch_id in _running:
+                    print(" done")
+                    del _running[epoch_id]
+            net.on_epoch_start(_on_start)
+            net.on_epoch_end(_on_end)
+
         salvos = await net.run_to_targets(node_name)
         if not salvos:
             return {}  # startup node with no input ports
         return salvos[0].packets  # extract dict from TargetInputSalvo
+    finally:
+        await net.stop()
 
 
 def _run_async(coro):
@@ -166,7 +180,7 @@ def _run_async(coro):
 _SPECIAL_PARAMS = frozenset({"ctx", "print"})
 
 
-def set_node_func_args(node_name: str | None = None, *, run_name: str | None = None, return_args=False, load_env=True, verbose=False):
+def set_node_func_args(node_name: str | None = None, *, run_name: str | None = None, return_args=False, load_env=True, verbose=True):
     """Populate the caller's namespace with the inputs a pipeline node would receive.
 
     Loads input data for a node from the netrun cache (or by running upstream
