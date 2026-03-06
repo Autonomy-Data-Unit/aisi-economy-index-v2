@@ -19,7 +19,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print) -> {"adzuna_meta": dict}:
+def main(ctx, print):
     """Download raw Adzuna job ads from S3, insert into DuckDB, and deduplicate."""
     ...
 
@@ -49,7 +49,7 @@ import pyarrow.parquet as pq
 from ai_index.utils import get_adzuna_conn, ensure_ads_table, build_insert_from_parquet
 
 s3_prefix = ctx.vars["adzuna_s3_prefix"]
-years_filter = ctx.vars["years"]
+years_filter = ctx.vars["fetch_years"]
 
 # Parse bucket and key prefix from s3_prefix (format: "bucket/key/prefix")
 bucket_name, _, key_prefix = s3_prefix.partition("/")
@@ -236,4 +236,3 @@ else:
 
 conn.close()
 print(f"fetch_adzuna: done — {len(adzuna_meta['years'])} year(s)")
-{"adzuna_meta": adzuna_meta}  #|func_return_line

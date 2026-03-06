@@ -2,7 +2,9 @@
 
 import numpy as np
 
-def main(adzuna_meta, ctx, print) -> np.ndarray:
+def main(ctx, print) -> {
+    'ad_ids': np.ndarray
+}:
     """Sample job ads for processing (or pass through all if sample_n=0)."""
     from ai_index import const
     from pathlib import Path

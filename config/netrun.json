@@ -39,7 +39,7 @@
     }
   },
   "max_epochs": 1,
-  "project_root_override": "../../../",
+  "project_root_override": "../",
   "graph": {
     "nodes": [
       {
@@ -50,10 +50,10 @@
         },
         "extra": {
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
-              "x": 12,
-              "y": 12
+              "x": 270,
+              "y": 345
             }
           }
         },
@@ -69,19 +69,22 @@
         "execution_config": {
           "run_on_startup": true,
           "node_vars": {
-            "years": {
-              "value": ""
+            "fetch_years": {
+              "value": "all"
             }
           },
-          "signals": []
+          "signals": [
+            "epoch_finished"
+          ]
         },
         "extra": {
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
-              "x": 12,
-              "y": 134
-            }
+              "x": -15,
+              "y": 105
+            },
+            "headerColor": "#00a3d7"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -93,16 +96,26 @@
       {
         "name": "sample_ads",
         "description": "Sample job ads for processing (or pass through all if sample_n=0).",
+        "execution_config": {
+          "controls": [
+            "start_epoch"
+          ]
+        },
         "extra": {
           "ui": {
             "position": {
-              "x": 270,
-              "y": 135
+              "x": 240,
+              "y": 75
             },
             "dimensions": {
-              "width": 204,
-              "height": 117
-            }
+              "width": 249,
+              "height": 162
+            },
+            "portGroups": {
+              "in:__all__": false
+            },
+            "headerColor": "#00a3d7",
+            "descriptionExpanded": false
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -112,7 +125,12 @@
         "type": "node"
       }
     ],
-    "edges": [],
+    "edges": [
+      {
+        "source_str": "fetch_adzuna.__signal_epoch_finished__",
+        "target_str": "sample_ads.__control_start_epoch__"
+      }
+    ],
     "extra": {
       "ui": {
         "interactionMode": "pan"

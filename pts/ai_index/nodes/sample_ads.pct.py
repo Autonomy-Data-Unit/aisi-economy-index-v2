@@ -23,7 +23,9 @@ import numpy as np
 
 # %%
 #|set_func_signature
-def main(adzuna_meta, ctx, print) -> np.ndarray:
+def main(ctx, print) -> {
+    'ad_ids': np.ndarray
+}:
     """Sample job ads for processing (or pass through all if sample_n=0)."""
     ...
 
