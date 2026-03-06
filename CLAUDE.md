@@ -8,7 +8,7 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `src/ai_index/assets/netrun.json`. It currently contains 4 nodes and 2 edges — a data preparation stage. The matching, scoring, and analysis stages have been removed and will be rebuilt.
+The pipeline is defined in `config/netrun.json`. It currently contains 4 nodes and 2 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
 
 ```
   fetch_onet (run_on_startup)
@@ -19,25 +19,24 @@ The pipeline is defined in `src/ai_index/assets/netrun.json`. It currently conta
 
 
   fetch_adzuna (run_on_startup)
-     │
-     │ adzuna_meta
-     ▼
-  dedup_adzuna
-     │
-     │ dedup_meta
+     │ signal: epoch_finished
      ▼
   sample_ads
      │
-     │ ads_manifest
+     │ ad_ids
+     ▼
+  llm_summarise
+     │
+     │ summary_meta
      ▼
   (not yet connected to downstream)
 ```
 
 ### Nodes (4 total, no subgraphs)
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database. Output: `onet_tables`
-- `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to monthly parquets. Output: `adzuna_meta`. Inherits `years` node_var.
-- `dedup_adzuna` — Deduplicate Adzuna job ads by ID across months. Input: `adzuna_meta`, Output: `dedup_meta`
-- `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=0`). Input: `dedup_meta`, Output: `ads_manifest`. Inherits `years` node_var.
+- `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
+- `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
+- `llm_summarise` — Run LLM to extract structured summaries from job ads. Input: `ad_ids`. Output: `summary_meta` (dict with parquet path + counts). Writes summaries to `store/pipeline/{run_name}/summaries.parquet`.
 
 ### Planned pipeline stages (not yet implemented)
 
@@ -263,7 +262,14 @@ Model-key-based utility functions used by pipeline nodes. Each function resolves
   - `sbatch`: `isambard_utils.orchestrate.run_remote("cosine_topk", ...)`
 - **`acosine_topk(A, B, k, *, mode, **kwargs) -> dict`** — Async version
 
-Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls.
+Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls. Explicit `**kwargs` passed to `llm_generate`/`embed` override TOML config values (via `cfg.update(kwargs)` in `_resolve_model_args`).
+
+### `llm_generate` kwargs passthrough
+All three backends (transformers `LLM`, `VllmLLM`, `ApiLLM`) support `system_message` and `max_new_tokens` in their `generate()` method. To use a system prompt from a node, pass it as a kwarg:
+```python
+llm_generate(prompts, model="gpt-5.2", system_message="You are...", max_new_tokens=220)
+```
+The `system_message` flows through: `llm_generate` → `run_llm_generate` → backend `.generate(system_message=...)`. Each backend handles it correctly (chat template for transformers, chat messages for vLLM, `system=` param for API/adulib).
 
 ## Isambard HPC
 
@@ -392,6 +398,31 @@ nbl test                      # Test all notebooks execute
 - `#|eval: false` - Skip cell during execution
 - `#|export_as_func true` - Export entire notebook as a callable function
 - `#|set_func_signature` - Define function name/params for function-export mode
+- `#|func_return_line` - Inline on a line: converts that line to a `return` statement in the exported module. Avoids bare `return` (which would cause SyntaxError during `nbl fill`).
+- `#|func_return` - Cell-level: prepends `return` to the first line of the cell.
+
+### Important: `#|func_return_line` must be inside an `#|export` cell
+
+The `#|func_return_line` directive **only works when the line is inside a cell marked with `#|export`**. If the return line is in a non-exported cell, it is silently dropped during module export — no error, no `return` statement in the generated `.py` file. This means the function will return `None`.
+
+**Correct pattern** (return line in the same `#|export` cell):
+```python
+# %%
+#|export
+result = compute_something()
+print(f"done: {result}")
+result #|func_return_line
+```
+
+**Wrong pattern** (return line in a separate non-export cell — will be silently dropped):
+```python
+# %%
+#|export
+result = compute_something()
+
+# %%
+result #|func_return_line   # BUG: this won't appear in the generated module!
+```
 
 ## Important: Suspected netrun bugs
 

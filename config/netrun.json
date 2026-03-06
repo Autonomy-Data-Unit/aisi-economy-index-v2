@@ -123,17 +123,47 @@
           "func": "ai_index.nodes.sample_ads.main"
         },
         "type": "node"
+      },
+      {
+        "name": "llm_summarise",
+        "description": "Run LLM to extract structured summaries from job ads.",
+        "extra": {
+          "ui": {
+            "position": {
+              "x": 585,
+              "y": 90
+            },
+            "headerColor": "#00a3d7",
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.llm_summarise.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
       {
         "source_str": "fetch_adzuna.__signal_epoch_finished__",
         "target_str": "sample_ads.__control_start_epoch__"
+      },
+      {
+        "source_str": "sample_ads.ad_ids",
+        "target_str": "llm_summarise.ad_ids"
       }
     ],
     "extra": {
       "ui": {
-        "interactionMode": "pan"
+        "interactionMode": "pan",
+        "actions": [
+          {
+            "id": "action-1772823442075-3d083mql9",
+            "label": "Open in cursor",
+            "command": "cursor $PROJECT_ROOT/nbs/ai_index/nodes/$NODE_NAME.ipynb"
+          }
+        ]
       }
     }
   }
