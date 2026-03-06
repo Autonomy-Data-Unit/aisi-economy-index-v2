@@ -439,6 +439,12 @@ Key concepts:
 - **Epochs**: One execution cycle of a node
 - **Net**: The runtime that manages the graph
 
+### Key Net APIs
+- **`run_to_targets(targets)`** — Run upstream nodes and collect input salvos at target. Auto-starts the Net if not started. Executes all source nodes (`run_on_startup=True`) automatically. Returns `list[TargetInputSalvo]` with `.packets: dict[str, list[Any]]`.
+- **`inject_data(node_name, port, values)`** — Inject data into a node's input port. Works before `Net.start()`.
+- **`on_epoch_start(callback)` / `on_epoch_end(callback)`** — Register lifecycle callbacks. Callback signature: `(node_name, epoch_id)` for start, `(node_name, epoch_id, record)` for end. Returns a `remove()` callable. Also available on `NodeInfo` (fires only for that node).
+- **`Net(config, run_source_nodes=True)`** — Constructor. `run_source_nodes` (formerly `run_startup_nodes`) controls whether source nodes execute during `start()`.
+
 ## Old Repository Reference
 
 The old codebase is at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`. Key locations:
