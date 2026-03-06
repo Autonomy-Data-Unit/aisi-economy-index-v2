@@ -22,3 +22,4 @@ def main(ctx, print) -> {
     else:
         np.random.seed(ctx.vars['sample_seed'])
         sample_ad_ids = np.random.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
+    return sample_ad_ids

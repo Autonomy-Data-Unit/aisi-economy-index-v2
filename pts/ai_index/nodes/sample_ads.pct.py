@@ -73,4 +73,5 @@ else:
     sample_ad_ids = np.random.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
 
 # %%
+#|export
 sample_ad_ids #|func_return_line
