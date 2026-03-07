@@ -181,7 +181,7 @@ class LLM:
                 )
             outlines_model = outlines.from_transformers(self.model, self.tokenizer)
             generator = outlines.Generator(outlines_model, outlines.json_schema(json_schema))
-            return generator.batch(all_texts, max_tokens=max_new_tokens)
+            return generator.batch(all_texts, max_new_tokens=max_new_tokens)
 
         # Tokenize with left-padding
         inputs = self.tokenizer(
