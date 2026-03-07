@@ -179,7 +179,9 @@ class TestIdempotencyStateMachine:
 
             assert result == {"result": "attached"}
             mock_submit.assert_not_called()
-            mock_poll.assert_called_once_with("555", label=pytest.approx(mock_poll.call_args.kwargs["label"], abs=100), config=mock_config, print_fn=pytest.approx(mock_poll.call_args.kwargs["print_fn"], abs=100))
+            mock_poll.assert_called_once()
+            assert mock_poll.call_args[0][0] == "555"
+            assert mock_poll.call_args.kwargs["config"] == mock_config
 
     @pytest.mark.asyncio
     async def test_cache_hit_stale_resubmits(self):

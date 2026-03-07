@@ -43,10 +43,69 @@ async def _aensure_venv(*, config: IsambardConfig) -> None:
     script = f"""
 cd {config.project_dir}
 export UV_CACHE_DIR={config.project_dir}/.uv_cache
+export UV_LINK_MODE=copy
 module load cray-python/3.11.7 2>/dev/null || true
 uv sync --no-dev --no-install-project
 """.strip()
     await async_ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=1800)
+
+# %%
+#|export
+async def _afix_lustre_hardlinks(*, config: IsambardConfig) -> None:
+    """Reinstall packages that were installed with hardlinks on Lustre.
+
+    uv defaults to hardlink mode, which causes stale inode issues on Lustre:
+    compute nodes can see the file via ``ls`` but ``stat``/``open`` fail with
+    ENOENT because the inode was replaced on the login node during a reinstall.
+
+    This checks whether torch's init file has link count > 1 (indicating
+    hardlinks) and, if so, reinstalls torch, triton and vllm with copy mode
+    so every file gets its own inode. Idempotent: once packages are installed
+    with copy mode (link count == 1), this is a no-op.
+    """
+    check_script = f"""
+cd {config.project_dir}
+site=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+torch_init="$site/torch/__init__.py"
+[ -f "$torch_init" ] && stat -c %h "$torch_init" || echo 0
+""".strip()
+    result = await async_ssh_run(
+        f"bash -lc {_shlex_quote(check_script)}", config=config, check=False,
+    )
+    if result.returncode != 0:
+        return
+    link_count = result.stdout.strip()
+    if not link_count.isdigit() or int(link_count) <= 1:
+        return  # Already using copies, nothing to do
+
+    # Reinstall torch, triton, vllm with copy mode to eliminate hardlinks.
+    # --no-deps on triton prevents uv from pulling CPU-only torch from PyPI.
+    fix_script = f"""
+cd {config.project_dir}
+export UV_CACHE_DIR={config.project_dir}/.uv_cache
+export UV_LINK_MODE=copy
+uv pip install --reinstall-package torch --reinstall-package torchvision torch torchvision --index-url {config.torch_index_url} --quiet
+uv pip install --reinstall-package triton --no-deps triton --quiet
+""".strip()
+    await async_ssh_run(
+        f"bash -lc {_shlex_quote(fix_script)}", config=config, timeout=600,
+    )
+
+    # Reinstall vllm if present
+    vllm_check = await async_ssh_run(
+        f"bash -lc {_shlex_quote(f'cd {config.project_dir} && .venv/bin/python -c \"import vllm\"')}",
+        config=config, check=False,
+    )
+    if vllm_check.returncode == 0:
+        vllm_script = f"""
+cd {config.project_dir}
+export UV_CACHE_DIR={config.project_dir}/.uv_cache
+export UV_LINK_MODE=copy
+uv pip install --reinstall-package vllm vllm --extra-index-url {config.torch_index_url} --quiet
+""".strip()
+        await async_ssh_run(
+            f"bash -lc {_shlex_quote(vllm_script)}", config=config, timeout=1200,
+        )
 
 # %%
 #|export
@@ -82,10 +141,13 @@ cd {config.project_dir}
     )
     has_vllm = vllm_check.returncode == 0 and "yes" in vllm_check.stdout
 
-    # Install CUDA torch + torchvision
+    # Install CUDA torch + torchvision.
+    # UV_LINK_MODE=copy avoids hardlinks on Lustre, which can leave stale
+    # inodes on compute nodes after reinstalls.
     install_script = f"""
 cd {config.project_dir}
 export UV_CACHE_DIR={config.project_dir}/.uv_cache
+export UV_LINK_MODE=copy
 uv pip install torch torchvision --index-url {config.torch_index_url} --reinstall-package torch --reinstall-package torchvision --quiet
 """.strip()
     await async_ssh_run(
@@ -98,23 +160,9 @@ uv pip install torch torchvision --index-url {config.torch_index_url} --reinstal
         vllm_script = f"""
 cd {config.project_dir}
 export UV_CACHE_DIR={config.project_dir}/.uv_cache
+export UV_LINK_MODE=copy
 uv pip install vllm --extra-index-url {config.torch_index_url} --reinstall-package vllm --quiet
 """.strip()
         await async_ssh_run(
             f"bash -lc {_shlex_quote(vllm_script)}", config=config, timeout=1200,
         )
-
-    # Force Lustre metadata refresh on triton's nvidia backend dir.
-    # Reinstalling torch/vllm can leave stale hardlink entries on Lustre
-    # (ls shows the file but stat/open fail with ENOENT). Reinstalling
-    # triton forces fresh inodes for all its files.
-    # --no-deps is critical: without it, uv resolves triton's torch
-    # dependency from PyPI (CPU-only), undoing the CUDA torch install.
-    triton_fix_script = f"""
-cd {config.project_dir}
-export UV_CACHE_DIR={config.project_dir}/.uv_cache
-uv pip install --reinstall-package triton --no-deps triton --quiet
-""".strip()
-    await async_ssh_run(
-        f"bash -lc {_shlex_quote(triton_fix_script)}", config=config, timeout=300,
-    )

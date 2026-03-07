@@ -82,6 +82,9 @@ def generate(sbatch_config: SbatchConfig, *,
 
     # Activate venv
     lines.append("source .venv/bin/activate")
+    # Flush Lustre client metadata cache so compute nodes see fresh inodes
+    # after packages were reinstalled on the login node
+    lines.append("lfs flushctx 2>/dev/null || true")
     lines.append("")
 
     # Environment variables

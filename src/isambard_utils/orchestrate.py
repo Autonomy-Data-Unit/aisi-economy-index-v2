@@ -234,7 +234,8 @@ async def _submit_job(
     return job
 
 # %% nbs/isambard_utils/orchestrate.ipynb 16
-async def _poll_job(job_id: str, *, label: str, config: IsambardConfig, print_fn=print) -> dict:
+async def _poll_job(job_id: str, *, label: str, cache_path: str,
+                    config: IsambardConfig, print_fn=print) -> dict:
     """Poll a Slurm job until it finishes, return sacct summary."""
     from .slurm import await_job, ajob_log
 
@@ -249,8 +250,17 @@ async def _poll_job(job_id: str, *, label: str, config: IsambardConfig, print_fn
     if final_state != "COMPLETED":
         stdout_log = await ajob_log(job_id, config=config, stream="stdout", tail=50)
         stderr_log = await ajob_log(job_id, config=config, stream="stderr", tail=50)
+        # Also read the runner's own status.json which has the Python traceback
+        runner_status = ""
+        rs = await async_ssh_run(
+            f"cat {cache_path}/outputs/status.json", config=config, check=False,
+        )
+        if rs.returncode == 0:
+            runner_status = rs.stdout
         raise RuntimeError(
             f"run_remote job {label} (id={job_id}) failed with state={final_state}.\n"
+            f"cache: {cache_path}\n"
+            f"--- runner status ---\n{runner_status}\n"
             f"--- stdout (last 50 lines) ---\n{stdout_log}\n"
             f"--- stderr (last 50 lines) ---\n{stderr_log}"
         )
@@ -346,7 +356,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print)
     """
     import subprocess
     config = _get_config(config)
-    from .env import _aensure_uv, _aensure_venv, _aensure_cuda_torch
+    from .env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
     from .transfer import aupload as async_rsync_upload, aupload_bytes
     import llm_runner
 
@@ -380,6 +390,9 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print)
         # 6. Ensure CUDA torch
         print_fn("runner setup: ensuring CUDA torch...")
         await _aensure_cuda_torch(config=config)
+
+        # 7. Fix Lustre hardlinks (one-time migration to copy mode)
+        await _afix_lustre_hardlinks(config=config)
         print_fn("runner setup: done")
 
     except subprocess.CalledProcessError as e:
@@ -472,6 +485,8 @@ async def arun_remote(
     job_hash = compute_job_hash(operation, inputs, config_dict)
     cache_path = f"{ic.project_dir}/.runner_cache/{job_hash}"
     slurm_job_name = f"{job_name}_{job_hash[:8]}"
+    print_fn(f"run_remote [{job_name}]: hash={job_hash}")
+    print_fn(f"run_remote [{job_name}]: cache={cache_path}")
     lock = _get_job_lock(job_hash)
 
     async with lock:
@@ -525,7 +540,7 @@ async def _run_remote_cached(
             "slurm_job_name": slurm_job_name,
         }, config=config)
 
-        await _poll_job(job.job_id, label=slurm_job_name, config=config, print_fn=print_fn)
+        await _poll_job(job.job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
         await _write_remote_status(cache_path, {
             "state": "completed", "job_id": job.job_id,
             "slurm_job_name": slurm_job_name,
@@ -552,7 +567,7 @@ async def _run_remote_cached(
             if slurm_state in ("PENDING", "RUNNING"):
                 # Attach to running job
                 print_fn(f"run_remote [{slurm_job_name}]: attaching to running job {job_id}...")
-                await _poll_job(job_id, label=slurm_job_name, config=config, print_fn=print_fn)
+                await _poll_job(job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
                 await _write_remote_status(cache_path, {
                     "state": "completed", "job_id": job_id,
                     "slurm_job_name": slurm_job_name,
@@ -645,7 +660,7 @@ async def _run_remote_cached(
             "slurm_job_name": slurm_job_name,
         }, config=config)
 
-        await _poll_job(job.job_id, label=slurm_job_name, config=config, print_fn=print_fn)
+        await _poll_job(job.job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
         await _write_remote_status(cache_path, {
             "state": "completed", "job_id": job.job_id,
             "slurm_job_name": slurm_job_name,
@@ -737,7 +752,7 @@ async def _run_remote_uncached(
     print_fn(f"run_remote [{job_name}]: submitted job {job.job_id}")
 
     # Poll
-    await _poll_job(job.job_id, label=job_name, config=config, print_fn=print_fn)
+    await _poll_job(job.job_id, label=job_name, cache_path=work_dir, config=config, print_fn=print_fn)
 
     # Check status.json
     check = await async_ssh_run(f"cat {outputs_remote}/status.json", config=config, check=False)
