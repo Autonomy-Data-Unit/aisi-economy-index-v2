@@ -23,7 +23,7 @@ import numpy as np
 
 # %%
 #|set_func_signature
-def main(ctx, print) -> {
+async def main(ctx, print) -> {
     'ad_ids': np.ndarray
 }:
     """Sample job ads for processing (or pass through all if sample_n=0)."""

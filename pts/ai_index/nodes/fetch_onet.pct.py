@@ -18,7 +18,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print) -> {"onet_tables": dict}:
+async def main(ctx, print) -> {"onet_tables": dict}:
     """Download and extract O*NET 30.0 database."""
     ...
 

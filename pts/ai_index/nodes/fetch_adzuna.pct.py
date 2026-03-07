@@ -19,7 +19,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print):
+async def main(ctx, print):
     """Download raw Adzuna job ads from S3, insert into DuckDB, and deduplicate."""
     ...
 

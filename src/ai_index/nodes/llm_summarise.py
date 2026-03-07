@@ -2,7 +2,7 @@
 
 import numpy as np
 
-def main(ctx, print, ad_ids: np.ndarray) -> {
+async def main(ctx, print, ad_ids: np.ndarray) -> {
     'summary_meta': dict
 }:
     """Run LLM to extract structured summaries from job ads."""
