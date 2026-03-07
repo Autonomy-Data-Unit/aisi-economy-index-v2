@@ -5,6 +5,8 @@ def main(ctx, print, onet_tables: dict) -> {
 }:
     """Filter O*NET occupations and build text descriptions for embedding."""
     import pandas as pd
+    
+    from ai_index import const
     PUBLIC_SECTOR_TITLES = [
         # Justice / Courts (8)
         "Judges, Magistrate Judges, and Magistrates",
@@ -123,5 +125,8 @@ def main(ctx, print, onet_tables: dict) -> {
         print(f"prepare_onet_targets: dropped {n_dropped} public-sector occupations ({before} → {len(onet_targets)})")
     
     print(f"prepare_onet_targets: {len(onet_targets)} occupations with text descriptions (top_n={top_n})")
+    
+    onet_targets.to_parquet(const.onet_targets_path, index=False)
+    print(f"prepare_onet_targets: wrote {const.onet_targets_path}")
     
     return onet_targets

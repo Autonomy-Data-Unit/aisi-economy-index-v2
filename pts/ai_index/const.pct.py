@@ -36,6 +36,7 @@ run_defs_path = config_path / "run_defs.toml"
 
 adulib_cache_path = store_path / "adulib_cache"
 onet_store_path = inputs_path / "onet"
+onet_targets_path = inputs_path / "onet_targets.parquet"
 adzuna_db_path = inputs_path / "adzuna.duckdb"
 adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
 pipeline_store_path = store_path / "pipeline"
