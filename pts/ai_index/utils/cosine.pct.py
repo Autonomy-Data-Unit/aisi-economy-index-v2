@@ -1,0 +1,92 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Cosine top-K
+
+# %%
+#|default_exp utils.cosine
+
+# %%
+#|export
+import asyncio
+
+import numpy as np
+
+from ai_index.utils._model_config import _split_remote_kwargs
+
+def cosine_topk(
+    A: np.ndarray,
+    B: np.ndarray,
+    k: int = 5,
+    *,
+    mode: str = "local",
+    **kwargs,
+) -> dict:
+    """Compute top-K cosine similarity (api/local/sbatch).
+
+    Returns:
+        Dict with "indices" (n, k) and "scores" (n, k) arrays.
+    """
+    if mode in ("api", "local"):
+        from llm_runner.cosine import run_cosine_topk
+        if mode == "api":
+            kwargs.setdefault("device", "cpu")
+        return run_cosine_topk(A, B, k, **kwargs)
+
+    elif mode == "sbatch":
+        from isambard_utils.orchestrate import run_remote
+        cfg = dict(kwargs)
+        remote_kw = _split_remote_kwargs(cfg)
+        remote_kw.setdefault("job_name", "cosine_topk")
+        cfg["k"] = k
+        return run_remote(
+            "cosine_topk",
+            inputs={"A": A, "B": B},
+            config_dict=cfg,
+            **remote_kw,
+        )
+
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'local' and 'sbatch'.")
+
+# %%
+#|export
+async def acosine_topk(
+    A: np.ndarray,
+    B: np.ndarray,
+    k: int = 5,
+    *,
+    mode: str = "local",
+    **kwargs,
+) -> dict:
+    """Async version of cosine_topk.
+
+    For api/local mode, runs in a thread. For sbatch, uses arun_remote.
+    """
+    if mode in ("api", "local"):
+        from llm_runner.cosine import run_cosine_topk
+        if mode == "api":
+            kwargs.setdefault("device", "cpu")
+        return await asyncio.to_thread(run_cosine_topk, A, B, k, **kwargs)
+
+    elif mode == "sbatch":
+        from isambard_utils.orchestrate import arun_remote
+        cfg = dict(kwargs)
+        remote_kw = _split_remote_kwargs(cfg)
+        remote_kw.setdefault("job_name", "cosine_topk")
+        cfg["k"] = k
+        return await arun_remote(
+            "cosine_topk",
+            inputs={"A": A, "B": B},
+            config_dict=cfg,
+            **remote_kw,
+        )
+
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'local' and 'sbatch'.")

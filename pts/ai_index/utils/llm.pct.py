@@ -1,0 +1,90 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # LLM generate
+
+# %%
+#|default_exp utils.llm
+
+# %%
+#|export
+import asyncio
+
+from ai_index.const import llm_models_config_path
+from ai_index.utils._model_config import _resolve_model_args, _split_remote_kwargs
+
+def llm_generate(
+    prompts: list[str],
+    *,
+    model: str,
+    **kwargs,
+) -> list[str]:
+    """Generate LLM responses using a named model key from llm_models.toml.
+
+    The model key determines the execution mode (api/local/sbatch).
+    Any explicit **kwargs override config values.
+    """
+    mode, model_name, cfg = _resolve_model_args(llm_models_config_path, model, kwargs)
+
+    if mode in ("api", "local"):
+        from llm_runner.llm import run_llm_generate
+        if mode == "api":
+            cfg["backend"] = "api"
+        return run_llm_generate(prompts, model_name=model_name, **cfg)
+
+    elif mode == "sbatch":
+        from isambard_utils.orchestrate import run_remote
+        remote_kw = _split_remote_kwargs(cfg)
+        cfg["model_name"] = model_name
+        return run_remote(
+            "llm_generate",
+            inputs={"prompts": prompts},
+            config_dict=cfg,
+            required_models=[model_name],
+            **remote_kw,
+        )["responses"]
+
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}")
+
+# %%
+#|export
+async def allm_generate(
+    prompts: list[str],
+    *,
+    model: str,
+    **kwargs,
+) -> list[str]:
+    """Async version of llm_generate.
+
+    For api/local modes, runs the sync run_llm_generate in a thread.
+    For sbatch mode, uses the native async arun_remote.
+    """
+    mode, model_name, cfg = _resolve_model_args(llm_models_config_path, model, kwargs)
+
+    if mode in ("api", "local"):
+        from llm_runner.llm import run_llm_generate
+        if mode == "api":
+            cfg["backend"] = "api"
+        return await asyncio.to_thread(run_llm_generate, prompts, model_name=model_name, **cfg)
+
+    elif mode == "sbatch":
+        from isambard_utils.orchestrate import arun_remote
+        remote_kw = _split_remote_kwargs(cfg)
+        cfg["model_name"] = model_name
+        return (await arun_remote(
+            "llm_generate",
+            inputs={"prompts": prompts},
+            config_dict=cfg,
+            required_models=[model_name],
+            **remote_kw,
+        ))["responses"]
+
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}")
