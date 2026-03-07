@@ -321,3 +321,18 @@ with open(meta_path, "w") as f:
 print(f"llm_summarise: wrote {meta_path}")
 
 summary_meta #|func_return_line
+
+# %% [markdown]
+# ## Sample output
+
+# %%
+import duckdb
+_conn = duckdb.connect(str(db_path), read_only=True)
+_sample = _conn.execute("SELECT id, data, error FROM results LIMIT 3").fetchdf()
+_conn.close()
+for _, row in _sample.iterrows():
+    print(f"\n--- Ad {row['id']} ---")
+    if row["error"]:
+        print(f"ERROR: {row['error']}")
+    else:
+        print(json.loads(row["data"]))

@@ -10,9 +10,11 @@ from .config import IsambardConfig
 from .ssh import _get_config, _run_sync
 
 # %% nbs/isambard_utils/transfer.ipynb 3
+import os as _os
+
 _SSH_TRANSIENT_EXIT = 255  # SSH connection error (reset, refused, timeout, etc.)
-_DEFAULT_RETRIES = 3
-_RETRY_DELAYS = [2, 5, 10]  # seconds between retries (exponential-ish backoff)
+_DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "10"))
+_RETRY_DELAYS = [2, 5, 10, 30, 60]  # seconds between retries; last element repeats
 
 async def _retry_on_ssh_error(coro_fn, *, retries: int = _DEFAULT_RETRIES):
     """Retry an async callable on transient SSH errors (exit code 255).
