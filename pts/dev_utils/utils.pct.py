@@ -222,7 +222,7 @@ def _run_async(coro):
 _SPECIAL_PARAMS = frozenset({"ctx", "print"})
 
 
-def set_node_func_args(node_name: str | None = None, *, run_name: str | None = None, return_args=False, load_env=True, verbose=True):
+def set_node_func_args(node_name: str, *, run_name: str | None = None, return_args=False, load_env=True, verbose=True):
     """Populate the caller's namespace with the inputs a pipeline node would receive.
 
     Loads input data for a node from the netrun cache (or by running upstream
@@ -235,9 +235,7 @@ def set_node_func_args(node_name: str | None = None, *, run_name: str | None = N
 
     Args:
         node_name: The node name (e.g. ``"fetch_onet"``). Bare names are
-            resolved against subgraph-prefixed names automatically. If omitted,
-            the name is inferred from the current Jupyter notebook filename
-            via ``ipynbname``.
+            resolved against subgraph-prefixed names automatically.
         return_args: If True, return the arguments as a namedtuple instead of
             setting them in the caller's globals.
         load_env: If True (default), load ``.env`` via dotenv before resolving
@@ -250,31 +248,17 @@ def set_node_func_args(node_name: str | None = None, *, run_name: str | None = N
     Example::
 
         from dev_utils import set_node_func_args
-        set_node_func_args()  # infers node name from notebook filename
-        # => adzuna_meta, ctx, print are now available as globals
+        set_node_func_args('fetch_onet')
+        # => ctx, print are now available as globals
     """
     if load_env:
         from dotenv import load_dotenv
         load_dotenv()
 
-    inferred = node_name is None
-    if inferred:
-        import ipynbname
-        node_name = ipynbname.name()
-
     config = _load_net_config(run_name)
 
     # Resolve bare name to prefixed name (e.g. "embed_onet" -> "matching.embed_onet")
-    try:
-        name = _resolve_node_name(config, node_name)
-    except ValueError as e:
-        if inferred:
-            raise ValueError(
-                f"Node name '{node_name}' was inferred from the notebook filename "
-                f"but no matching node was found in the graph. "
-                f"Pass the node name explicitly if it differs from the notebook name."
-            ) from e
-        raise
+    name = _resolve_node_name(config, node_name)
 
     # Import the node's function to inspect its signature
     func = _get_node_func(config, name)
@@ -312,15 +296,14 @@ def set_node_func_args(node_name: str | None = None, *, run_name: str | None = N
 
 # %%
 #|export
-def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: str | None = None, load_env=True):
+def show_node_vars(node_name: str, *filter_names: str, run_name: str | None = None, load_env=True):
     """Print the node variables available to a pipeline node.
 
     Shows global and per-node variables with their values, types, and source
     (global, inherited, or node-level override).
 
     Args:
-        node_name: The node name (e.g. ``"fetch_adzuna"``). If omitted,
-            inferred from the current Jupyter notebook filename.
+        node_name: The node name (e.g. ``"fetch_adzuna"``).
         *filter_names: Optional variable names to filter by. If provided,
             only these variables are shown.
         run_name: Which run definition to use. Defaults to RUN_NAME env var,
@@ -330,18 +313,12 @@ def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: s
     Example::
 
         from dev_utils import show_node_vars
-        show_node_vars()                        # all vars for current node
         show_node_vars("fetch_adzuna")          # all vars for a specific node
         show_node_vars("fetch_adzuna", "years") # only the "years" var
     """
     if load_env:
         from dotenv import load_dotenv
         load_dotenv()
-
-    inferred = node_name is None
-    if inferred:
-        import ipynbname
-        node_name = ipynbname.name()
 
     config = _load_net_config(run_name)
 
@@ -353,16 +330,7 @@ def show_node_vars(node_name: str | None = None, *filter_names: str, run_name: s
         k: v.type for k, v in (raw_config.node_vars or {}).items()
     }
 
-    try:
-        name = _resolve_node_name(config, node_name)
-    except ValueError as e:
-        if inferred:
-            raise ValueError(
-                f"Node name '{node_name}' was inferred from the notebook filename "
-                f"but no matching node was found in the graph. "
-                f"Pass the node name explicitly if it differs from the notebook name."
-            ) from e
-        raise
+    name = _resolve_node_name(config, node_name)
 
     resolved_config = config.resolve_env_vars()
 

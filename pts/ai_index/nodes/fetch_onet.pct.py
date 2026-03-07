@@ -27,8 +27,8 @@ async def main(ctx, print) -> {"onet_tables": dict}:
 # Retrieve input arguments
 
 # %%
-from dev_utils import set_node_func_args
-set_node_func_args()
+from dev_utils import set_node_func_args, show_node_vars
+set_node_func_args('fetch_onet')
 
 # %% [markdown]
 # # Function body

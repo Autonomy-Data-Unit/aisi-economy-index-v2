@@ -48,8 +48,8 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
 
 # %%
 from dev_utils import *
-set_node_func_args(run_name='test_local')
-show_node_vars(run_name='test_local')
+set_node_func_args('llm_summarise', run_name='test_local')
+show_node_vars('llm_summarise', run_name='test_local')
 
 # %% [markdown]
 # # Function body
