@@ -44,7 +44,7 @@ await asetup_runner(config=config)
 # %%
 #|skip_evals
 texts = ["The quick brown fox", "jumps over the lazy dog", "AI will transform the economy"]
-embed_config = {"model": "BAAI/bge-large-en-v1.5", "device": "cuda", "dtype": "float16"}
+embed_config = {"model_name": "BAAI/bge-large-en-v1.5", "device": "cuda", "dtype": "float16"}
 embed_hash = compute_job_hash("embed", {"texts": texts}, embed_config)
 print(f"Job hash: {embed_hash}")
 
@@ -98,7 +98,7 @@ print("Cache hit result matches!")
 # %%
 #|skip_evals
 prompts = ["What is AI?", "Explain machine learning in one sentence."]
-llm_config = {"model": "Qwen/Qwen2.5-7B-Instruct", "max_new_tokens": 60,
+llm_config = {"model_name": "Qwen/Qwen2.5-7B-Instruct", "max_new_tokens": 60,
               "dtype": "float16", "backend": "vllm"}
 llm_hash = compute_job_hash("llm_generate", {"prompts": prompts}, llm_config)
 print(f"Job hash: {llm_hash}")
