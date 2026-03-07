@@ -342,18 +342,26 @@ def clear_job_cache(job_hash: str, *, config: IsambardConfig | None = None) -> N
     _run_sync(aclear_job_cache(job_hash, config=config))
 
 # %% nbs/isambard_utils/orchestrate.ipynb 22
-async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print) -> None:
+_setup_done = False
+
+async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print,
+                        force: bool = False) -> None:
     """Ensure llm_runner is deployed on Isambard (idempotent, targeted).
 
     Uploads a minimal remote_pyproject.toml (llm_runner deps only) and
     src/llm_runner/. Creates dirs, installs uv if needed, and runs uv sync.
 
-    Call this once before multiple arun_remote(..., setup=False) calls.
+    Skips entirely if already called successfully in this process, unless
+    force=True.
 
     Args:
         config: Isambard configuration.
         print_fn: Print function for progress logging.
+        force: Run setup even if already done this session.
     """
+    global _setup_done
+    if _setup_done and not force:
+        return
     import subprocess
     config = _get_config(config)
     from .env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
@@ -394,6 +402,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print)
         # 7. Fix Lustre hardlinks (one-time migration to copy mode)
         await _afix_lustre_hardlinks(config=config)
         print_fn("runner setup: done")
+        _setup_done = True
 
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
@@ -403,12 +412,13 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print)
         ) from e
 
 # %% nbs/isambard_utils/orchestrate.ipynb 23
-def setup_runner(*, config: IsambardConfig | None = None, print_fn=print) -> None:
+def setup_runner(*, config: IsambardConfig | None = None, print_fn=print,
+                 force: bool = False) -> None:
     """Ensure llm_runner is deployed on Isambard (sync wrapper).
 
     See asetup_runner() for details.
     """
-    _run_sync(asetup_runner(config=config, print_fn=print_fn))
+    _run_sync(asetup_runner(config=config, print_fn=print_fn, force=force))
 
 # %% nbs/isambard_utils/orchestrate.ipynb 25
 async def arun_remote(
