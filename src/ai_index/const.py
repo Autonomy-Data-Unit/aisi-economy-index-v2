@@ -3,10 +3,15 @@
 __all__ = ['adulib_cache_path', 'adzuna_db_path', 'adzuna_store_path', 'config_path', 'embed_models_config_path', 'inputs_path', 'llm_models_config_path', 'netrun_config_path', 'onet_store_path', 'pipeline_store_path', 'repo_root', 'run_defs_path', 'store_path']
 
 # %% nbs/ai_index/const.ipynb 2
+from dotenv import load_dotenv
+load_dotenv()
+
+# %% nbs/ai_index/const.ipynb 3
 from pathlib import Path
+import ai_index
 
 # Repo root: const.py lives at src/ai_index/const.py -> ../../
-repo_root = Path(__file__).resolve().parent.parent.parent
+repo_root = Path(ai_index.__file__).parent.parent.parent
 
 config_path = repo_root / "config"
 store_path = repo_root / "store"
@@ -22,3 +27,7 @@ onet_store_path = inputs_path / "onet"
 adzuna_db_path = inputs_path / "adzuna.duckdb"
 adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
 pipeline_store_path = store_path / "pipeline"
+
+# %% nbs/ai_index/const.ipynb 4
+import adulib.caching
+adulib.caching.set_default_cache_path(adulib_cache_path)

@@ -14,10 +14,16 @@
 
 # %%
 #|export
+from dotenv import load_dotenv
+load_dotenv()
+
+# %%
+#|export
 from pathlib import Path
+import ai_index
 
 # Repo root: const.py lives at src/ai_index/const.py -> ../../
-repo_root = Path(__file__).resolve().parent.parent.parent
+repo_root = Path(ai_index.__file__).parent.parent.parent
 
 config_path = repo_root / "config"
 store_path = repo_root / "store"
@@ -33,3 +39,8 @@ onet_store_path = inputs_path / "onet"
 adzuna_db_path = inputs_path / "adzuna.duckdb"
 adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
 pipeline_store_path = store_path / "pipeline"
+
+# %%
+#|export
+import adulib.caching
+adulib.caching.set_default_cache_path(adulib_cache_path)
