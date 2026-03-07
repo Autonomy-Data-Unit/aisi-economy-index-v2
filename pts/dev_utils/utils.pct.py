@@ -169,6 +169,13 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
     """
     net = Net(config)
     try:
+        # Source nodes have no input ports — nothing to retrieve
+        node_info = net.nodes[node_name]
+        if not node_info.in_port_names:
+            if verbose:
+                print(f"set_node_func_args: '{node_name}' is a source node (no inputs)")
+            return {}
+
         cached = net.get_cached_input_salvos(node_name)
         if cached:
             if verbose:
@@ -190,7 +197,7 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
 
         salvos = await net.run_to_targets(node_name)
         if not salvos:
-            return {}  # startup node with no input ports
+            return {}
         return salvos[0].packets  # extract dict from TargetInputSalvo
     finally:
         await net.stop()
