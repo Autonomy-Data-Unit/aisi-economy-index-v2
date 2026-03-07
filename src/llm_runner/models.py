@@ -213,15 +213,15 @@ class VllmLLM:
         if isinstance(prompts, str):
             prompts = [prompts]
 
-        guided_kwargs = {}
+        structured_kwargs = {}
         if json_schema is not None:
-            from vllm.sampling_params import GuidedDecodingParams
-            guided_kwargs["guided_decoding"] = GuidedDecodingParams(json=json_schema)
+            from vllm.sampling_params import StructuredOutputsParams
+            structured_kwargs["structured_outputs"] = StructuredOutputsParams(json=json_schema)
 
         sampling_params = SamplingParams(
             temperature=kwargs.pop("temperature", 0.0),
             max_tokens=max_new_tokens,
-            **guided_kwargs,
+            **structured_kwargs,
         )
 
         conversations = []
