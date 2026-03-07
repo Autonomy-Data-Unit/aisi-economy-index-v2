@@ -75,9 +75,13 @@ async def _arun_once(ssh_cmd: list[str], *, timeout: int,
         stderr=stderr if capture else None,
     )
 
+_SSH_TRANSIENT_EXIT = 255
+_SSH_RETRY_DELAYS = [2, 5, 10]
+
 async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
                check: bool = True, capture: bool = True,
-               retries: int = 0, print_fn=print) -> subprocess.CompletedProcess:
+               retries: int = 0, ssh_retries: int = 3,
+               print_fn=print) -> subprocess.CompletedProcess:
     """Run a command on the Isambard login node via SSH (async).
 
     Args:
@@ -87,6 +91,8 @@ async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int =
         check: Raise CalledProcessError on non-zero exit.
         capture: Capture stdout/stderr (True) or inherit terminal (False).
         retries: Number of retries on timeout (default 0 = no retries).
+        ssh_retries: Number of retries on transient SSH errors, exit code 255
+            (default 3). Set to 0 to disable.
         print_fn: Print function for retry logging.
     """
     config = _get_config(config)
@@ -95,7 +101,15 @@ async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int =
     last_exc = None
     for attempt in range(1 + retries):
         try:
-            result = await _arun_once(ssh_cmd, timeout=timeout, capture=capture)
+            # Inner loop: retry on transient SSH connection errors (exit 255)
+            for ssh_attempt in range(1 + ssh_retries):
+                result = await _arun_once(ssh_cmd, timeout=timeout, capture=capture)
+                if result.returncode == _SSH_TRANSIENT_EXIT and ssh_attempt < ssh_retries:
+                    delay = _SSH_RETRY_DELAYS[min(ssh_attempt, len(_SSH_RETRY_DELAYS) - 1)]
+                    print_fn(f"SSH connection error (exit 255), retrying in {delay}s ({ssh_attempt + 1}/{ssh_retries})...")
+                    await asyncio.sleep(delay)
+                    continue
+                break
             if check and result.returncode != 0:
                 raise subprocess.CalledProcessError(
                     result.returncode, ssh_cmd,

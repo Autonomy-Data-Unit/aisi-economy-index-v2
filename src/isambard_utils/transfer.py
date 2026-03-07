@@ -10,6 +10,30 @@ from .config import IsambardConfig
 from .ssh import _get_config, _run_sync
 
 # %% nbs/isambard_utils/transfer.ipynb 3
+_SSH_TRANSIENT_EXIT = 255  # SSH connection error (reset, refused, timeout, etc.)
+_DEFAULT_RETRIES = 3
+_RETRY_DELAYS = [2, 5, 10]  # seconds between retries (exponential-ish backoff)
+
+async def _retry_on_ssh_error(coro_fn, *, retries: int = _DEFAULT_RETRIES):
+    """Retry an async callable on transient SSH errors (exit code 255).
+
+    Args:
+        coro_fn: Zero-argument callable returning an awaitable.
+        retries: Max number of retries (default 3).
+    """
+    last_exc = None
+    for attempt in range(1 + retries):
+        try:
+            return await coro_fn()
+        except subprocess.CalledProcessError as e:
+            if e.returncode != _SSH_TRANSIENT_EXIT or attempt >= retries:
+                raise
+            last_exc = e
+            delay = _RETRY_DELAYS[min(attempt, len(_RETRY_DELAYS) - 1)]
+            await asyncio.sleep(delay)
+    raise last_exc
+
+# %% nbs/isambard_utils/transfer.ipynb 4
 def _build_rsync_cmd(config: IsambardConfig, src: str, dst: str, *,
                      exclude: list[str] | None = None,
                      delete: bool = False,
@@ -25,20 +49,22 @@ def _build_rsync_cmd(config: IsambardConfig, src: str, dst: str, *,
     cmd.extend([src, dst])
     return cmd
 
-# %% nbs/isambard_utils/transfer.ipynb 4
+# %% nbs/isambard_utils/transfer.ipynb 5
 def _remote_path(config: IsambardConfig, path: str) -> str:
     """Format a remote path as user@host:path or host:path."""
     if config.ssh_user:
         return f"{config.ssh_user}@{config.ssh_host}:{path}"
     return f"{config.ssh_host}:{path}"
 
-# %% nbs/isambard_utils/transfer.ipynb 5
+# %% nbs/isambard_utils/transfer.ipynb 6
 async def aupload(local_path: str, remote_path: str, *,
                   config: IsambardConfig | None = None,
                   exclude: list[str] | None = None,
                   delete: bool = False,
                   dry_run: bool = False) -> None:
     """Upload local files/dirs to Isambard via rsync (async).
+
+    Retries on transient SSH errors (exit code 255).
 
     Args:
         local_path: Local file or directory path.
@@ -53,12 +79,14 @@ async def aupload(local_path: str, remote_path: str, *,
         config, local_path, _remote_path(config, remote_path),
         exclude=exclude, delete=delete, dry_run=dry_run,
     )
-    proc = await asyncio.create_subprocess_exec(*cmd)
-    await proc.communicate()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, cmd)
+    async def _attempt():
+        proc = await asyncio.create_subprocess_exec(*cmd)
+        await proc.communicate()
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, cmd)
+    await _retry_on_ssh_error(_attempt)
 
-# %% nbs/isambard_utils/transfer.ipynb 6
+# %% nbs/isambard_utils/transfer.ipynb 7
 def upload(local_path: str, remote_path: str, *,
            config: IsambardConfig | None = None,
            exclude: list[str] | None = None,
@@ -77,11 +105,13 @@ def upload(local_path: str, remote_path: str, *,
     _run_sync(aupload(local_path, remote_path, config=config,
                        exclude=exclude, delete=delete, dry_run=dry_run))
 
-# %% nbs/isambard_utils/transfer.ipynb 7
+# %% nbs/isambard_utils/transfer.ipynb 8
 async def adownload(remote_path: str, local_path: str, *,
                     config: IsambardConfig | None = None,
                     exclude: list[str] | None = None) -> None:
     """Download files/dirs from Isambard via rsync (async).
+
+    Retries on transient SSH errors (exit code 255).
 
     Args:
         remote_path: Source path on Isambard.
@@ -94,12 +124,14 @@ async def adownload(remote_path: str, local_path: str, *,
         config, _remote_path(config, remote_path), local_path,
         exclude=exclude,
     )
-    proc = await asyncio.create_subprocess_exec(*cmd)
-    await proc.communicate()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, cmd)
+    async def _attempt():
+        proc = await asyncio.create_subprocess_exec(*cmd)
+        await proc.communicate()
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, cmd)
+    await _retry_on_ssh_error(_attempt)
 
-# %% nbs/isambard_utils/transfer.ipynb 8
+# %% nbs/isambard_utils/transfer.ipynb 9
 def download(remote_path: str, local_path: str, *,
              config: IsambardConfig | None = None,
              exclude: list[str] | None = None) -> None:
@@ -113,10 +145,12 @@ def download(remote_path: str, local_path: str, *,
     """
     _run_sync(adownload(remote_path, local_path, config=config, exclude=exclude))
 
-# %% nbs/isambard_utils/transfer.ipynb 9
+# %% nbs/isambard_utils/transfer.ipynb 10
 async def aupload_bytes(data: bytes, remote_path: str, *,
                         config: IsambardConfig | None = None) -> None:
     """Upload in-memory bytes to a remote file via SSH stdin pipe (async).
+
+    Retries on transient SSH errors (exit code 255).
 
     Args:
         data: Bytes to write to the remote file.
@@ -128,14 +162,16 @@ async def aupload_bytes(data: bytes, remote_path: str, *,
     if config.ssh_user:
         ssh_cmd.extend(["-l", config.ssh_user])
     ssh_cmd.extend([config.ssh_host, f"cat > {remote_path}"])
-    proc = await asyncio.create_subprocess_exec(
-        *ssh_cmd, stdin=asyncio.subprocess.PIPE,
-    )
-    await proc.communicate(input=data)
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+    async def _attempt():
+        proc = await asyncio.create_subprocess_exec(
+            *ssh_cmd, stdin=asyncio.subprocess.PIPE,
+        )
+        await proc.communicate(input=data)
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+    await _retry_on_ssh_error(_attempt)
 
-# %% nbs/isambard_utils/transfer.ipynb 10
+# %% nbs/isambard_utils/transfer.ipynb 11
 def upload_bytes(data: bytes, remote_path: str, *,
                  config: IsambardConfig | None = None) -> None:
     """Upload in-memory bytes to a remote file via SSH stdin pipe.
@@ -147,12 +183,13 @@ def upload_bytes(data: bytes, remote_path: str, *,
     """
     _run_sync(aupload_bytes(data, remote_path, config=config))
 
-# %% nbs/isambard_utils/transfer.ipynb 12
+# %% nbs/isambard_utils/transfer.ipynb 13
 async def aupload_tar_pipe(local_dir: str, remote_dir: str, *,
                             config: IsambardConfig | None = None) -> None:
     """Upload a local directory to remote via tar + SSH pipe (async).
 
     Streams the contents without persistent intermediate files.
+    Retries on transient SSH errors (exit code 255).
 
     Args:
         local_dir: Local directory to upload.
@@ -165,28 +202,30 @@ async def aupload_tar_pipe(local_dir: str, remote_dir: str, *,
     tar_cmd = ["tar", "cf", "-", "-C", local_dir, "."]
     ssh_cmd = ["ssh", remote, f"mkdir -p {remote_dir} && tar xf - -C {remote_dir}"]
 
-    # Use an OS pipe so tar's stdout connects directly to ssh's stdin
-    read_fd, write_fd = os.pipe()
-    try:
-        tar_proc = await asyncio.create_subprocess_exec(
-            *tar_cmd, stdout=write_fd,
-        )
-        os.close(write_fd); write_fd = -1
-        ssh_proc = await asyncio.create_subprocess_exec(
-            *ssh_cmd, stdin=read_fd,
-        )
-        os.close(read_fd); read_fd = -1
-    except:
-        if write_fd >= 0: os.close(write_fd)
-        if read_fd >= 0: os.close(read_fd)
-        raise
+    async def _attempt():
+        read_fd, write_fd = os.pipe()
+        try:
+            tar_proc = await asyncio.create_subprocess_exec(
+                *tar_cmd, stdout=write_fd,
+            )
+            os.close(write_fd); write_fd = -1
+            ssh_proc = await asyncio.create_subprocess_exec(
+                *ssh_cmd, stdin=read_fd,
+            )
+            os.close(read_fd); read_fd = -1
+        except:
+            if write_fd >= 0: os.close(write_fd)
+            if read_fd >= 0: os.close(read_fd)
+            raise
 
-    await asyncio.gather(tar_proc.wait(), ssh_proc.wait())
+        await asyncio.gather(tar_proc.wait(), ssh_proc.wait())
 
-    if ssh_proc.returncode != 0:
-        raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+        if ssh_proc.returncode != 0:
+            raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
 
-# %% nbs/isambard_utils/transfer.ipynb 13
+    await _retry_on_ssh_error(_attempt)
+
+# %% nbs/isambard_utils/transfer.ipynb 14
 def upload_tar_pipe(local_dir: str, remote_dir: str, *,
                     config: IsambardConfig | None = None) -> None:
     """Upload a local directory to remote via tar + SSH pipe.
@@ -198,10 +237,12 @@ def upload_tar_pipe(local_dir: str, remote_dir: str, *,
     """
     _run_sync(aupload_tar_pipe(local_dir, remote_dir, config=config))
 
-# %% nbs/isambard_utils/transfer.ipynb 14
+# %% nbs/isambard_utils/transfer.ipynb 15
 async def adownload_tar_pipe(remote_dir: str, local_dir: str, *,
                               config: IsambardConfig | None = None) -> None:
     """Download a remote directory to local via tar + SSH pipe (async).
+
+    Retries on transient SSH errors (exit code 255).
 
     Args:
         remote_dir: Remote source directory.
@@ -215,28 +256,32 @@ async def adownload_tar_pipe(remote_dir: str, local_dir: str, *,
     ssh_cmd = ["ssh", remote, f"tar cf - -C {remote_dir} ."]
     tar_cmd = ["tar", "xf", "-", "-C", local_dir]
 
-    # Use an OS pipe so ssh's stdout connects directly to tar's stdin
-    read_fd, write_fd = os.pipe()
-    try:
-        ssh_proc = await asyncio.create_subprocess_exec(
-            *ssh_cmd, stdout=write_fd,
-        )
-        os.close(write_fd); write_fd = -1
-        tar_proc = await asyncio.create_subprocess_exec(
-            *tar_cmd, stdin=read_fd,
-        )
-        os.close(read_fd); read_fd = -1
-    except:
-        if write_fd >= 0: os.close(write_fd)
-        if read_fd >= 0: os.close(read_fd)
-        raise
+    async def _attempt():
+        read_fd, write_fd = os.pipe()
+        try:
+            ssh_proc = await asyncio.create_subprocess_exec(
+                *ssh_cmd, stdout=write_fd,
+            )
+            os.close(write_fd); write_fd = -1
+            tar_proc = await asyncio.create_subprocess_exec(
+                *tar_cmd, stdin=read_fd,
+            )
+            os.close(read_fd); read_fd = -1
+        except:
+            if write_fd >= 0: os.close(write_fd)
+            if read_fd >= 0: os.close(read_fd)
+            raise
 
-    await asyncio.gather(ssh_proc.wait(), tar_proc.wait())
+        await asyncio.gather(ssh_proc.wait(), tar_proc.wait())
 
-    if tar_proc.returncode != 0:
-        raise subprocess.CalledProcessError(tar_proc.returncode, tar_cmd)
+        if ssh_proc.returncode != 0:
+            raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+        if tar_proc.returncode != 0:
+            raise subprocess.CalledProcessError(tar_proc.returncode, tar_cmd)
 
-# %% nbs/isambard_utils/transfer.ipynb 15
+    await _retry_on_ssh_error(_attempt)
+
+# %% nbs/isambard_utils/transfer.ipynb 16
 def download_tar_pipe(remote_dir: str, local_dir: str, *,
                       config: IsambardConfig | None = None) -> None:
     """Download a remote directory to local via tar + SSH pipe.
@@ -248,7 +293,7 @@ def download_tar_pipe(remote_dir: str, local_dir: str, *,
     """
     _run_sync(adownload_tar_pipe(remote_dir, local_dir, config=config))
 
-# %% nbs/isambard_utils/transfer.ipynb 17
+# %% nbs/isambard_utils/transfer.ipynb 18
 import hashlib
 
 def compute_content_hash(directory: str | Path) -> str:
@@ -271,7 +316,7 @@ def compute_content_hash(directory: str | Path) -> str:
             h.update(path.read_bytes())
     return h.hexdigest()
 
-# %% nbs/isambard_utils/transfer.ipynb 18
+# %% nbs/isambard_utils/transfer.ipynb 19
 async def aupload_idempotent(local_dir: str, remote_base: str, content_hash: str, *,
                               config: IsambardConfig | None = None) -> str:
     """Upload to a content-hashed directory via rsync (idempotent, async).
@@ -307,7 +352,7 @@ async def aupload_idempotent(local_dir: str, remote_base: str, content_hash: str
     await async_ssh_run(f"touch {remote_path}/.complete", config=config)
     return remote_path
 
-# %% nbs/isambard_utils/transfer.ipynb 19
+# %% nbs/isambard_utils/transfer.ipynb 20
 def upload_idempotent(local_dir: str, remote_base: str, content_hash: str, *,
                       config: IsambardConfig | None = None) -> str:
     """Upload to a content-hashed directory via rsync (idempotent).
@@ -323,12 +368,13 @@ def upload_idempotent(local_dir: str, remote_base: str, content_hash: str, *,
     """
     return _run_sync(aupload_idempotent(local_dir, remote_base, content_hash, config=config))
 
-# %% nbs/isambard_utils/transfer.ipynb 20
+# %% nbs/isambard_utils/transfer.ipynb 21
 async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str, *,
                               config: IsambardConfig | None = None) -> str:
     """Upload via compressed tar + SSH pipe to a content-hashed directory (async).
 
     Idempotent — skips if `.complete` marker exists on remote.
+    Retries on transient SSH errors (exit code 255).
 
     Args:
         local_dir: Local directory to upload.
@@ -339,7 +385,7 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
     Returns:
         Remote path of the content-hashed directory.
     """
-    import tempfile
+    import tempfile, os
     from .ssh import arun as async_ssh_run
     config = _get_config(config)
     remote_path = f"{remote_base}/{content_hash}"
@@ -374,29 +420,29 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
         )
         ssh_cmd = ["ssh", remote, extract_cmd]
 
-        import os
-        with open(tmp_path, "rb") as tar_file:
-            ssh_proc = await asyncio.create_subprocess_exec(
-                *ssh_cmd, stdin=tar_file,
-            )
-            await ssh_proc.communicate()
+        async def _attempt():
+            with open(tmp_path, "rb") as tar_file:
+                ssh_proc = await asyncio.create_subprocess_exec(
+                    *ssh_cmd, stdin=tar_file,
+                )
+                await ssh_proc.communicate()
+            if ssh_proc.returncode != 0:
+                raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
 
-        if ssh_proc.returncode != 0:
-            raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+        await _retry_on_ssh_error(_attempt)
     finally:
-        import os
         os.unlink(tmp_path)
 
     return remote_path
 
-# %% nbs/isambard_utils/transfer.ipynb 21
+# %% nbs/isambard_utils/transfer.ipynb 22
 async def _aupload_compressed_direct(local_dir: str, remote_dir: str, *,
                                       config: IsambardConfig | None = None) -> None:
     """Upload via compressed tar + SSH pipe to a specific remote dir (async).
 
     Unlike aupload_compressed, this does NOT use content hashing or .complete
     markers. It simply tar.gz's the local directory and extracts it at the
-    given remote path.
+    given remote path. Retries on transient SSH errors (exit code 255).
 
     Args:
         local_dir: Local directory to upload.
@@ -424,18 +470,20 @@ async def _aupload_compressed_direct(local_dir: str, remote_dir: str, *,
         extract_cmd = f"tar xzf - -C {remote_dir}"
         ssh_cmd = ["ssh", remote, extract_cmd]
 
-        with open(tmp_path, "rb") as tar_file:
-            ssh_proc = await asyncio.create_subprocess_exec(
-                *ssh_cmd, stdin=tar_file,
-            )
-            await ssh_proc.communicate()
+        async def _attempt():
+            with open(tmp_path, "rb") as tar_file:
+                ssh_proc = await asyncio.create_subprocess_exec(
+                    *ssh_cmd, stdin=tar_file,
+                )
+                await ssh_proc.communicate()
+            if ssh_proc.returncode != 0:
+                raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
 
-        if ssh_proc.returncode != 0:
-            raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+        await _retry_on_ssh_error(_attempt)
     finally:
         os.unlink(tmp_path)
 
-# %% nbs/isambard_utils/transfer.ipynb 22
+# %% nbs/isambard_utils/transfer.ipynb 23
 def upload_compressed(local_dir: str, remote_base: str, content_hash: str, *,
                       config: IsambardConfig | None = None) -> str:
     """Upload via compressed tar + SSH pipe to a content-hashed directory.
