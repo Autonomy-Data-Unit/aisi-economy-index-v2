@@ -137,13 +137,13 @@
         "execution_config": {
           "node_vars": {
             "summarise_resume": {
-              "value": true
+              "type": "bool"
             },
             "summarise_max_retries": {
-              "value": 0
+              "type": "int"
             },
             "summarise_max_concurrent": {
-              "value": 1
+              "type": "int"
             }
           }
         },

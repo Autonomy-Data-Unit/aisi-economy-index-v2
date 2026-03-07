@@ -92,7 +92,9 @@ Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`
 
 ### `run_defs.toml` — Run definitions
 
-Defines named pipeline configurations. `[defaults]` provides base values; `[runs.<name>]` overrides them. All values are injected as netrun global node_vars (accessible via `ctx.vars` in nodes).
+Defines named pipeline configurations. `[defaults]` provides base values; `[runs.<name>]` overrides them. Scalar values become global node_vars; subtable dicts (e.g. `[defaults.llm_summarise]`) become per-node overrides. All values are accessible via `ctx.vars` in nodes.
+
+**Convention:** Default values for all node variables (both global and per-node) live in `run_defs.toml`, not in `netrun.json`. The `netrun.json` only declares variable names and types as unfilled placeholders.
 
 ```toml
 [defaults]
@@ -103,8 +105,16 @@ embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
 cosine_mode = "api"      # "api", "local", or "sbatch"
 topk = 5                 # Top-K candidates for cosine similarity
 llm_model = "gpt-5.2"   # Key into llm_models.toml
-llm_batch_size = 1000   # Number of prompts per LLM call
+llm_batch_size = 1000    # Number of prompts per LLM call
 llm_max_new_tokens = 220 # Max tokens per LLM response
+
+[defaults.fetch_adzuna]
+fetch_years = "all"
+
+[defaults.llm_summarise]
+summarise_resume = true          # Resume from previous partial run
+summarise_max_retries = 0        # Retry rounds for failed ads
+summarise_max_concurrent = 1     # Max concurrent batch LLM calls
 
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)
@@ -221,7 +231,7 @@ torch_index_url = "https://download.pytorch.org/whl/cu126"
 
 ### `netrun.json` — Pipeline graph
 
-Defines the DAG, node_var placeholders, and cache settings. Global node_vars are declared with types but no values (filled at runtime by run_defs). Per-node vars use `"inherit": true` to pull from globals.
+Defines the DAG, node_var placeholders, and cache settings. All node_vars (global and per-node) are declared with types only — no default values. Defaults live in `run_defs.toml`.
 
 Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `run_name`, `adzuna_s3_prefix` (from `$env`).
 
@@ -229,17 +239,20 @@ Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `ll
 
 There are two kinds of node variables:
 
-1. **Global node_vars** — Declared in `config/netrun.json` top-level `node_vars` with a type. Defaults come from `config/run_defs.toml` `[defaults]`. Available to all nodes via `ctx.vars["var_name"]`. To add one:
+1. **Global node_vars** — Declared in `config/netrun.json` top-level `node_vars` with a type. Available to all nodes via `ctx.vars["var_name"]`. To add one:
    - Add `"var_name": {"type": "int"}` to `netrun.json` `node_vars`
    - Add `var_name = 1000` to `run_defs.toml` `[defaults]`
 
-2. **Per-node vars** — Declared in a node's `execution_config.node_vars` in `netrun.json`. These are node-specific and have a fixed value (or inherit from globals). To add one:
+2. **Per-node vars** — Declared in a node's `execution_config.node_vars` in `netrun.json` with a type. To add one:
    - Add to the node's `execution_config.node_vars` in `netrun.json`:
      ```json
-     "node_vars": { "my_var": { "value": true } }
+     "node_vars": { "my_var": { "type": "bool" } }
      ```
+   - Add default to `run_defs.toml` in `[defaults.<node_name>]` subtable
+   - Per-run overrides go in `[runs.<run_name>.<node_name>]` subtables
    - Access via `ctx.vars.get("my_var", default)` in the node function
-   - Per-node overrides from `run_defs.toml` go in `[defaults.<node_name>]` or `[runs.<run_name>.<node_name>]` subtables
+
+**Convention:** `netrun.json` only declares names and types. All default values go in `run_defs.toml`.
 
 All node vars are accessible in node functions via `ctx.vars["var_name"]`. Values from TOML are Python-typed (int, str, bool) but may need explicit casting with `int()` when the type system returns strings.
 

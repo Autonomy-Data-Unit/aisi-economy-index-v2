@@ -10,6 +10,11 @@ llm_max_new_tokens = 220
 [defaults.fetch_adzuna]
 fetch_years = "all"
 
+[defaults.llm_summarise]
+summarise_resume = true
+summarise_max_retries = 0
+summarise_max_concurrent = 1
+
 [runs.baseline]
 # inherits all defaults
 
