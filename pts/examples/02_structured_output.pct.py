@@ -84,7 +84,6 @@ print(f"Years experience: {parsed.years_experience}")
 # an API key (e.g. `OPENAI_API_KEY`).
 
 # %%
-#|eval: false
 responses_api = llm_generate(
     prompts,
     model="gpt-5.2",
@@ -105,7 +104,6 @@ print(f"Years experience: {parsed_api.years_experience}")
 # decoding on a remote GPU. Requires an active Clifton cert.
 
 # %%
-#|eval: false
 responses_sbatch = llm_generate(
     prompts,
     model="qwen-7b-sbatch",
