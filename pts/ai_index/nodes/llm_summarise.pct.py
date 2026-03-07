@@ -187,15 +187,18 @@ def _build_results_df(ids: list, responses: list[str]) -> tuple[pd.DataFrame, in
 #|export
 run_name = ctx.vars["run_name"]
 llm_model = ctx.vars["llm_model"]
-batch_size = int(ctx.vars["llm_batch_size"])
-max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
+batch_size = ctx.vars["llm_batch_size"]
+max_new_tokens = ctx.vars["llm_max_new_tokens"]
 resume = ctx.vars.get("summarise_resume", True)
-max_retries = int(ctx.vars.get("summarise_max_retries", 0))
-max_concurrent = int(ctx.vars["llm_max_concurrent_batches"])
+max_retries = ctx.vars.get("summarise_max_retries", 0)
+max_concurrent = ctx.vars["llm_max_concurrent_batches"]
 
 output_dir = const.pipeline_store_path / run_name / "llm_summarise"
 output_dir.mkdir(parents=True, exist_ok=True)
 db_path = output_dir / "summaries.duckdb"
+
+# %%
+ctx.vars["llm_max_concurrent_batches"]
 
 # %% [markdown]
 # ## Determine which ads to process
