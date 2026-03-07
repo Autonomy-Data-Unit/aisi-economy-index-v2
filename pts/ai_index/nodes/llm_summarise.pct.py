@@ -203,7 +203,7 @@ max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
 resume = ctx.vars.get("summarise_resume", True)
 max_retries = int(ctx.vars.get("summarise_max_retries", 0))
 
-output_dir = const.pipeline_store_path / run_name
+output_dir = const.pipeline_store_path / run_name / "llm_summarise"
 output_dir.mkdir(parents=True, exist_ok=True)
 output_path = output_dir / "summaries.parquet"
 
@@ -319,4 +319,10 @@ summary_meta = {
     "n_failed": n_failed,
     "failed_ids": failed_ids,
 }
+
+meta_path = output_dir / "summary_meta.json"
+with open(meta_path, "w") as f:
+    json.dump(summary_meta, f, indent=2)
+print(f"llm_summarise: wrote {meta_path}")
+
 summary_meta #|func_return_line
