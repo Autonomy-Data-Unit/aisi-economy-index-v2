@@ -106,6 +106,7 @@ class LLM:
     def generate(self, prompts: list[str] | str, *,
                  max_new_tokens: int = 60,
                  system_message: str | None = None,
+                 json_schema: dict | None = None,
                  **kwargs) -> list[str]:
         """Generate text completions for one or more prompts.
 
@@ -116,6 +117,8 @@ class LLM:
             prompts: Single prompt string or list of prompts.
             max_new_tokens: Maximum tokens to generate per prompt.
             system_message: Optional system message prepended to each prompt.
+            json_schema: Optional JSON schema dict to constrain output.
+                Requires the ``outlines`` package.
             **kwargs: Additional arguments passed to model.generate().
 
         Returns:
@@ -148,6 +151,23 @@ class LLM:
 
         input_len = inputs["input_ids"].shape[1]
 
+        # Build logits processor for structured JSON output
+        if json_schema is not None:
+            try:
+                import outlines
+                from outlines.processors import JSONLogitsProcessor
+            except ImportError:
+                raise ImportError(
+                    "The `outlines` package is required for structured JSON output "
+                    "with the transformers backend. Install it with: "
+                    "pip install outlines"
+                )
+            import json
+            from transformers import LogitsProcessorList
+            schema_str = json.dumps(json_schema) if isinstance(json_schema, dict) else json_schema
+            processor = JSONLogitsProcessor(schema_str, tokenizer=self.tokenizer)
+            kwargs["logits_processor"] = LogitsProcessorList([processor])
+
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
@@ -177,6 +197,7 @@ class VllmLLM:
     def generate(self, prompts: list[str] | str, *,
                  max_new_tokens: int = 60,
                  system_message: str | None = None,
+                 json_schema: dict | None = None,
                  **kwargs) -> list[str]:
         """Generate text completions using vLLM continuous batching.
 
@@ -184,6 +205,7 @@ class VllmLLM:
             prompts: Single prompt string or list of prompts.
             max_new_tokens: Maximum tokens to generate per prompt.
             system_message: Optional system message prepended to each prompt.
+            json_schema: Optional JSON schema dict to constrain output.
             **kwargs: Additional arguments (temperature extracted, rest ignored).
 
         Returns:
@@ -194,9 +216,15 @@ class VllmLLM:
         if isinstance(prompts, str):
             prompts = [prompts]
 
+        guided_kwargs = {}
+        if json_schema is not None:
+            from vllm.sampling_params import GuidedDecodingParams
+            guided_kwargs["guided_decoding"] = GuidedDecodingParams(json=json_schema)
+
         sampling_params = SamplingParams(
             temperature=kwargs.pop("temperature", 0.0),
             max_tokens=max_new_tokens,
+            **guided_kwargs,
         )
 
         conversations = []
@@ -220,6 +248,7 @@ class ApiLLM:
     def generate(self, prompts: list[str] | str, *,
                  max_new_tokens: int = 60,
                  system_message: str | None = None,
+                 json_schema: dict | None = None,
                  **kwargs) -> list[str]:
         """Generate text completions via cloud API.
 
@@ -229,7 +258,9 @@ class ApiLLM:
             prompts: Single prompt string or list of prompts.
             max_new_tokens: Maximum tokens to generate per prompt.
             system_message: Optional system message.
-            **kwargs: Ignored.
+            json_schema: Optional JSON schema dict to constrain output.
+                Builds an OpenAI-compatible ``response_format`` parameter.
+            **kwargs: Additional arguments forwarded to adulib async_single.
 
         Returns:
             List of generated response strings.
@@ -241,12 +272,20 @@ class ApiLLM:
         if isinstance(prompts, str):
             prompts = [prompts]
 
+        extra_kwargs = dict(kwargs)
+        if json_schema is not None:
+            extra_kwargs["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "response", "schema": json_schema},
+            }
+
         async def _call(prompt: str) -> str:
             response_text, _cache_hit, _call_log = await async_single(
                 prompt,
                 model=self.model_name,
                 system=system_message,
                 max_tokens=max_new_tokens,
+                **extra_kwargs,
             )
             return response_text
 

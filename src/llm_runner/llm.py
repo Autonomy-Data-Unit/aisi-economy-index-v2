@@ -10,7 +10,8 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
                      device: str = "cuda", dtype: str = "float16",
                      backend: str = "transformers", max_new_tokens: int = 60,
                      batch_size: int = 128,
-                     system_message: str | None = None) -> list[str]:
+                     system_message: str | None = None,
+                     json_schema: dict | None = None) -> list[str]:
     """Generate text completions for a list of prompts.
 
     Args:
@@ -22,6 +23,7 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
         max_new_tokens: Maximum tokens to generate per prompt.
         batch_size: Number of prompts per batch (transformers backend only).
         system_message: Optional system message prepended to each prompt.
+        json_schema: Optional JSON schema dict to constrain output to valid JSON.
 
     Returns:
         List of generated response strings, one per prompt.
@@ -34,6 +36,7 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
             prompts,
             max_new_tokens=max_new_tokens,
             system_message=system_message,
+            json_schema=json_schema,
         )
 
     # For transformers backend, batch manually
@@ -44,6 +47,7 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
             batch,
             max_new_tokens=max_new_tokens,
             system_message=system_message,
+            json_schema=json_schema,
         )
         all_responses.extend(responses)
 
