@@ -21,6 +21,7 @@
 # - SSH connectivity to Isambard
 
 # %%
+#|skip_evals
 from dotenv import load_dotenv; load_dotenv()
 
 from isambard_utils import IsambardConfig, acheck_connection

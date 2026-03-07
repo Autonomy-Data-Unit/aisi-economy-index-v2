@@ -104,6 +104,7 @@ print(f"Years experience: {parsed_api.years_experience}")
 # decoding on a remote GPU. Requires an active Clifton cert.
 
 # %%
+#|eval: false
 responses_sbatch = llm_generate(
     prompts,
     model="qwen-7b-sbatch",

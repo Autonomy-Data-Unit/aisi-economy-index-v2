@@ -494,5 +494,6 @@ def run_all():
 
 # %%
 #|export
+#|eval: false
 if __name__ == "__main__":
     run_all()
