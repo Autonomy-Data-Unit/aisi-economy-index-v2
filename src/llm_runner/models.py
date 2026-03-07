@@ -141,6 +141,20 @@ class LLM:
             )
             all_texts.append(text)
 
+        # Use outlines Generator for structured JSON output
+        if json_schema is not None:
+            try:
+                import outlines
+            except ImportError:
+                raise ImportError(
+                    "The `outlines` package is required for structured JSON output "
+                    "with the transformers backend. Install it with: "
+                    "pip install outlines"
+                )
+            outlines_model = outlines.from_transformers(self.model, self.tokenizer)
+            generator = outlines.Generator(outlines_model, outlines.json_schema(json_schema))
+            return generator.batch(all_texts, max_tokens=max_new_tokens)
+
         # Tokenize with left-padding
         inputs = self.tokenizer(
             all_texts,
@@ -150,23 +164,6 @@ class LLM:
         ).to(self.model.device)
 
         input_len = inputs["input_ids"].shape[1]
-
-        # Build logits processor for structured JSON output
-        if json_schema is not None:
-            try:
-                import outlines
-                from outlines.processors import JSONLogitsProcessor
-            except ImportError:
-                raise ImportError(
-                    "The `outlines` package is required for structured JSON output "
-                    "with the transformers backend. Install it with: "
-                    "pip install outlines"
-                )
-            import json
-            from transformers import LogitsProcessorList
-            schema_str = json.dumps(json_schema) if isinstance(json_schema, dict) else json_schema
-            processor = JSONLogitsProcessor(schema_str, tokenizer=self.tokenizer)
-            kwargs["logits_processor"] = LogitsProcessorList([processor])
 
         with torch.no_grad():
             outputs = self.model.generate(
