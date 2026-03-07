@@ -48,7 +48,6 @@ show_node_vars(run_name='test_local')
 # %%
 #|export
 import json
-import re
 from typing import List
 
 from pydantic import BaseModel, ValidationError
@@ -80,9 +79,6 @@ SYSTEM_PROMPT = (
     "You are a human resources highly-accurate data extraction bot. "
     "Extract the following details from the job advertisement provided by the user. "
     "You MUST NOT include more than 5 tasks or 5 skills. Stop the list at 5. Do not write more. "
-    "Your response MUST be a single, valid JSON object (no markdown, no explanation, no code block). "
-    "The JSON must have exactly these keys: "
-    "'short_description', 'tasks', 'skills', 'domain', 'level', 'automation_prof_score'. "
     "- 'level': classify as 'Entry-Level' if the job requires <3 years experience or mentions 'junior'/'entry'; otherwise 'Experienced'. "
     "- 'automation_prof_score': integer 0-10 estimating AI automation risk. "
     "0 = AI-proof (requires physical/manual presence, creativity, leadership, or deep social judgment). "
@@ -108,25 +104,17 @@ Job Ad:
 
 # %%
 #|export
-_JSON_RE = re.compile(r"\{[\s\S]*\}", flags=re.DOTALL)
-
-
 def _parse_llm_output(raw: str) -> tuple[dict | None, str | None]:
-    """Parse LLM output into a validated JobInfoModel dict.
+    """Parse structured LLM JSON output into a validated JobInfoModel dict.
 
     Returns (parsed_dict, error_string). Exactly one is None.
     """
     try:
-        cleaned = re.sub(r"```json|```", "", raw).strip()
-        m = _JSON_RE.search(cleaned)
-        if not m:
-            return None, "No JSON object found in LLM output"
-        obj = json.loads(m.group(0))
-        obj["tasks"] = (obj.get("tasks") or [])[:5]
-        obj["skills"] = (obj.get("skills") or [])[:5]
-        validated = JobInfoModel.model_validate(obj)
+        validated = JobInfoModel.model_validate_json(raw)
+        validated.tasks = validated.tasks[:5]
+        validated.skills = validated.skills[:5]
         return validated.model_dump(), None
-    except (json.JSONDecodeError, ValidationError, Exception) as e:
+    except (ValidationError, Exception) as e:
         return None, f"{type(e).__name__}: {e}"
 
 # %% [markdown]
@@ -177,6 +165,7 @@ responses = llm_generate(
     model=llm_model,
     system_message=SYSTEM_PROMPT,
     max_new_tokens=220,
+    json_schema=JobInfoModel.model_json_schema(),
 )
 
 # %% [markdown]
