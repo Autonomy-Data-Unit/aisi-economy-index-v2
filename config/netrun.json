@@ -29,6 +29,12 @@
     },
     "topk": {
       "type": "int"
+    },
+    "llm_batch_size": {
+      "type": "int"
+    },
+    "llm_max_new_tokens": {
+      "type": "int"
     }
   },
   "storage": {
@@ -79,7 +85,7 @@
         },
         "extra": {
           "ui": {
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "position": {
               "x": -15,
               "y": 105
@@ -128,6 +134,13 @@
       {
         "name": "llm_summarise",
         "description": "Run LLM to extract structured summaries from job ads.",
+        "execution_config": {
+          "node_vars": {
+            "summarise_resume": {
+              "value": true
+            }
+          }
+        },
         "extra": {
           "ui": {
             "position": {

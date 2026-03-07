@@ -5,6 +5,8 @@ embedding_model = "text-embedding-3-large"
 cosine_mode = "api"
 topk = 5
 llm_model = "gpt-5.2"
+llm_batch_size = 1000
+llm_max_new_tokens = 220
 [defaults.fetch_adzuna]
 fetch_years = "all"
 

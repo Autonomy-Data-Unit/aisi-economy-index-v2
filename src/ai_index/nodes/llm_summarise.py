@@ -7,12 +7,14 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
 }:
     """Run LLM to extract structured summaries from job ads."""
     import json
+    from pathlib import Path
     from typing import List
     
+    import pandas as pd
     from pydantic import BaseModel, ValidationError
     
     from ai_index import const
-    from ai_index.utils import get_ads_by_id, get_adzuna_conn, llm_generate
+    from ai_index.utils import get_adzuna_conn, llm_generate
     class JobInfoModel(BaseModel):
         short_description: str
         tasks: List[str]
@@ -55,88 +57,134 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
             return validated.model_dump(), None
         except (ValidationError, Exception) as e:
             return None, f"{type(e).__name__}: {e}"
-    if ad_ids is not None:
-        ad_table = get_ads_by_id(
-            ad_ids.tolist(),
-            columns=["id", "title", "category_name", "description"],
-        )
-    else:
-        conn = get_adzuna_conn(read_only=True)
-        ad_table = conn.execute(
-            "SELECT id, title, category_name, description FROM ads"
-        ).fetch_arrow_table()
-        conn.close()
     
-    n_ads = len(ad_table)
-    print(f"llm_summarise: processing {n_ads} ads")
-    ids = ad_table.column("id").to_pylist()
-    titles = ad_table.column("title").to_pylist()
-    categories = ad_table.column("category_name").to_pylist()
-    descriptions = ad_table.column("description").to_pylist()
     
-    prompts = []
-    for title, category, description in zip(titles, categories, descriptions):
-        job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
-        prompts.append(USER_TEMPLATE.format(job_text=job_text))
-    llm_model = ctx.vars["llm_model"]
-    print(f"llm_summarise: calling llm_generate with model={llm_model!r} for {len(prompts)} prompts")
-    
-    responses = llm_generate(
-        prompts,
-        model=llm_model,
-        system_message=SYSTEM_PROMPT,
-        max_new_tokens=220,
-        json_schema=JobInfoModel.model_json_schema(),
-    )
-    import pandas as pd
-    
-    records = []
-    n_success = 0
-    n_failed = 0
-    
-    for ad_id, raw_response in zip(ids, responses):
-        parsed, error = _parse_llm_output(raw_response)
-        record = {
-            "id": ad_id,
-            "llm_output": raw_response,
-            "error": error,
-        }
-        if parsed:
-            record.update({
-                "short_description": parsed["short_description"],
-                "tasks": json.dumps(parsed["tasks"]),
-                "skills": json.dumps(parsed["skills"]),
-                "domain": parsed["domain"],
-                "level": parsed["level"],
-                "automation_prof_score": parsed["automation_prof_score"],
-            })
-            n_success += 1
-        else:
-            record.update({
-                "short_description": None,
-                "tasks": None,
-                "skills": None,
-                "domain": None,
-                "level": None,
-                "automation_prof_score": None,
-            })
-            n_failed += 1
-        records.append(record)
-    
-    df = pd.DataFrame(records)
-    
+    def _responses_to_df(chunk_ids: list, responses: list[str]) -> tuple[pd.DataFrame, int, int]:
+        """Parse LLM responses into a DataFrame. Returns (df, n_success, n_failed)."""
+        records = []
+        n_success = 0
+        n_failed = 0
+        for ad_id, raw_response in zip(chunk_ids, responses):
+            parsed, error = _parse_llm_output(raw_response)
+            record = {
+                "id": ad_id,
+                "llm_output": raw_response,
+                "error": error,
+            }
+            if parsed:
+                record.update({
+                    "short_description": parsed["short_description"],
+                    "tasks": json.dumps(parsed["tasks"]),
+                    "skills": json.dumps(parsed["skills"]),
+                    "domain": parsed["domain"],
+                    "level": parsed["level"],
+                    "automation_prof_score": parsed["automation_prof_score"],
+                })
+                n_success += 1
+            else:
+                record.update({
+                    "short_description": None,
+                    "tasks": None,
+                    "skills": None,
+                    "domain": None,
+                    "level": None,
+                    "automation_prof_score": None,
+                })
+                n_failed += 1
+            records.append(record)
+        return pd.DataFrame(records), n_success, n_failed
     run_name = ctx.vars["run_name"]
+    llm_model = ctx.vars["llm_model"]
+    batch_size = int(ctx.vars["llm_batch_size"])
+    max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
+    resume = ctx.vars.get("summarise_resume", True)
+    
     output_dir = const.pipeline_store_path / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "summaries.parquet"
-    df.to_parquet(output_path, index=False)
+    all_ids = ad_ids.tolist() if ad_ids is not None else None
     
-    print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_ads}")
+    if all_ids is None:
+        conn = get_adzuna_conn(read_only=True)
+        all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()
+        conn.close()
+    
+    # Resume: skip IDs already processed
+    if resume and output_path.exists():
+        done_df = pd.read_parquet(output_path, columns=["id"])
+        done_ids = set(done_df["id"].tolist())
+        remaining_ids = [i for i in all_ids if i not in done_ids]
+        print(f"llm_summarise: resuming — {len(done_ids)} already done, {len(remaining_ids)} remaining")
+    else:
+        remaining_ids = all_ids
+        done_ids = set()
+    
+    n_total = len(all_ids)
+    print(f"llm_summarise: {n_total} total ads, {len(remaining_ids)} to process (batch_size={batch_size})")
+    json_schema = JobInfoModel.model_json_schema()
+    n_success = 0
+    n_failed = 0
+    
+    conn = get_adzuna_conn(read_only=True)
+    
+    for chunk_start in range(0, len(remaining_ids), batch_size):
+        chunk_ids = remaining_ids[chunk_start : chunk_start + batch_size]
+        chunk_num = chunk_start // batch_size + 1
+        n_chunks = (len(remaining_ids) + batch_size - 1) // batch_size
+        print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
+    
+        # Read this chunk from DuckDB using a temp table to avoid huge IN clauses
+        conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
+        conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
+        ad_table = conn.execute(
+            "SELECT a.id, a.title, a.category_name, a.description "
+            "FROM ads a JOIN _chunk_ids c ON a.id = c.id"
+        ).fetch_arrow_table()
+    
+        # Build prompts for this chunk
+        prompts = []
+        ids_ordered = ad_table.column("id").to_pylist()
+        for i in range(ad_table.num_rows):
+            title = ad_table.column("title")[i].as_py()
+            category = ad_table.column("category_name")[i].as_py()
+            description = ad_table.column("description")[i].as_py()
+            job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
+            prompts.append(USER_TEMPLATE.format(job_text=job_text))
+    
+        # Run LLM
+        responses = llm_generate(
+            prompts,
+            model=llm_model,
+            system_message=SYSTEM_PROMPT,
+            max_new_tokens=max_new_tokens,
+            json_schema=json_schema,
+        )
+    
+        # Parse and write incrementally
+        chunk_df, chunk_success, chunk_failed = _responses_to_df(ids_ordered, responses)
+        n_success += chunk_success
+        n_failed += chunk_failed
+    
+        if output_path.exists():
+            existing_df = pd.read_parquet(output_path)
+            chunk_df = pd.concat([existing_df, chunk_df], ignore_index=True)
+        chunk_df.to_parquet(output_path, index=False)
+    
+        print(f"llm_summarise: chunk {chunk_num} done — {chunk_success} ok, {chunk_failed} failed")
+    
+    conn.close()
+    # Count totals including previously resumed data
+    if done_ids:
+        done_df = pd.read_parquet(output_path, columns=["error"])
+        n_success = int((done_df["error"].isna()).sum())
+        n_failed = int((done_df["error"].notna()).sum())
+    
+    print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_total}")
     print(f"llm_summarise: wrote {output_path}")
     
     summary_meta = {
         "parquet_path": str(output_path),
-        "n_total": n_ads,
+        "n_total": n_total,
         "n_success": n_success,
         "n_failed": n_failed,
     }
