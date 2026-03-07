@@ -43,6 +43,7 @@ async def run_batched(
     resume: bool = True,
     node_name: str = "batch",
     print_fn: Callable = print,
+    raise_on_failure: bool = True,
 ) -> dict:
     """Process IDs in batches with resume, concurrency, and retry support.
 
@@ -58,6 +59,8 @@ async def run_batched(
         resume: If True, skip IDs already in the store.
         node_name: Label for log messages.
         print_fn: Print function for progress logging.
+        raise_on_failure: If True (default), raise RuntimeError when any
+            IDs remain failed after all retries.
 
     Returns:
         Summary dict with keys: n_total, n_success, n_failed, failed_ids,
@@ -140,6 +143,8 @@ async def run_batched(
     print_fn(f"{node_name}: {n_success} succeeded, {n_failed} failed out of {n_total}")
     if failed:
         print_fn(f"{node_name}: failed IDs: {failed[:20]}{'...' if len(failed) > 20 else ''}")
+        if raise_on_failure:
+            raise RuntimeError(f"{node_name}: {n_failed} IDs failed after {max_retries} retries")
 
     return {
         "db_path": store.db_path,

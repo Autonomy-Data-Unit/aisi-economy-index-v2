@@ -252,6 +252,44 @@ class TestRunBatched:
         store.close()
 
     @pytest.mark.asyncio
+    async def test_raises_on_persistent_failure(self, tmp_path):
+        store = self._make_store(tmp_path)
+
+        async def work_fn(chunk_ids):
+            return pd.DataFrame({
+                "id": chunk_ids,
+                "data": [f"result_{i}" for i in chunk_ids],
+                "error": ["permanent error" if i == 2 else None for i in chunk_ids],
+            })
+
+        with pytest.raises(RuntimeError, match="1 IDs failed"):
+            await run_batched(
+                [1, 2, 3], store, work_fn,
+                batch_size=10, max_retries=1, node_name="test",
+            )
+        store.close()
+
+    @pytest.mark.asyncio
+    async def test_no_raise_when_disabled(self, tmp_path):
+        store = self._make_store(tmp_path)
+
+        async def work_fn(chunk_ids):
+            return pd.DataFrame({
+                "id": chunk_ids,
+                "data": [f"result_{i}" for i in chunk_ids],
+                "error": ["error" if i == 2 else None for i in chunk_ids],
+            })
+
+        result = await run_batched(
+            [1, 2, 3], store, work_fn,
+            batch_size=10, node_name="test",
+            raise_on_failure=False,
+        )
+        assert result["n_failed"] == 1
+        assert result["failed_ids"] == [2]
+        store.close()
+
+    @pytest.mark.asyncio
     async def test_concurrent_batches(self, tmp_path):
         store = self._make_store(tmp_path)
         max_concurrent = [0]

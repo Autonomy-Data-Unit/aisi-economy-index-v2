@@ -39,7 +39,7 @@ import numpy as np
 # %%
 #|set_func_signature
 async def main(ctx, print, ad_ids: np.ndarray) -> {
-    'summary_meta': dict
+    'successful_ad_ids': list[int]
 }:
     """Run LLM to extract structured summaries from job ads."""
     ...
