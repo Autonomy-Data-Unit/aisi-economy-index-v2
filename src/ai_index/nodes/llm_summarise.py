@@ -14,7 +14,7 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
     from pydantic import BaseModel, ValidationError
     
     from ai_index import const
-    from ai_index.utils import get_adzuna_conn, llm_generate
+    from ai_index.utils import get_adzuna_conn, llm_generate, get_all_ad_ids
     class JobInfoModel(BaseModel):
         short_description: str
         tasks: List[str]
@@ -93,11 +93,44 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
                 n_failed += 1
             records.append(record)
         return pd.DataFrame(records), n_success, n_failed
+    
+    
+    def _fetch_and_process_chunk(chunk_ids, conn, llm_model, max_new_tokens, json_schema):
+        """Fetch ads, build prompts, call LLM, parse responses for a single chunk.
+    
+        Returns (df, n_success, n_failed).
+        """
+        conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
+        conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
+        ad_table = conn.execute(
+            "SELECT a.id, a.title, a.category_name, a.description "
+            "FROM ads a JOIN _chunk_ids c ON a.id = c.id"
+        ).fetch_arrow_table()
+    
+        prompts = []
+        ids_ordered = ad_table.column("id").to_pylist()
+        for i in range(ad_table.num_rows):
+            title = ad_table.column("title")[i].as_py()
+            category = ad_table.column("category_name")[i].as_py()
+            description = ad_table.column("description")[i].as_py()
+            job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
+            prompts.append(USER_TEMPLATE.format(job_text=job_text))
+    
+        responses = llm_generate(
+            prompts,
+            model=llm_model,
+            system_message=SYSTEM_PROMPT,
+            max_new_tokens=max_new_tokens,
+            json_schema=json_schema,
+        )
+    
+        return _responses_to_df(ids_ordered, responses)
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
     batch_size = int(ctx.vars["llm_batch_size"])
     max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
     resume = ctx.vars.get("summarise_resume", True)
+    max_retries = int(ctx.vars.get("summarise_max_retries", 0))
     
     output_dir = const.pipeline_store_path / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -105,9 +138,7 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
     all_ids = ad_ids.tolist() if ad_ids is not None else None
     
     if all_ids is None:
-        conn = get_adzuna_conn(read_only=True)
-        all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()
-        conn.close()
+        all_ids = get_all_ad_ids()
     
     # Resume: skip IDs already processed
     if resume and output_path.exists():
@@ -133,35 +164,9 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
         n_chunks = (len(remaining_ids) + batch_size - 1) // batch_size
         print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
     
-        # Read this chunk from DuckDB using a temp table to avoid huge IN clauses
-        conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
-        conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
-        ad_table = conn.execute(
-            "SELECT a.id, a.title, a.category_name, a.description "
-            "FROM ads a JOIN _chunk_ids c ON a.id = c.id"
-        ).fetch_arrow_table()
-    
-        # Build prompts for this chunk
-        prompts = []
-        ids_ordered = ad_table.column("id").to_pylist()
-        for i in range(ad_table.num_rows):
-            title = ad_table.column("title")[i].as_py()
-            category = ad_table.column("category_name")[i].as_py()
-            description = ad_table.column("description")[i].as_py()
-            job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
-            prompts.append(USER_TEMPLATE.format(job_text=job_text))
-    
-        # Run LLM
-        responses = llm_generate(
-            prompts,
-            model=llm_model,
-            system_message=SYSTEM_PROMPT,
-            max_new_tokens=max_new_tokens,
-            json_schema=json_schema,
+        chunk_df, chunk_success, chunk_failed = _fetch_and_process_chunk(
+            chunk_ids, conn, llm_model, max_new_tokens, json_schema,
         )
-    
-        # Parse and write incrementally
-        chunk_df, chunk_success, chunk_failed = _responses_to_df(ids_ordered, responses)
         n_success += chunk_success
         n_failed += chunk_failed
     
@@ -171,15 +176,45 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
         chunk_df.to_parquet(output_path, index=False)
     
         print(f"llm_summarise: chunk {chunk_num} done — {chunk_success} ok, {chunk_failed} failed")
+    for retry_num in range(1, max_retries + 1):
+        current_df = pd.read_parquet(output_path)
+        failed_mask = current_df["error"].notna()
+        failed_ids = current_df.loc[failed_mask, "id"].tolist()
+    
+        if not failed_ids:
+            print(f"llm_summarise: no failures to retry")
+            break
+    
+        print(f"llm_summarise: retry {retry_num}/{max_retries} — {len(failed_ids)} failed ads")
+    
+        retry_dfs = []
+        for chunk_start in range(0, len(failed_ids), batch_size):
+            chunk_ids = failed_ids[chunk_start : chunk_start + batch_size]
+            chunk_df, chunk_success, chunk_failed = _fetch_and_process_chunk(
+                chunk_ids, conn, llm_model, max_new_tokens, json_schema,
+            )
+            retry_dfs.append(chunk_df)
+            print(f"llm_summarise: retry {retry_num} chunk — {chunk_success} ok, {chunk_failed} failed")
+    
+        # Replace failed rows with retry results
+        retry_df = pd.concat(retry_dfs, ignore_index=True)
+        success_df = current_df.loc[~failed_mask]
+        merged_df = pd.concat([success_df, retry_df], ignore_index=True)
+        merged_df.to_parquet(output_path, index=False)
+    
+        new_failures = int(retry_df["error"].notna().sum())
+        print(f"llm_summarise: retry {retry_num} done — {len(failed_ids) - new_failures} recovered, {new_failures} still failed")
     
     conn.close()
-    # Count totals including previously resumed data
-    if done_ids:
-        done_df = pd.read_parquet(output_path, columns=["error"])
-        n_success = int((done_df["error"].isna()).sum())
-        n_failed = int((done_df["error"].notna()).sum())
+    # Recount from parquet (retries or resume may have changed counts)
+    final_df = pd.read_parquet(output_path, columns=["id", "error"])
+    n_success = int(final_df["error"].isna().sum())
+    n_failed = int(final_df["error"].notna().sum())
+    failed_ids = final_df.loc[final_df["error"].notna(), "id"].tolist()
     
     print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_total}")
+    if failed_ids:
+        print(f"llm_summarise: failed IDs: {failed_ids[:20]}{'...' if len(failed_ids) > 20 else ''}")
     print(f"llm_summarise: wrote {output_path}")
     
     summary_meta = {
@@ -187,5 +222,6 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
         "n_total": n_total,
         "n_success": n_success,
         "n_failed": n_failed,
+        "failed_ids": failed_ids,
     }
     return summary_meta

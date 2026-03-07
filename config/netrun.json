@@ -138,6 +138,9 @@
           "node_vars": {
             "summarise_resume": {
               "value": true
+            },
+            "summarise_max_retries": {
+              "value": 0
             }
           }
         },
