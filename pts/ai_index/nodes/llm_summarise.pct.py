@@ -24,6 +24,7 @@
 # - `llm_max_new_tokens` (global): Max tokens per LLM response (default 220)
 # - `summarise_resume` (per-node): Resume from previous partial run (default true)
 # - `summarise_max_retries` (per-node): Number of retry rounds for failed ads (default 0)
+# - `summarise_max_concurrent` (per-node): Max concurrent batch LLM calls (default 1)
 
 # %%
 #|default_exp nodes.llm_summarise
@@ -55,6 +56,7 @@ show_node_vars(run_name='test_local')
 
 # %%
 #|export
+import asyncio
 import json
 from typing import List
 
@@ -62,7 +64,7 @@ import pandas as pd
 from pydantic import BaseModel, ValidationError
 
 from ai_index import const
-from ai_index.utils import LLMResultStore, get_adzuna_conn, get_all_ad_ids, llm_generate
+from ai_index.utils import LLMResultStore, allm_generate, get_adzuna_conn, get_all_ad_ids
 
 # %% [markdown]
 # ## Pydantic schema for LLM output
@@ -125,17 +127,22 @@ def _validate_response(raw: str) -> str | None:
         return f"{type(e).__name__}: {e}"
 
 
-def _fetch_and_call_llm(chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema):
-    """Fetch ads from DuckDB, build prompts, call LLM.
+async def _fetch_and_call_llm(chunk_ids, llm_model, max_new_tokens, json_schema):
+    """Fetch ads from DuckDB, build prompts, call LLM asynchronously.
 
+    Opens its own read-only connection so multiple chunks can run concurrently.
     Returns (ids_ordered, responses) — raw strings, not yet validated.
     """
-    ads_conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
-    ads_conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
-    ad_table = ads_conn.execute(
-        "SELECT a.id, a.title, a.category_name, a.description "
-        "FROM ads a JOIN _chunk_ids c ON a.id = c.id"
-    ).fetch_arrow_table()
+    ads_conn = get_adzuna_conn(read_only=True)
+    try:
+        ads_conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
+        ads_conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
+        ad_table = ads_conn.execute(
+            "SELECT a.id, a.title, a.category_name, a.description "
+            "FROM ads a JOIN _chunk_ids c ON a.id = c.id"
+        ).fetch_arrow_table()
+    finally:
+        ads_conn.close()
 
     prompts = []
     ids_ordered = ad_table.column("id").to_pylist()
@@ -146,7 +153,7 @@ def _fetch_and_call_llm(chunk_ids, ads_conn, llm_model, max_new_tokens, json_sch
         job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
         prompts.append(USER_TEMPLATE.format(job_text=job_text))
 
-    responses = llm_generate(
+    responses = await allm_generate(
         prompts,
         model=llm_model,
         system_message=SYSTEM_PROMPT,
@@ -184,6 +191,7 @@ batch_size = int(ctx.vars["llm_batch_size"])
 max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
 resume = ctx.vars.get("summarise_resume", True)
 max_retries = int(ctx.vars.get("summarise_max_retries", 0))
+max_concurrent = int(ctx.vars.get("summarise_max_concurrent", 1))
 
 output_dir = const.pipeline_store_path / run_name / "llm_summarise"
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -210,7 +218,7 @@ else:
     remaining_ids = all_ids
 
 n_total = len(all_ids)
-print(f"llm_summarise: {n_total} total ads, {len(remaining_ids)} to process (batch_size={batch_size})")
+print(f"llm_summarise: {n_total} total ads, {len(remaining_ids)} to process (batch_size={batch_size}, max_concurrent={max_concurrent})")
 
 # %% [markdown]
 # ## Process in chunks
@@ -220,24 +228,32 @@ print(f"llm_summarise: {n_total} total ads, {len(remaining_ids)} to process (bat
 json_schema = JobInfoModel.model_json_schema()
 n_success = 0
 n_failed = 0
+sem = asyncio.Semaphore(max_concurrent)
 
-ads_conn = get_adzuna_conn(read_only=True)
+chunks = [
+    remaining_ids[i : i + batch_size]
+    for i in range(0, len(remaining_ids), batch_size)
+]
+n_chunks = len(chunks)
 
-for chunk_start in range(0, len(remaining_ids), batch_size):
-    chunk_ids = remaining_ids[chunk_start : chunk_start + batch_size]
-    chunk_num = chunk_start // batch_size + 1
-    n_chunks = (len(remaining_ids) + batch_size - 1) // batch_size
-    print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
+async def _process_chunk(chunk_ids, chunk_num):
+    async with sem:
+        print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
+        ids_ordered, responses = await _fetch_and_call_llm(
+            chunk_ids, llm_model, max_new_tokens, json_schema,
+        )
+        chunk_df, chunk_ok, chunk_err = _build_results_df(ids_ordered, responses)
+        print(f"llm_summarise: chunk {chunk_num} done — {chunk_ok} ok, {chunk_err} failed")
+        return chunk_df, chunk_ok, chunk_err
 
-    ids_ordered, responses = _fetch_and_call_llm(
-        chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema,
-    )
-    chunk_df, chunk_ok, chunk_err = _build_results_df(ids_ordered, responses)
+for coro in asyncio.as_completed([
+    _process_chunk(chunk_ids, i + 1)
+    for i, chunk_ids in enumerate(chunks)
+]):
+    chunk_df, chunk_ok, chunk_err = await coro
     store.insert(chunk_df)
     n_success += chunk_ok
     n_failed += chunk_err
-
-    print(f"llm_summarise: chunk {chunk_num} done — {chunk_ok} ok, {chunk_err} failed")
 
 # %% [markdown]
 # ## Retry failed ads
@@ -253,20 +269,28 @@ for retry_num in range(1, max_retries + 1):
     print(f"llm_summarise: retry {retry_num}/{max_retries} — {len(retry_ids)} failed ads")
     store.delete_ids(retry_ids)
 
+    retry_chunks = [
+        retry_ids[i : i + batch_size]
+        for i in range(0, len(retry_ids), batch_size)
+    ]
     retry_ok = retry_err = 0
-    for chunk_start in range(0, len(retry_ids), batch_size):
-        chunk_ids = retry_ids[chunk_start : chunk_start + batch_size]
-        ids_ordered, responses = _fetch_and_call_llm(
-            chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema,
-        )
-        chunk_df, chunk_ok, chunk_err = _build_results_df(ids_ordered, responses)
+
+    async def _retry_chunk(chunk_ids):
+        async with sem:
+            ids_ordered, responses = await _fetch_and_call_llm(
+                chunk_ids, llm_model, max_new_tokens, json_schema,
+            )
+            return _build_results_df(ids_ordered, responses)
+
+    for coro in asyncio.as_completed([
+        _retry_chunk(chunk_ids) for chunk_ids in retry_chunks
+    ]):
+        chunk_df, chunk_ok, chunk_err = await coro
         store.insert(chunk_df)
         retry_ok += chunk_ok
         retry_err += chunk_err
 
     print(f"llm_summarise: retry {retry_num} done — {retry_ok} recovered, {retry_err} still failed")
-
-ads_conn.close()
 
 # %% [markdown]
 # ## Return summary

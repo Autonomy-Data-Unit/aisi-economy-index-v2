@@ -141,6 +141,9 @@
             },
             "summarise_max_retries": {
               "value": 0
+            },
+            "summarise_max_concurrent": {
+              "value": 1
             }
           }
         },
