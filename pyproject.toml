@@ -19,6 +19,7 @@ dependencies = [
     "nest-asyncio>=1.6",
     "boto3>=1.42.60",
     "duckdb>=1.0",
+    "outlines>=1.2.12",
 ]
 
 [dependency-groups]
