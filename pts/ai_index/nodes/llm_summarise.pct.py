@@ -57,15 +57,14 @@ show_node_vars('llm_summarise', run_name=run_name)
 
 # %%
 #|export
-import asyncio
 import json
 from typing import List
 
 import pandas as pd
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from ai_index import const
-from ai_index.utils import LLMResultStore, allm_generate, get_adzuna_conn, get_all_ad_ids
+from ai_index.utils import ResultStore, run_batched, allm_generate, get_adzuna_conn, get_all_ad_ids
 
 # %% [markdown]
 # ## Pydantic schema for LLM output
@@ -112,7 +111,7 @@ Job Ad:
 """
 
 # %% [markdown]
-# ## Helpers
+# ## Work function
 
 # %%
 #|export
@@ -127,13 +126,32 @@ def _validate_response(raw: str) -> str | None:
     except Exception as e:
         return f"{type(e).__name__}: {e}"
 
+# %% [markdown]
+# ## Read node variables
 
-async def _fetch_and_call_llm(chunk_ids, llm_model, max_new_tokens, json_schema):
-    """Fetch ads from DuckDB, build prompts, call LLM asynchronously.
+# %%
+#|export
+run_name = ctx.vars["run_name"]
+llm_model = ctx.vars["llm_model"]
+batch_size = ctx.vars["llm_batch_size"]
+max_new_tokens = ctx.vars["llm_max_new_tokens"]
+resume = ctx.vars["summarise_resume"]
+max_retries = ctx.vars["summarise_max_retries"]
+max_concurrent = ctx.vars["llm_max_concurrent_batches"]
 
-    Opens its own read-only connection so multiple chunks can run concurrently.
-    Returns (ids_ordered, responses) — raw strings, not yet validated.
-    """
+output_dir = const.pipeline_store_path / run_name / "llm_summarise"
+output_dir.mkdir(parents=True, exist_ok=True)
+db_path = output_dir / "summaries.duckdb"
+
+# %% [markdown]
+# ## Define work function and run batched
+
+# %%
+#|export
+json_schema = JobInfoModel.model_json_schema()
+
+async def _work_fn(chunk_ids):
+    """Fetch ads, build prompts, call LLM, validate, return DataFrame."""
     ads_conn = get_adzuna_conn(read_only=True)
     try:
         ads_conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
@@ -162,163 +180,37 @@ async def _fetch_and_call_llm(chunk_ids, llm_model, max_new_tokens, json_schema)
         json_schema=json_schema,
     )
 
-    return ids_ordered, responses
-
-
-def _build_results_df(ids: list, responses: list[str]) -> tuple[pd.DataFrame, int, int]:
-    """Validate responses and build a DataFrame for LLMResultStore.
-
-    Returns (df with id/data/error columns, n_success, n_failed).
-    """
     records = []
-    n_success = n_failed = 0
-    for ad_id, response in zip(ids, responses):
+    for ad_id, response in zip(ids_ordered, responses):
         error = _validate_response(response)
         records.append({"id": ad_id, "data": response, "error": error})
-        if error:
-            n_failed += 1
-        else:
-            n_success += 1
-    return pd.DataFrame(records), n_success, n_failed
+    return pd.DataFrame(records)
 
-# %% [markdown]
-# ## Read node variables
+all_ids = ad_ids.tolist() if ad_ids is not None else get_all_ad_ids()
 
-# %%
-#|export
-run_name = ctx.vars["run_name"]
-llm_model = ctx.vars["llm_model"]
-batch_size = ctx.vars["llm_batch_size"]
-max_new_tokens = ctx.vars["llm_max_new_tokens"]
-resume = ctx.vars["summarise_resume"]
-max_retries = ctx.vars["summarise_max_retries"]
-max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+store = ResultStore(db_path, {
+    "id": "BIGINT NOT NULL",
+    "data": "VARCHAR NOT NULL",
+    "error": "VARCHAR",
+})
 
-output_dir = const.pipeline_store_path / run_name / "llm_summarise"
-output_dir.mkdir(parents=True, exist_ok=True)
-db_path = output_dir / "summaries.duckdb"
-
-# %% [markdown]
-# ## Determine which ads to process
-
-# %%
-#|export
-store = LLMResultStore(db_path)
-
-all_ids = ad_ids.tolist() if ad_ids is not None else None
-if all_ids is None:
-    all_ids = get_all_ad_ids()
-
-if resume:
-    done_ids = store.done_ids()
-    remaining_ids = [i for i in all_ids if i not in done_ids]
-    n_skipped = len(all_ids) - len(remaining_ids)
-    if n_skipped:
-        print(f"llm_summarise: resuming — {n_skipped}/{len(all_ids)} already done, {len(remaining_ids)} remaining")
-else:
-    store.clear()
-    remaining_ids = all_ids
-
-n_total = len(all_ids)
-print(f"llm_summarise: {n_total} total ads, {len(remaining_ids)} to process (batch_size={batch_size}, max_concurrent={max_concurrent})")
-
-# %% [markdown]
-# ## Process in chunks
-
-# %%
-#|export
-json_schema = JobInfoModel.model_json_schema()
-n_success = 0
-n_failed = 0
-sem = asyncio.Semaphore(max_concurrent)
-
-chunks = [
-    remaining_ids[i : i + batch_size]
-    for i in range(0, len(remaining_ids), batch_size)
-]
-n_chunks = len(chunks)
-
-async def _process_chunk(chunk_ids, chunk_num):
-    async with sem:
-        print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
-        ids_ordered, responses = await _fetch_and_call_llm(
-            chunk_ids, llm_model, max_new_tokens, json_schema,
-        )
-        chunk_df, chunk_ok, chunk_err = _build_results_df(ids_ordered, responses)
-        print(f"llm_summarise: chunk {chunk_num} done — {chunk_ok} ok, {chunk_err} failed")
-        return chunk_df, chunk_ok, chunk_err
-
-for coro in asyncio.as_completed([
-    _process_chunk(chunk_ids, i + 1)
-    for i, chunk_ids in enumerate(chunks)
-]):
-    chunk_df, chunk_ok, chunk_err = await coro
-    store.insert(chunk_df)
-    n_success += chunk_ok
-    n_failed += chunk_err
-
-# %% [markdown]
-# ## Retry failed ads
-
-# %%
-#|export
-for retry_num in range(1, max_retries + 1):
-    retry_ids = store.failed_ids()
-    if not retry_ids:
-        print(f"llm_summarise: no failures to retry")
-        break
-
-    print(f"llm_summarise: retry {retry_num}/{max_retries} — {len(retry_ids)} failed ads")
-    store.delete_ids(retry_ids)
-
-    retry_chunks = [
-        retry_ids[i : i + batch_size]
-        for i in range(0, len(retry_ids), batch_size)
-    ]
-    retry_ok = retry_err = 0
-
-    async def _retry_chunk(chunk_ids):
-        async with sem:
-            ids_ordered, responses = await _fetch_and_call_llm(
-                chunk_ids, llm_model, max_new_tokens, json_schema,
-            )
-            return _build_results_df(ids_ordered, responses)
-
-    for coro in asyncio.as_completed([
-        _retry_chunk(chunk_ids) for chunk_ids in retry_chunks
-    ]):
-        chunk_df, chunk_ok, chunk_err = await coro
-        store.insert(chunk_df)
-        retry_ok += chunk_ok
-        retry_err += chunk_err
-
-    print(f"llm_summarise: retry {retry_num} done — {retry_ok} recovered, {retry_err} still failed")
-
-# %% [markdown]
-# ## Return summary
-
-# %%
-#|export
-all_ids_set = set(all_ids)
-done_ids = store.done_ids() & all_ids_set
-failed_ids = [i for i in store.failed_ids() if i in all_ids_set]
+summary_meta = await run_batched(
+    all_ids, store, _work_fn,
+    batch_size=batch_size,
+    max_concurrent=max_concurrent,
+    max_retries=max_retries,
+    resume=resume,
+    node_name="llm_summarise",
+    print_fn=print,
+)
 store.close()
 
-n_success = len(done_ids) - len(failed_ids)
-n_failed = len(failed_ids)
+# %% [markdown]
+# ## Write metadata
 
-print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_total}")
-if failed_ids:
-    print(f"llm_summarise: failed IDs: {failed_ids[:20]}{'...' if len(failed_ids) > 20 else ''}")
+# %%
+#|export
 print(f"llm_summarise: wrote {db_path}")
-
-summary_meta = {
-    "db_path": str(db_path),
-    "n_total": n_total,
-    "n_success": n_success,
-    "n_failed": n_failed,
-    "failed_ids": failed_ids,
-}
 
 meta_path = output_dir / "summary_meta.json"
 with open(meta_path, "w") as f:
