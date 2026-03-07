@@ -107,5 +107,6 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     with open(meta_path, "w") as f:
         json.dump(summary_meta, f, indent=2)
     print(f"llm_summarise: wrote {meta_path}")
-    
-    return summary_meta
+    failed_set = set(summary_meta["failed_ids"])
+    successful_ad_ids = [i for i in all_ids if i not in failed_set]
+    return successful_ad_ids;

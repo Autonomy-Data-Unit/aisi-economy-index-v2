@@ -197,7 +197,14 @@ with open(meta_path, "w") as f:
     json.dump(summary_meta, f, indent=2)
 print(f"llm_summarise: wrote {meta_path}")
 
-summary_meta #|func_return_line
+# %% [markdown]
+# ## Return results
+
+# %%
+#|export
+failed_set = set(summary_meta["failed_ids"])
+successful_ad_ids = [i for i in all_ids if i not in failed_set]
+successful_ad_ids; #|func_return_line
 
 # %% [markdown]
 # ## Sample output
