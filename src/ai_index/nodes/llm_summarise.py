@@ -115,7 +115,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
     resume = ctx.vars.get("summarise_resume", True)
     max_retries = int(ctx.vars.get("summarise_max_retries", 0))
-    max_concurrent = int(ctx.vars.get("summarise_max_concurrent", 1))
+    max_concurrent = int(ctx.vars["llm_max_concurrent_batches"])
     
     output_dir = const.pipeline_store_path / run_name / "llm_summarise"
     output_dir.mkdir(parents=True, exist_ok=True)

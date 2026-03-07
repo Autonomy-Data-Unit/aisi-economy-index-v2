@@ -24,7 +24,7 @@
 # - `llm_max_new_tokens` (global): Max tokens per LLM response (default 220)
 # - `summarise_resume` (per-node): Resume from previous partial run (default true)
 # - `summarise_max_retries` (per-node): Number of retry rounds for failed ads (default 0)
-# - `summarise_max_concurrent` (per-node): Max concurrent batch LLM calls (default 1)
+# - `llm_max_concurrent_batches` (global): Max concurrent batch LLM calls (default 1)
 
 # %%
 #|default_exp nodes.llm_summarise
@@ -191,7 +191,7 @@ batch_size = int(ctx.vars["llm_batch_size"])
 max_new_tokens = int(ctx.vars["llm_max_new_tokens"])
 resume = ctx.vars.get("summarise_resume", True)
 max_retries = int(ctx.vars.get("summarise_max_retries", 0))
-max_concurrent = int(ctx.vars.get("summarise_max_concurrent", 1))
+max_concurrent = int(ctx.vars["llm_max_concurrent_batches"])
 
 output_dir = const.pipeline_store_path / run_name / "llm_summarise"
 output_dir.mkdir(parents=True, exist_ok=True)

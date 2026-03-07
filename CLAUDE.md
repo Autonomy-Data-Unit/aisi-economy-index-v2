@@ -107,6 +107,7 @@ topk = 5                 # Top-K candidates for cosine similarity
 llm_model = "gpt-5.2"   # Key into llm_models.toml
 llm_batch_size = 1000    # Number of prompts per LLM call
 llm_max_new_tokens = 220 # Max tokens per LLM response
+llm_max_concurrent_batches = 1   # Max concurrent batch LLM calls
 
 [defaults.fetch_adzuna]
 fetch_years = "all"
@@ -114,7 +115,6 @@ fetch_years = "all"
 [defaults.llm_summarise]
 summarise_resume = true          # Resume from previous partial run
 summarise_max_retries = 0        # Retry rounds for failed ads
-summarise_max_concurrent = 1     # Max concurrent batch LLM calls
 
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)
@@ -233,7 +233,7 @@ torch_index_url = "https://download.pytorch.org/whl/cu126"
 
 Defines the DAG, node_var placeholders, and cache settings. All node_vars (global and per-node) are declared with types only — no default values. Defaults live in `run_defs.toml`.
 
-Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `llm_max_concurrent_batches`, `run_name`, `adzuna_s3_prefix` (from `$env`).
 
 ### Adding new node variables
 

@@ -35,6 +35,9 @@
     },
     "llm_max_new_tokens": {
       "type": "int"
+    },
+    "llm_max_concurrent_batches": {
+      "type": "int"
     }
   },
   "storage": {
@@ -76,7 +79,7 @@
           "run_on_startup": true,
           "node_vars": {
             "fetch_years": {
-              "value": "all"
+              "type": "str"
             }
           },
           "signals": [
@@ -140,9 +143,6 @@
               "type": "bool"
             },
             "summarise_max_retries": {
-              "type": "int"
-            },
-            "summarise_max_concurrent": {
               "type": "int"
             }
           }

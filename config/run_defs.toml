@@ -7,13 +7,13 @@ topk = 5
 llm_model = "gpt-5.2"
 llm_batch_size = 1000
 llm_max_new_tokens = 220
+llm_max_concurrent_batches = 1
 [defaults.fetch_adzuna]
 fetch_years = "all"
 
 [defaults.llm_summarise]
 summarise_resume = true
 summarise_max_retries = 0
-summarise_max_concurrent = 1
 
 [runs.baseline]
 # inherits all defaults
