@@ -129,8 +129,9 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     if resume:
         done_ids = store.done_ids()
         remaining_ids = [i for i in all_ids if i not in done_ids]
-        if done_ids:
-            print(f"llm_summarise: resuming — {len(done_ids)} already done, {len(remaining_ids)} remaining")
+        n_skipped = len(all_ids) - len(remaining_ids)
+        if n_skipped:
+            print(f"llm_summarise: resuming — {n_skipped}/{len(all_ids)} already done, {len(remaining_ids)} remaining")
     else:
         store.clear()
         remaining_ids = all_ids
@@ -197,9 +198,13 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             retry_err += chunk_err
     
         print(f"llm_summarise: retry {retry_num} done — {retry_ok} recovered, {retry_err} still failed")
-    n_success, n_failed = store.counts()
-    failed_ids = store.failed_ids()
+    all_ids_set = set(all_ids)
+    done_ids = store.done_ids() & all_ids_set
+    failed_ids = [i for i in store.failed_ids() if i in all_ids_set]
     store.close()
+    
+    n_success = len(done_ids) - len(failed_ids)
+    n_failed = len(failed_ids)
     
     print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_total}")
     if failed_ids:
