@@ -30,7 +30,6 @@ await acheck_connection(config=config)
 print("SSH connection OK")
 
 # %%
-#|skip_evals
 from isambard_utils.orchestrate import asetup_runner, arun_remote, TransferMode, compute_job_hash, aclear_job_cache
 import asyncio
 import numpy as np
@@ -42,7 +41,6 @@ await asetup_runner(config=config)
 # ## Embedding: cache miss → attach → cache hit
 
 # %%
-#|skip_evals
 texts = ["The quick brown fox", "jumps over the lazy dog", "AI will transform the economy"]
 embed_config = {"model_name": "BAAI/bge-large-en-v1.5", "device": "cuda", "dtype": "float16"}
 embed_hash = compute_job_hash("embed", {"texts": texts}, embed_config)
@@ -52,7 +50,6 @@ print(f"Job hash: {embed_hash}")
 await aclear_job_cache(embed_hash, config=config)
 
 # %%
-#|skip_evals
 # Submit job 1 (cache miss)
 task1 = asyncio.create_task(arun_remote(
     "embed", {"texts": texts}, embed_config,
@@ -78,7 +75,6 @@ assert np.array_equal(result1['embeddings'], result2['embeddings']), "Results sh
 print("Results are identical!")
 
 # %%
-#|skip_evals
 # Submit job 3 (same params — should return from cache instantly)
 import time
 start = time.time()
@@ -96,7 +92,6 @@ print("Cache hit result matches!")
 # ## LLM Generate: same pattern
 
 # %%
-#|skip_evals
 prompts = ["What is AI?", "Explain machine learning in one sentence."]
 llm_config = {"model_name": "Qwen/Qwen2.5-7B-Instruct", "max_new_tokens": 60,
               "dtype": "float16", "backend": "vllm"}
@@ -128,7 +123,6 @@ print("Cache hit matches!")
 # ## Cosine Top-K: same pattern
 
 # %%
-#|skip_evals
 A = np.random.randn(5, 768).astype(np.float16)
 B = np.random.randn(20, 768).astype(np.float16)
 cosine_config = {"device": "cuda"}

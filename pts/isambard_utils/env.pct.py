@@ -103,3 +103,18 @@ uv pip install vllm --extra-index-url {config.torch_index_url} --reinstall-packa
         await async_ssh_run(
             f"bash -lc {_shlex_quote(vllm_script)}", config=config, timeout=1200,
         )
+
+    # Force Lustre metadata refresh on triton's nvidia backend dir.
+    # Reinstalling torch/vllm can leave stale hardlink entries on Lustre
+    # (ls shows the file but stat/open fail with ENOENT). Reinstalling
+    # triton forces fresh inodes for all its files.
+    # --no-deps is critical: without it, uv resolves triton's torch
+    # dependency from PyPI (CPU-only), undoing the CUDA torch install.
+    triton_fix_script = f"""
+cd {config.project_dir}
+export UV_CACHE_DIR={config.project_dir}/.uv_cache
+uv pip install --reinstall-package triton --no-deps triton --quiet
+""".strip()
+    await async_ssh_run(
+        f"bash -lc {_shlex_quote(triton_fix_script)}", config=config, timeout=300,
+    )
