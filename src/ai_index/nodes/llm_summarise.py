@@ -9,12 +9,11 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
     import json
     from typing import List
     
-    import duckdb
     import pandas as pd
     from pydantic import BaseModel, ValidationError
     
     from ai_index import const
-    from ai_index.utils import ensure_duckdb_table, get_adzuna_conn, get_all_ad_ids, llm_generate
+    from ai_index.utils import LLMResultStore, get_adzuna_conn, get_all_ad_ids, llm_generate
     class JobInfoModel(BaseModel):
         short_description: str
         tasks: List[str]
@@ -45,64 +44,26 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
     Job Ad:
     {job_text}
     """
-    def _parse_llm_output(raw: str) -> tuple[dict | None, str | None]:
-        """Parse structured LLM JSON output into a validated JobInfoModel dict.
+    def _validate_response(raw: str) -> str | None:
+        """Validate an LLM response against JobInfoModel.
     
-        Returns (parsed_dict, error_string). Exactly one is None.
+        Returns None if valid, or an error string.
         """
         try:
-            validated = JobInfoModel.model_validate_json(raw)
-            validated.tasks = validated.tasks[:5]
-            validated.skills = validated.skills[:5]
-            return validated.model_dump(), None
-        except (ValidationError, Exception) as e:
-            return None, f"{type(e).__name__}: {e}"
+            JobInfoModel.model_validate_json(raw)
+            return None
+        except Exception as e:
+            return f"{type(e).__name__}: {e}"
     
     
-    def _responses_to_df(chunk_ids: list, responses: list[str]) -> tuple[pd.DataFrame, int, int]:
-        """Parse LLM responses into a DataFrame. Returns (df, n_success, n_failed)."""
-        records = []
-        n_success = 0
-        n_failed = 0
-        for ad_id, raw_response in zip(chunk_ids, responses):
-            parsed, error = _parse_llm_output(raw_response)
-            record = {
-                "id": ad_id,
-                "llm_output": raw_response,
-                "error": error,
-            }
-            if parsed:
-                record.update({
-                    "short_description": parsed["short_description"],
-                    "tasks": json.dumps(parsed["tasks"]),
-                    "skills": json.dumps(parsed["skills"]),
-                    "domain": parsed["domain"],
-                    "level": parsed["level"],
-                    "automation_prof_score": parsed["automation_prof_score"],
-                })
-                n_success += 1
-            else:
-                record.update({
-                    "short_description": None,
-                    "tasks": None,
-                    "skills": None,
-                    "domain": None,
-                    "level": None,
-                    "automation_prof_score": None,
-                })
-                n_failed += 1
-            records.append(record)
-        return pd.DataFrame(records), n_success, n_failed
+    def _fetch_and_call_llm(chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema):
+        """Fetch ads from DuckDB, build prompts, call LLM.
     
-    
-    def _fetch_and_process_chunk(chunk_ids, conn, llm_model, max_new_tokens, json_schema):
-        """Fetch ads, build prompts, call LLM, parse responses for a single chunk.
-    
-        Returns (df, n_success, n_failed).
+        Returns (ids_ordered, responses) — raw strings, not yet validated.
         """
-        conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
-        conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
-        ad_table = conn.execute(
+        ads_conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
+        ads_conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
+        ad_table = ads_conn.execute(
             "SELECT a.id, a.title, a.category_name, a.description "
             "FROM ads a JOIN _chunk_ids c ON a.id = c.id"
         ).fetch_arrow_table()
@@ -124,7 +85,24 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
             json_schema=json_schema,
         )
     
-        return _responses_to_df(ids_ordered, responses)
+        return ids_ordered, responses
+    
+    
+    def _build_results_df(ids: list, responses: list[str]) -> tuple[pd.DataFrame, int, int]:
+        """Validate responses and build a DataFrame for LLMResultStore.
+    
+        Returns (df with id/data/error columns, n_success, n_failed).
+        """
+        records = []
+        n_success = n_failed = 0
+        for ad_id, response in zip(ids, responses):
+            error = _validate_response(response)
+            records.append({"id": ad_id, "data": response, "error": error})
+            if error:
+                n_failed += 1
+            else:
+                n_success += 1
+        return pd.DataFrame(records), n_success, n_failed
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
     batch_size = int(ctx.vars["llm_batch_size"])
@@ -135,31 +113,20 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
     output_dir = const.pipeline_store_path / run_name / "llm_summarise"
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "summaries.duckdb"
-    summary_conn = duckdb.connect(str(db_path))
-    schema_changed = ensure_duckdb_table(
-        summary_conn, "summaries", JobInfoModel,
-        extra_columns_before=[("id", "BIGINT NOT NULL")],
-        extra_columns_after=[("llm_output", "VARCHAR"), ("error", "VARCHAR")],
-    )
-    if schema_changed:
-        print("llm_summarise: schema changed — table recreated")
-    all_ids = ad_ids.tolist() if ad_ids is not None else None
+    store = LLMResultStore(db_path)
     
+    all_ids = ad_ids.tolist() if ad_ids is not None else None
     if all_ids is None:
         all_ids = get_all_ad_ids()
     
-    # Resume: skip IDs already processed
     if resume:
-        done_ids = set(
-            summary_conn.execute("SELECT id FROM summaries").fetchnumpy()["id"].tolist()
-        )
+        done_ids = store.done_ids()
         remaining_ids = [i for i in all_ids if i not in done_ids]
         if done_ids:
             print(f"llm_summarise: resuming — {len(done_ids)} already done, {len(remaining_ids)} remaining")
     else:
-        summary_conn.execute("DELETE FROM summaries")
+        store.clear()
         remaining_ids = all_ids
-        done_ids = set()
     
     n_total = len(all_ids)
     print(f"llm_summarise: {n_total} total ads, {len(remaining_ids)} to process (batch_size={batch_size})")
@@ -175,54 +142,41 @@ def main(ctx, print, ad_ids: np.ndarray) -> {
         n_chunks = (len(remaining_ids) + batch_size - 1) // batch_size
         print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
     
-        chunk_df, chunk_success, chunk_failed = _fetch_and_process_chunk(
+        ids_ordered, responses = _fetch_and_call_llm(
             chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema,
         )
-        n_success += chunk_success
-        n_failed += chunk_failed
+        chunk_df, chunk_ok, chunk_err = _build_results_df(ids_ordered, responses)
+        store.insert(chunk_df)
+        n_success += chunk_ok
+        n_failed += chunk_err
     
-        summary_conn.execute("INSERT INTO summaries BY NAME SELECT * FROM chunk_df")
-    
-        print(f"llm_summarise: chunk {chunk_num} done — {chunk_success} ok, {chunk_failed} failed")
+        print(f"llm_summarise: chunk {chunk_num} done — {chunk_ok} ok, {chunk_err} failed")
     for retry_num in range(1, max_retries + 1):
-        failed_ids = summary_conn.execute(
-            "SELECT id FROM summaries WHERE error IS NOT NULL"
-        ).fetchnumpy()["id"].tolist()
-    
-        if not failed_ids:
+        retry_ids = store.failed_ids()
+        if not retry_ids:
             print(f"llm_summarise: no failures to retry")
             break
     
-        print(f"llm_summarise: retry {retry_num}/{max_retries} — {len(failed_ids)} failed ads")
+        print(f"llm_summarise: retry {retry_num}/{max_retries} — {len(retry_ids)} failed ads")
+        store.delete_ids(retry_ids)
     
-        # Delete failed rows, then reprocess
-        summary_conn.execute("DELETE FROM summaries WHERE error IS NOT NULL")
-    
-        retry_success = 0
-        retry_failed = 0
-        for chunk_start in range(0, len(failed_ids), batch_size):
-            chunk_ids = failed_ids[chunk_start : chunk_start + batch_size]
-            chunk_df, chunk_success, chunk_failed = _fetch_and_process_chunk(
+        retry_ok = retry_err = 0
+        for chunk_start in range(0, len(retry_ids), batch_size):
+            chunk_ids = retry_ids[chunk_start : chunk_start + batch_size]
+            ids_ordered, responses = _fetch_and_call_llm(
                 chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema,
             )
-            summary_conn.execute("INSERT INTO summaries BY NAME SELECT * FROM chunk_df")
-            retry_success += chunk_success
-            retry_failed += chunk_failed
+            chunk_df, chunk_ok, chunk_err = _build_results_df(ids_ordered, responses)
+            store.insert(chunk_df)
+            retry_ok += chunk_ok
+            retry_err += chunk_err
     
-        print(f"llm_summarise: retry {retry_num} done — {retry_success} recovered, {retry_failed} still failed")
+        print(f"llm_summarise: retry {retry_num} done — {retry_ok} recovered, {retry_err} still failed")
     
     ads_conn.close()
-    n_success = summary_conn.execute(
-        "SELECT COUNT(*) FROM summaries WHERE error IS NULL"
-    ).fetchone()[0]
-    n_failed = summary_conn.execute(
-        "SELECT COUNT(*) FROM summaries WHERE error IS NOT NULL"
-    ).fetchone()[0]
-    failed_ids = summary_conn.execute(
-        "SELECT id FROM summaries WHERE error IS NOT NULL"
-    ).fetchnumpy()["id"].tolist()
-    
-    summary_conn.close()
+    n_success, n_failed = store.counts()
+    failed_ids = store.failed_ids()
+    store.close()
     
     print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_total}")
     if failed_ids:
