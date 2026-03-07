@@ -248,6 +248,33 @@ def wait(job_id: str, *, config: IsambardConfig | None = None,
 
 # %%
 #|export
+async def ajob_state(job_id: str, *, config: IsambardConfig | None = None) -> str:
+    """Get the effective state of a Slurm job via squeue then sacct (async).
+
+    Checks squeue first (for running/pending jobs). If the job is no longer
+    in the queue, falls back to sacct for the final state.
+
+    Returns one of: "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
+    "TIMEOUT", "NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED", or "UNKNOWN".
+    """
+    config = _get_config(config)
+    sq = await astatus(job_id, config=config)
+    if sq:
+        return sq.get("state", "UNKNOWN")
+    sa = await _asacct_status(job_id, config=config)
+    return sa.get("state", "UNKNOWN")
+
+# %%
+#|export
+def job_state(job_id: str, *, config: IsambardConfig | None = None) -> str:
+    """Get the effective state of a Slurm job via squeue then sacct.
+
+    See ajob_state() for details.
+    """
+    return _run_sync(ajob_state(job_id, config=config))
+
+# %%
+#|export
 async def acancel(job_id: str, *, config: IsambardConfig | None = None) -> None:
     """Cancel a running or pending job via scancel (async).
 

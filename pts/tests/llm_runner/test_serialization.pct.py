@@ -62,25 +62,33 @@ class TestSerialization:
         assert result["labels"] == ["a", "b", "c"]
         assert result["meta"] == {"version": 1}
 
-    def test_pickle_fallback(self):
-        """Non-JSON-serializable objects should fall back to pickle."""
-        from llm_runner.serialization import serialize, deserialize
+    def test_unsupported_type_raises(self):
+        """Non-JSON-serializable, non-ndarray objects should raise TypeError."""
+        from llm_runner.serialization import serialize
         data = {"obj": set([1, 2, 3])}
         with tempfile.TemporaryDirectory() as tmp:
-            serialize(data, Path(tmp))
-            result = deserialize(Path(tmp))
-        assert result["obj"] == {1, 2, 3}
+            with pytest.raises(TypeError, match="unsupported type set"):
+                serialize(data, Path(tmp))
+
+    def test_unsupported_manifest_type_raises(self):
+        """Deserializing a manifest with unsupported type should raise ValueError."""
+        from llm_runner.serialization import deserialize
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = {"obj": {"type": "pkl"}}
+            with open(Path(tmp) / "_manifest.json", "w") as f:
+                json.dump(manifest, f)
+            with pytest.raises(ValueError, match="Unsupported type"):
+                deserialize(Path(tmp))
 
     def test_manifest_structure(self):
         from llm_runner.serialization import serialize
-        data = {"arr": np.zeros(5), "text": "hello", "obj": set([1])}
+        data = {"arr": np.zeros(5), "text": "hello"}
         with tempfile.TemporaryDirectory() as tmp:
             serialize(data, Path(tmp))
             with open(Path(tmp) / "_manifest.json") as f:
                 manifest = json.load(f)
         assert manifest["arr"]["type"] == "npy"
         assert manifest["text"]["type"] == "json"
-        assert manifest["obj"]["type"] == "pkl"
 
     def test_empty_dict(self):
         from llm_runner.serialization import serialize, deserialize

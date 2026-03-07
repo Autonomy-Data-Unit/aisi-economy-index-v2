@@ -14,4 +14,7 @@ from isambard_utils.models import (
     load_embedding_model, load_llm, EmbeddingModel, LLM,
 )
 from isambard_utils.models import aensure_model, acheck_model
+from isambard_utils.slurm import job_state, ajob_state
 from isambard_utils.orchestrate import run_remote, arun_remote, setup_runner, asetup_runner, TransferMode
+from isambard_utils.orchestrate import compute_job_hash
+from isambard_utils.orchestrate import clear_job_cache, aclear_job_cache, job_status, ajob_status

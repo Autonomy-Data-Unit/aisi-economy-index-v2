@@ -45,6 +45,7 @@ def _load_model_config(config_path: Path, model_key: str) -> tuple[str, dict]:
 _RUN_REMOTE_KEYS = {
     "setup", "job_name", "time", "transfer_modes",
     "output_transfer", "isambard_config", "print_fn",
+    "cache", "upload_timeout",
 }
 
 def _resolve_model_args(config_path, model_key, kwargs):

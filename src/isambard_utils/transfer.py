@@ -390,6 +390,52 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
     return remote_path
 
 # %% nbs/isambard_utils/transfer.ipynb 21
+async def _aupload_compressed_direct(local_dir: str, remote_dir: str, *,
+                                      config: IsambardConfig | None = None) -> None:
+    """Upload via compressed tar + SSH pipe to a specific remote dir (async).
+
+    Unlike aupload_compressed, this does NOT use content hashing or .complete
+    markers. It simply tar.gz's the local directory and extracts it at the
+    given remote path.
+
+    Args:
+        local_dir: Local directory to upload.
+        remote_dir: Remote destination directory.
+        config: Isambard configuration.
+    """
+    import tempfile, os
+    from .ssh import arun as async_ssh_run
+    config = _get_config(config)
+
+    await async_ssh_run(f"mkdir -p {remote_dir}", config=config)
+
+    with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        tar_proc = await asyncio.create_subprocess_exec(
+            "tar", "czf", tmp_path, "-C", local_dir, ".",
+        )
+        await tar_proc.communicate()
+        if tar_proc.returncode != 0:
+            raise subprocess.CalledProcessError(tar_proc.returncode, ["tar", "czf"])
+
+        remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
+        extract_cmd = f"tar xzf - -C {remote_dir}"
+        ssh_cmd = ["ssh", remote, extract_cmd]
+
+        with open(tmp_path, "rb") as tar_file:
+            ssh_proc = await asyncio.create_subprocess_exec(
+                *ssh_cmd, stdin=tar_file,
+            )
+            await ssh_proc.communicate()
+
+        if ssh_proc.returncode != 0:
+            raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+    finally:
+        os.unlink(tmp_path)
+
+# %% nbs/isambard_utils/transfer.ipynb 22
 def upload_compressed(local_dir: str, remote_base: str, content_hash: str, *,
                       config: IsambardConfig | None = None) -> str:
     """Upload via compressed tar + SSH pipe to a content-hashed directory.

@@ -4,7 +4,6 @@ __all__ = ['deserialize', 'serialize']
 
 # %% nbs/llm_runner/serialization.ipynb 2
 import json
-import pickle
 from pathlib import Path
 
 import numpy as np
@@ -17,8 +16,10 @@ def serialize(data: dict, directory: Path) -> None:
         data: Dict mapping names to values. Supported types:
             - numpy.ndarray -> <key>.npy
             - JSON-serializable (list, dict, str, int, float, bool, None) -> <key>.json
-            - Other -> <key>.pkl (pickle fallback)
         directory: Target directory (created if needed).
+
+    Raises:
+        TypeError: If a value is not a numpy array and not JSON-serializable.
     """
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -33,9 +34,11 @@ def serialize(data: dict, directory: Path) -> None:
                 json.dump(value, f)
             manifest[key] = {"type": "json"}
         else:
-            with open(directory / f"{key}.pkl", "wb") as f:
-                pickle.dump(value, f, protocol=pickle.HIGHEST_PROTOCOL)
-            manifest[key] = {"type": "pkl"}
+            raise TypeError(
+                f"Cannot serialize key {key!r}: unsupported type {type(value).__name__}. "
+                f"Supported types: numpy.ndarray, and JSON-serializable "
+                f"(list, dict, str, int, float, bool, None)."
+            )
 
     with open(directory / "_manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
@@ -49,6 +52,9 @@ def deserialize(directory: Path) -> dict:
 
     Returns:
         Dict mapping names to deserialized values.
+
+    Raises:
+        ValueError: If manifest contains unsupported type (e.g. "pkl").
     """
     directory = Path(directory)
 
@@ -63,11 +69,11 @@ def deserialize(directory: Path) -> dict:
         elif typ == "json":
             with open(directory / f"{key}.json") as f:
                 result[key] = json.load(f)
-        elif typ == "pkl":
-            with open(directory / f"{key}.pkl", "rb") as f:
-                result[key] = pickle.load(f)
         else:
-            raise ValueError(f"Unknown type {typ!r} for key {key!r}")
+            raise ValueError(
+                f"Unsupported type {typ!r} for key {key!r}. "
+                f"Only 'npy' and 'json' are supported."
+            )
 
     return result
 
