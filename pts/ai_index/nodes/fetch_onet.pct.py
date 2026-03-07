@@ -28,7 +28,9 @@ async def main(ctx, print) -> {"onet_tables": dict}:
 
 # %%
 from dev_utils import set_node_func_args, show_node_vars
-set_node_func_args('fetch_onet')
+run_name = 'test_local'
+set_node_func_args('fetch_onet', run_name=run_name)
+show_node_vars('fetch_onet', run_name=run_name)
 
 # %% [markdown]
 # # Function body

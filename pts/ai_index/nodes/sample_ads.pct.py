@@ -35,8 +35,9 @@ async def main(ctx, print) -> {
 
 # %%
 from dev_utils import *
-set_node_func_args('sample_ads', run_name='test_local')
-show_node_vars('sample_ads', run_name='test_local')
+run_name = 'test_local'
+set_node_func_args('sample_ads', run_name=run_name)
+show_node_vars('sample_ads', run_name=run_name)
 
 # %% [markdown]
 # # Function body

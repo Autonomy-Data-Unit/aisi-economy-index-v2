@@ -48,8 +48,9 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
 
 # %%
 from dev_utils import *
-set_node_func_args('llm_summarise', run_name='test_local')
-show_node_vars('llm_summarise', run_name='test_local')
+run_name = 'test_sbatch'
+set_node_func_args('llm_summarise', run_name=run_name)
+show_node_vars('llm_summarise', run_name=run_name)
 
 # %% [markdown]
 # # Function body
@@ -196,9 +197,6 @@ max_concurrent = ctx.vars["llm_max_concurrent_batches"]
 output_dir = const.pipeline_store_path / run_name / "llm_summarise"
 output_dir.mkdir(parents=True, exist_ok=True)
 db_path = output_dir / "summaries.duckdb"
-
-# %%
-ctx.vars["llm_max_concurrent_batches"]
 
 # %% [markdown]
 # ## Determine which ads to process
