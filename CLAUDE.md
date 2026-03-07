@@ -8,7 +8,7 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 5 nodes and 3 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
+The pipeline is defined in `config/netrun.json`. It currently contains 7 nodes and 5 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
 
 ```
   fetch_onet (run_on_startup)
@@ -17,7 +17,10 @@ The pipeline is defined in `config/netrun.json`. It currently contains 5 nodes a
   prepare_onet_targets
      │ signal: done
      ▼
-  (not yet connected to downstream)
+  embed_onet
+     │ signal: done
+     ▼
+  (not yet connected to downstream — cosine_match)
 
 
   fetch_adzuna (run_on_startup)
@@ -31,15 +34,20 @@ The pipeline is defined in `config/netrun.json`. It currently contains 5 nodes a
      │
      │ successful_ad_ids
      ▼
-  (not yet connected to downstream)
+  embed_ads
+     │ signal: done
+     ▼
+  (not yet connected to downstream — cosine_match)
 ```
 
-### Nodes (5 total, no subgraphs)
+### Nodes (7 total, no subgraphs)
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `done`.
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
 - `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
 - `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` signal, signals `done`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
+- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`. Signals `done`.
+- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` signal, signals `done`.
 
 ### Planned pipeline stages (not yet implemented)
 
@@ -376,7 +384,7 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 │   ├── const.pct.py          # Path constants
 │   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
 │   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (5 nodes)
+│   └── nodes/                # Node functions (7 nodes)
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE

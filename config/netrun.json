@@ -77,7 +77,6 @@
       },
       {
         "name": "fetch_adzuna",
-        "description": "Download raw Adzuna job ads from S3 to monthly parquets.",
         "execution_config": {
           "run_on_startup": true,
           "node_vars": {
@@ -205,6 +204,55 @@
           "func": "ai_index.nodes.llm_summarise.main"
         },
         "type": "node"
+      },
+      {
+        "name": "embed_ads",
+        "description": "Build text descriptions from LLM summaries and embed them.",
+        "execution_config": {
+          "signals": [
+            "done"
+          ]
+        },
+        "extra": {
+          "ui": {
+            "position": {
+              "x": 870,
+              "y": 90
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_ads.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "embed_onet",
+        "description": "Embed O*NET occupation text descriptions.",
+        "execution_config": {
+          "controls": [
+            "start"
+          ],
+          "signals": [
+            "done"
+          ]
+        },
+        "extra": {
+          "ui": {
+            "position": {
+              "x": 840,
+              "y": 345
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_onet.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
@@ -219,6 +267,14 @@
       {
         "source_str": "sample_ads.ad_ids",
         "target_str": "llm_summarise.ad_ids"
+      },
+      {
+        "source_str": "llm_summarise.successful_ad_ids",
+        "target_str": "embed_ads.successful_ad_ids"
+      },
+      {
+        "source_str": "prepare_onet_targets.__signal_done__",
+        "target_str": "embed_onet.__control_start__"
       }
     ],
     "extra": {
