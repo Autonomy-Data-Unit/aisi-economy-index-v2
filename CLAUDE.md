@@ -252,7 +252,9 @@ There are two kinds of node variables:
    - Per-run overrides go in `[runs.<run_name>.<node_name>]` subtables
    - Access via `ctx.vars.get("my_var", default)` in the node function
 
-**Convention:** `netrun.json` only declares names and types. All default values go in `run_defs.toml`.
+**Conventions:**
+- `netrun.json` only declares names and types. All default values go in `run_defs.toml`.
+- Node code must use `ctx.vars["var_name"]` (direct access), never `ctx.vars.get("var_name", default)`. Hidden defaults in code are a code smell — if a variable is missing, it should fail loudly so the missing config entry is noticed and fixed.
 
 All node vars are accessible in node functions via `ctx.vars["var_name"]`. Values from TOML are Python-typed (int, str, bool) but may need explicit casting with `int()` when the type system returns strings.
 
