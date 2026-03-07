@@ -57,7 +57,7 @@
         "execution_config": {
           "run_on_startup": true,
           "signals": [
-            "done"
+            "epoch_finished"
           ]
         },
         "extra": {
@@ -141,10 +141,10 @@
         "description": "Filter O*NET occupations and build text descriptions for embedding.",
         "execution_config": {
           "controls": [
-            "start"
+            "start_epoch"
           ],
           "signals": [
-            "done"
+            "epoch_finished"
           ],
           "node_vars": {
             "onet_exclude_public_sector": {
@@ -210,7 +210,7 @@
         "description": "Build text descriptions from LLM summaries and embed them.",
         "execution_config": {
           "signals": [
-            "done"
+            "epoch_finished"
           ]
         },
         "extra": {
@@ -233,10 +233,10 @@
         "description": "Embed O*NET occupation text descriptions.",
         "execution_config": {
           "controls": [
-            "start"
+            "start_epoch"
           ],
           "signals": [
-            "done"
+            "epoch_finished"
           ]
         },
         "extra": {
@@ -257,8 +257,8 @@
     ],
     "edges": [
       {
-        "source_str": "fetch_onet.__signal_done__",
-        "target_str": "prepare_onet_targets.__control_start__"
+        "source_str": "fetch_onet.__signal_epoch_finished__",
+        "target_str": "prepare_onet_targets.__control_start_epoch__"
       },
       {
         "source_str": "fetch_adzuna.__signal_epoch_finished__",
@@ -273,8 +273,8 @@
         "target_str": "embed_ads.successful_ad_ids"
       },
       {
-        "source_str": "prepare_onet_targets.__signal_done__",
-        "target_str": "embed_onet.__control_start__"
+        "source_str": "prepare_onet_targets.__signal_epoch_finished__",
+        "target_str": "embed_onet.__control_start_epoch__"
       }
     ],
     "extra": {

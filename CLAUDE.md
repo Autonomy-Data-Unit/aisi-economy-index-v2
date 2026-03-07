@@ -12,13 +12,13 @@ The pipeline is defined in `config/netrun.json`. It currently contains 7 nodes a
 
 ```
   fetch_onet (run_on_startup)
-     │ signal: done
+     │ signal: epoch_finished
      ▼
   prepare_onet_targets
-     │ signal: done
+     │ signal: epoch_finished
      ▼
   embed_onet
-     │ signal: done
+     │ signal: epoch_finished
      ▼
   (not yet connected to downstream — cosine_match)
 
@@ -35,19 +35,19 @@ The pipeline is defined in `config/netrun.json`. It currently contains 7 nodes a
      │ successful_ad_ids
      ▼
   embed_ads
-     │ signal: done
+     │ signal: epoch_finished
      ▼
   (not yet connected to downstream — cosine_match)
 ```
 
 ### Nodes (7 total, no subgraphs)
-- `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `done`.
+- `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `epoch_finished`.
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
 - `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
-- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` signal, signals `done`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
-- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`. Signals `done`.
-- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` signal, signals `done`.
+- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
+- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`. Signals `epoch_finished`.
+- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
 
 ### Planned pipeline stages (not yet implemented)
 
@@ -495,6 +495,16 @@ Key concepts:
 - **Packets**: Units of data flowing through edges
 - **Epochs**: One execution cycle of a node
 - **Net**: The runtime that manages the graph
+
+### Signals and Controls
+
+Signals are output ports that fire automatically on lifecycle events. Controls are input ports that trigger node actions. Both are declared in `execution_config` and generate ports with `__signal_<type>__` / `__control_<type>__` naming.
+
+**Valid signal types:** `epoch_started`, `epoch_finished`, `epoch_failed`, `epoch_cancelled`, `node_started`, `node_stopped`
+
+**Valid control types:** `start_node`, `start_epoch`, `enable`, `disable`, `cancel_epoch`, `cancel_all_epochs`, `reset_epoch_count`, `set_epoch_count`, `stop_node`
+
+Edge format: `"source_str": "nodeA.__signal_epoch_finished__"` → `"target_str": "nodeB.__control_start_epoch__"`
 
 ### Key Net APIs
 - **`run_to_targets(targets)`** — Run upstream nodes and collect input salvos at target. Auto-starts the Net if not started. Executes all source nodes (`run_on_startup=True`) automatically. Returns `list[TargetInputSalvo]` with `.packets: dict[str, list[Any]]`.
