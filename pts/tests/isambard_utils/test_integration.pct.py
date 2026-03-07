@@ -33,8 +33,8 @@ from isambard_utils.config import IsambardConfig
 from isambard_utils.ssh import run as ssh_run, check_connection
 from isambard_utils.transfer import upload, download, upload_bytes
 from isambard_utils.slurm import submit, status, wait, cancel, job_log, SlurmJob
-from isambard_utils.env import setup, sync_code_rsync, check_setup
 from isambard_utils.sbatch import generate, SbatchConfig
+from isambard_utils.orchestrate import setup_runner
 
 # %% [markdown]
 # ## Helpers
@@ -129,23 +129,11 @@ def test_file_transfer(cfg: IsambardConfig):
 # %%
 #|export
 def test_environment_setup(cfg: IsambardConfig):
-    """Verify environment bootstrap: directories, uv, code sync."""
+    """Verify environment bootstrap via setup_runner (syncs llm_runner, ensures venv + CUDA torch)."""
     _print_step("3. Testing environment setup")
 
-    # Check current state
-    state = check_setup(config=cfg)
-    _print_ok(f"Current state: {state}")
-
-    # Run setup (idempotent — syncs code + ensures venv)
-    setup(config=cfg, local_project_dir=".")
-    _print_ok("setup() completed")
-
-    # Verify everything is in place
-    state = check_setup(config=cfg)
-    _print_ok(f"Post-setup state: {state}")
-    assert state["uv_installed"], "uv not installed"
-    assert state["venv_exists"], ".venv not created"
-    assert state["code_synced"], "Code not synced (pyproject.toml missing)"
+    setup_runner(config=cfg)
+    _print_ok("setup_runner() completed")
 
     # Verify directories
     ssh_run(f"test -d {cfg.logs_dir}", config=cfg)
@@ -153,15 +141,9 @@ def test_environment_setup(cfg: IsambardConfig):
     ssh_run(f"test -d {cfg.hf_cache_dir}", config=cfg)
     _print_ok(f"hf_cache_dir exists: {cfg.hf_cache_dir}")
 
-    # Install GPU packages on the login node (compute nodes have no internet)
-    _print_ok("Installing torch + transformers (login node, may take a few minutes)...")
-    install_cmd = (
-        f"cd {cfg.project_dir} && source .venv/bin/activate && "
-        "uv pip install torch --index-url https://download.pytorch.org/whl/cu126 --quiet && "
-        "uv pip install transformers accelerate sentence-transformers --quiet"
-    )
-    ssh_run(f"bash -lc {_quote(install_cmd)}", config=cfg, timeout=600)
-    _print_ok("GPU packages installed")
+    # Verify venv exists
+    ssh_run(f"test -f {cfg.project_dir}/.venv/bin/python", config=cfg)
+    _print_ok("venv exists")
 
 # %% [markdown]
 # ## 4. SBATCH Script Generation

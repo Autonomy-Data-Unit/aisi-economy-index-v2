@@ -54,9 +54,22 @@ _CAST_IF_NUMERIC = {
 }
 
 
-def get_adzuna_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    """Open a DuckDB connection to the Adzuna database."""
-    return duckdb.connect(str(adzuna_db_path), read_only=read_only)
+import time
+
+def get_adzuna_conn(read_only: bool = False, *, timeout: float = 60, poll_interval: float = 2) -> duckdb.DuckDBPyConnection:
+    """Open a DuckDB connection to the Adzuna database.
+
+    If the database is locked by another process, retries until timeout.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return duckdb.connect(str(adzuna_db_path), read_only=read_only)
+        except duckdb.IOException as e:
+            if "lock" not in str(e).lower() or time.monotonic() >= deadline:
+                raise
+            print(f"get_adzuna_conn: database locked, retrying in {poll_interval}s...")
+            time.sleep(poll_interval)
 
 
 def ensure_ads_table(conn: duckdb.DuckDBPyConnection) -> None:

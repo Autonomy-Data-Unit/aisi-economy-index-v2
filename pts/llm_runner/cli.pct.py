@@ -135,5 +135,6 @@ def main(argv: list[str] | None = None) -> None:
 
 # %%
 #|export
+#|eval: false
 if __name__ == "__main__":
     main()
