@@ -9,7 +9,7 @@ import json
 import tempfile
 import uuid
 from enum import Enum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import numpy as np
@@ -307,7 +307,7 @@ async def ajob_status(job_hash: str, *, config: IsambardConfig | None = None) ->
     no cache entry exists for this hash.
     """
     config = _get_config(config)
-    cache_path = f"{config.project_dir}/.runner_cache/{job_hash}"
+    cache_path = str(PurePosixPath(config.project_dir) / ".runner_cache" / job_hash)
     status = await _read_remote_status(cache_path, config=config)
     if status is None:
         return None
@@ -333,7 +333,7 @@ def job_status(job_hash: str, *, config: IsambardConfig | None = None) -> dict |
 async def aclear_job_cache(job_hash: str, *, config: IsambardConfig | None = None) -> None:
     """Remove a cached job directory from the remote."""
     config = _get_config(config)
-    cache_path = f"{config.project_dir}/.runner_cache/{job_hash}"
+    cache_path = str(PurePosixPath(config.project_dir) / ".runner_cache" / job_hash)
     await async_ssh_run(f"rm -rf {cache_path}", config=config, check=False)
     _JOB_LOCKS.pop(job_hash, None)
 
@@ -483,7 +483,7 @@ async def arun_remote(
 
     # Content-addressed idempotent path
     job_hash = compute_job_hash(operation, inputs, config_dict)
-    cache_path = f"{ic.project_dir}/.runner_cache/{job_hash}"
+    cache_path = str(PurePosixPath(ic.project_dir) / ".runner_cache" / job_hash)
     slurm_job_name = f"{job_name}_{job_hash[:8]}"
     print_fn(f"run_remote [{job_name}]: hash={job_hash}")
     print_fn(f"run_remote [{job_name}]: cache={cache_path}")
@@ -715,14 +715,14 @@ async def _run_remote_uncached(
                 await aupload_tar_pipe(str(local_dir), remote_dir, config=config)
                 manifest[key] = remote_dir
             elif mode == TransferMode.UPLOAD:
-                cache_dir = f"{config.project_dir}/.runner_cache"
+                cache_dir = str(PurePosixPath(config.project_dir) / ".runner_cache")
                 content_hash = compute_content_hash(str(local_dir))
                 remote_dir = await aupload_idempotent(
                     str(local_dir), cache_dir, content_hash, config=config,
                 )
                 manifest[key] = remote_dir
             elif mode == TransferMode.COMPRESSED:
-                cache_dir = f"{config.project_dir}/.runner_cache"
+                cache_dir = str(PurePosixPath(config.project_dir) / ".runner_cache")
                 content_hash = compute_content_hash(str(local_dir))
                 remote_dir = await aupload_compressed(
                     str(local_dir), cache_dir, content_hash, config=config,
