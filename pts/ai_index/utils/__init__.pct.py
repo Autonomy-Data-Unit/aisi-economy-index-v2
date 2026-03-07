@@ -20,4 +20,5 @@ from ai_index.utils.adzuna_store import (
 )
 from ai_index.utils.result_store import ResultStore
 from ai_index.utils.batch import run_batched, strict_format
+from ai_index.utils.prompts import load_prompt
 from ai_index.utils.llm_result_store import LLMResultStore  # backward compat

@@ -14,6 +14,8 @@ fetch_years = "all"
 [defaults.llm_summarise]
 summarise_resume = true
 summarise_max_retries = 0
+system_prompt = "llm_summarise/main/system"
+user_prompt = "llm_summarise/main/user"
 
 [runs.baseline]
 # inherits all defaults

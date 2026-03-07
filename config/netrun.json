@@ -144,6 +144,12 @@
             },
             "summarise_max_retries": {
               "type": "int"
+            },
+            "system_prompt": {
+              "type": "str"
+            },
+            "user_prompt": {
+              "type": "str"
             }
           }
         },

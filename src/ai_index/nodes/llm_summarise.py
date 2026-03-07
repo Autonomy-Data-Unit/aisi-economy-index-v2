@@ -13,7 +13,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     from pydantic import BaseModel
     
     from ai_index import const
-    from ai_index.utils import ResultStore, run_batched, strict_format, allm_generate, get_adzuna_conn, get_all_ad_ids
+    from ai_index.utils import ResultStore, run_batched, strict_format, load_prompt, allm_generate, get_adzuna_conn, get_all_ad_ids
     class JobInfoModel(BaseModel):
         short_description: str
         tasks: List[str]
@@ -21,29 +21,6 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
         domain: str
         level: str
         automation_prof_score: int
-    SYSTEM_PROMPT = (
-        "You are a human resources highly-accurate data extraction bot. "
-        "Extract the following details from the job advertisement provided by the user. "
-        "You MUST NOT include more than 5 tasks or 5 skills. Stop the list at 5. Do not write more. "
-        "- 'level': classify as 'Entry-Level' if the job requires <3 years experience or mentions 'junior'/'entry'; otherwise 'Experienced'. "
-        "- 'automation_prof_score': integer 0-10 estimating AI automation risk. "
-        "0 = AI-proof (requires physical/manual presence, creativity, leadership, or deep social judgment). "
-        "10 = highly automatable by AI (routine, repetitive non-manual tasks like data entry, scheduling). "
-        "Manual labour (e.g. cleaning, lifting, warehouse, driving) should usually score 0-3, "
-        "since AI alone cannot replace them."
-    )
-    
-    USER_TEMPLATE = """Extract:
-    1. Short job description
-    2. Bullet list of up to 5 key tasks
-    3. Bullet list of up to 5 key skills
-    4. The domain or industry
-    5. The level (Entry-Level if <3 years experience or junior, else Experienced)
-    6. Automation proof score (0=AI proof, 10=highly automatable non-manual tasks)
-    
-    Job Ad:
-    {job_text}
-    """
     def _validate_response(raw: str) -> str | None:
         """Validate an LLM response against JobInfoModel.
     
@@ -61,6 +38,9 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     resume = ctx.vars["summarise_resume"]
     max_retries = ctx.vars["summarise_max_retries"]
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+    
+    SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
+    USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
     
     output_dir = const.pipeline_store_path / run_name / "llm_summarise"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -87,7 +67,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             category = ad_table.column("category_name")[i].as_py()
             description = ad_table.column("description")[i].as_py()
             job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
-            prompts.append(strict_format(USER_TEMPLATE, job_text=job_text))
+            prompts.append(strict_format(USER_PROMPT_TEMPLATE, job_text=job_text))
     
         responses = await allm_generate(
             prompts,
