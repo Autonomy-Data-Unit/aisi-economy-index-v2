@@ -14,8 +14,9 @@
 # short_description, tasks, skills, domain, level, automation_prof_score.
 #
 # Processes ads in chunks to handle arbitrarily large datasets without
-# loading everything into memory. Writes results incrementally to parquet
-# and supports resuming from a previous partial run.
+# loading everything into memory. Writes results incrementally to DuckDB
+# and supports resuming from a previous partial run. Schema changes in
+# JobInfoModel are auto-detected and trigger a full reprocessing.
 #
 # Node variables:
 # - `llm_model` (global): Model key from llm_models.toml
@@ -55,14 +56,14 @@ show_node_vars(run_name='test_local')
 # %%
 #|export
 import json
-from pathlib import Path
 from typing import List
 
+import duckdb
 import pandas as pd
 from pydantic import BaseModel, ValidationError
 
 from ai_index import const
-from ai_index.utils import get_adzuna_conn, llm_generate, get_all_ad_ids
+from ai_index.utils import ensure_duckdb_table, get_adzuna_conn, get_all_ad_ids, llm_generate
 
 # %% [markdown]
 # ## Pydantic schema for LLM output
@@ -75,6 +76,7 @@ class JobInfoModel(BaseModel):
     skills: List[str]
     domain: str
     level: str
+    automation_prof_score: int
 
 # %% [markdown]
 # ## Prompt templates
@@ -88,6 +90,7 @@ SYSTEM_PROMPT = (
     "Extract the following details from the job advertisement provided by the user. "
     "You MUST NOT include more than 5 tasks or 5 skills. Stop the list at 5. Do not write more. "
     "- 'level': classify as 'Entry-Level' if the job requires <3 years experience or mentions 'junior'/'entry'; otherwise 'Experienced'. "
+    "- 'automation_prof_score': integer 0-10 estimating AI automation risk. "
     "0 = AI-proof (requires physical/manual presence, creativity, leadership, or deep social judgment). "
     "10 = highly automatable by AI (routine, repetitive non-manual tasks like data entry, scheduling). "
     "Manual labour (e.g. cleaning, lifting, warehouse, driving) should usually score 0-3, "
@@ -100,6 +103,7 @@ USER_TEMPLATE = """Extract:
 3. Bullet list of up to 5 key skills
 4. The domain or industry
 5. The level (Entry-Level if <3 years experience or junior, else Experienced)
+6. Automation proof score (0=AI proof, 10=highly automatable non-manual tasks)
 
 Job Ad:
 {job_text}
@@ -205,7 +209,21 @@ max_retries = int(ctx.vars.get("summarise_max_retries", 0))
 
 output_dir = const.pipeline_store_path / run_name / "llm_summarise"
 output_dir.mkdir(parents=True, exist_ok=True)
-output_path = output_dir / "summaries.parquet"
+db_path = output_dir / "summaries.duckdb"
+
+# %% [markdown]
+# ## Set up DuckDB output table
+
+# %%
+#|export
+summary_conn = duckdb.connect(str(db_path))
+schema_changed = ensure_duckdb_table(
+    summary_conn, "summaries", JobInfoModel,
+    extra_columns_before=[("id", "BIGINT NOT NULL")],
+    extra_columns_after=[("llm_output", "VARCHAR"), ("error", "VARCHAR")],
+)
+if schema_changed:
+    print("llm_summarise: schema changed — table recreated")
 
 # %% [markdown]
 # ## Determine which ads to process
@@ -218,12 +236,15 @@ if all_ids is None:
     all_ids = get_all_ad_ids()
 
 # Resume: skip IDs already processed
-if resume and output_path.exists():
-    done_df = pd.read_parquet(output_path, columns=["id"])
-    done_ids = set(done_df["id"].tolist())
+if resume:
+    done_ids = set(
+        summary_conn.execute("SELECT id FROM summaries").fetchnumpy()["id"].tolist()
+    )
     remaining_ids = [i for i in all_ids if i not in done_ids]
-    print(f"llm_summarise: resuming — {len(done_ids)} already done, {len(remaining_ids)} remaining")
+    if done_ids:
+        print(f"llm_summarise: resuming — {len(done_ids)} already done, {len(remaining_ids)} remaining")
 else:
+    summary_conn.execute("DELETE FROM summaries")
     remaining_ids = all_ids
     done_ids = set()
 
@@ -239,7 +260,7 @@ json_schema = JobInfoModel.model_json_schema()
 n_success = 0
 n_failed = 0
 
-conn = get_adzuna_conn(read_only=True)
+ads_conn = get_adzuna_conn(read_only=True)
 
 for chunk_start in range(0, len(remaining_ids), batch_size):
     chunk_ids = remaining_ids[chunk_start : chunk_start + batch_size]
@@ -248,15 +269,12 @@ for chunk_start in range(0, len(remaining_ids), batch_size):
     print(f"llm_summarise: chunk {chunk_num}/{n_chunks} ({len(chunk_ids)} ads)")
 
     chunk_df, chunk_success, chunk_failed = _fetch_and_process_chunk(
-        chunk_ids, conn, llm_model, max_new_tokens, json_schema,
+        chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema,
     )
     n_success += chunk_success
     n_failed += chunk_failed
 
-    if output_path.exists():
-        existing_df = pd.read_parquet(output_path)
-        chunk_df = pd.concat([existing_df, chunk_df], ignore_index=True)
-    chunk_df.to_parquet(output_path, index=False)
+    summary_conn.execute("INSERT INTO summaries BY NAME SELECT * FROM chunk_df")
 
     print(f"llm_summarise: chunk {chunk_num} done — {chunk_success} ok, {chunk_failed} failed")
 
@@ -266,9 +284,9 @@ for chunk_start in range(0, len(remaining_ids), batch_size):
 # %%
 #|export
 for retry_num in range(1, max_retries + 1):
-    current_df = pd.read_parquet(output_path)
-    failed_mask = current_df["error"].notna()
-    failed_ids = current_df.loc[failed_mask, "id"].tolist()
+    failed_ids = summary_conn.execute(
+        "SELECT id FROM summaries WHERE error IS NOT NULL"
+    ).fetchnumpy()["id"].tolist()
 
     if not failed_ids:
         print(f"llm_summarise: no failures to retry")
@@ -276,44 +294,48 @@ for retry_num in range(1, max_retries + 1):
 
     print(f"llm_summarise: retry {retry_num}/{max_retries} — {len(failed_ids)} failed ads")
 
-    retry_dfs = []
+    # Delete failed rows, then reprocess
+    summary_conn.execute("DELETE FROM summaries WHERE error IS NOT NULL")
+
+    retry_success = 0
+    retry_failed = 0
     for chunk_start in range(0, len(failed_ids), batch_size):
         chunk_ids = failed_ids[chunk_start : chunk_start + batch_size]
         chunk_df, chunk_success, chunk_failed = _fetch_and_process_chunk(
-            chunk_ids, conn, llm_model, max_new_tokens, json_schema,
+            chunk_ids, ads_conn, llm_model, max_new_tokens, json_schema,
         )
-        retry_dfs.append(chunk_df)
-        print(f"llm_summarise: retry {retry_num} chunk — {chunk_success} ok, {chunk_failed} failed")
+        summary_conn.execute("INSERT INTO summaries BY NAME SELECT * FROM chunk_df")
+        retry_success += chunk_success
+        retry_failed += chunk_failed
 
-    # Replace failed rows with retry results
-    retry_df = pd.concat(retry_dfs, ignore_index=True)
-    success_df = current_df.loc[~failed_mask]
-    merged_df = pd.concat([success_df, retry_df], ignore_index=True)
-    merged_df.to_parquet(output_path, index=False)
+    print(f"llm_summarise: retry {retry_num} done — {retry_success} recovered, {retry_failed} still failed")
 
-    new_failures = int(retry_df["error"].notna().sum())
-    print(f"llm_summarise: retry {retry_num} done — {len(failed_ids) - new_failures} recovered, {new_failures} still failed")
-
-conn.close()
+ads_conn.close()
 
 # %% [markdown]
 # ## Return summary
 
 # %%
 #|export
-# Recount from parquet (retries or resume may have changed counts)
-final_df = pd.read_parquet(output_path, columns=["id", "error"])
-n_success = int(final_df["error"].isna().sum())
-n_failed = int(final_df["error"].notna().sum())
-failed_ids = final_df.loc[final_df["error"].notna(), "id"].tolist()
+n_success = summary_conn.execute(
+    "SELECT COUNT(*) FROM summaries WHERE error IS NULL"
+).fetchone()[0]
+n_failed = summary_conn.execute(
+    "SELECT COUNT(*) FROM summaries WHERE error IS NOT NULL"
+).fetchone()[0]
+failed_ids = summary_conn.execute(
+    "SELECT id FROM summaries WHERE error IS NOT NULL"
+).fetchnumpy()["id"].tolist()
+
+summary_conn.close()
 
 print(f"llm_summarise: {n_success} succeeded, {n_failed} failed out of {n_total}")
 if failed_ids:
     print(f"llm_summarise: failed IDs: {failed_ids[:20]}{'...' if len(failed_ids) > 20 else ''}")
-print(f"llm_summarise: wrote {output_path}")
+print(f"llm_summarise: wrote {db_path}")
 
 summary_meta = {
-    "parquet_path": str(output_path),
+    "db_path": str(db_path),
     "n_total": n_total,
     "n_success": n_success,
     "n_failed": n_failed,
