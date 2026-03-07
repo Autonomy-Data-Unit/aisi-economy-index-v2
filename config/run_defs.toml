@@ -11,6 +11,10 @@ llm_max_concurrent_batches = 1
 [defaults.fetch_adzuna]
 fetch_years = "all"
 
+[defaults.prepare_onet_targets]
+onet_exclude_public_sector = true
+onet_top_n = 10
+
 [defaults.llm_summarise]
 summarise_resume = true
 summarise_max_retries = 0

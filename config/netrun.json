@@ -135,6 +135,34 @@
         "type": "node"
       },
       {
+        "name": "prepare_onet_targets",
+        "description": "Filter O*NET occupations and build text descriptions for embedding.",
+        "execution_config": {
+          "node_vars": {
+            "onet_exclude_public_sector": {
+              "type": "bool"
+            },
+            "onet_top_n": {
+              "type": "int"
+            }
+          }
+        },
+        "extra": {
+          "ui": {
+            "position": {
+              "x": 555,
+              "y": 345
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.prepare_onet_targets.main"
+        },
+        "type": "node"
+      },
+      {
         "name": "llm_summarise",
         "description": "Run LLM to extract structured summaries from job ads.",
         "execution_config": {
@@ -171,6 +199,10 @@
       }
     ],
     "edges": [
+      {
+        "source_str": "fetch_onet.onet_tables",
+        "target_str": "prepare_onet_targets.onet_tables"
+      },
       {
         "source_str": "fetch_adzuna.__signal_epoch_finished__",
         "target_str": "sample_ads.__control_start_epoch__"

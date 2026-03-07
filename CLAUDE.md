@@ -15,6 +15,10 @@ The pipeline is defined in `config/netrun.json`. It currently contains 4 nodes a
      │
      │ onet_tables
      ▼
+  prepare_onet_targets
+     │
+     │ onet_targets
+     ▼
   (not yet connected to downstream)
 
 
@@ -27,16 +31,17 @@ The pipeline is defined in `config/netrun.json`. It currently contains 4 nodes a
      ▼
   llm_summarise
      │
-     │ summary_meta
+     │ successful_ad_ids
      ▼
   (not yet connected to downstream)
 ```
 
-### Nodes (4 total, no subgraphs)
+### Nodes (5 total, no subgraphs)
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database. Output: `onet_tables`
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
-- `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental parquet writes and resume support. Input: `ad_ids`. Output: `summary_meta` (dict with parquet path + counts). Writes summaries to `store/pipeline/{run_name}/summaries.parquet`. Node vars: `llm_batch_size`, `llm_max_new_tokens` (global), `summarise_resume` (per-node).
+- `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
+- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Input: `onet_tables`. Output: `onet_targets` (DataFrame with 861 occupations). Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
 
 ### Planned pipeline stages (not yet implemented)
 

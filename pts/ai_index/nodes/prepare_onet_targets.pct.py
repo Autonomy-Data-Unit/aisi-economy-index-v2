@@ -1,0 +1,220 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Prepare O*NET Targets
+#
+# Filter O*NET occupations and build text descriptions for embedding.
+#
+# 1. Optionally removes 33 public-sector-only occupations (894 → 861)
+#    that are not expected on commercial job boards.
+# 2. Builds two text columns per occupation for downstream embedding:
+#    - "Job Role Description" = "{Title} - {Description}"
+#    - "Work Activities/Tasks/Skills" = "{Title} - {top tasks, activities, skills}"
+#
+# Node variables:
+# - `onet_exclude_public_sector` (per-node): Remove 33 public-sector occupations (default true)
+# - `onet_top_n` (per-node): Top-N tasks/skills/activities per occupation (default 10)
+
+# %%
+#|default_exp nodes.prepare_onet_targets
+#|export_as_func true
+
+# %%
+#|set_func_signature
+def main(ctx, print, onet_tables: dict) -> {
+    'onet_targets': 'pd.DataFrame'
+}:
+    """Filter O*NET occupations and build text descriptions for embedding."""
+    ...
+
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import *
+run_name = 'test_local'
+set_node_func_args('prepare_onet_targets', run_name=run_name)
+show_node_vars('prepare_onet_targets', run_name=run_name)
+
+# %% [markdown]
+# # Function body
+
+# %%
+#|export
+import pandas as pd
+
+# %% [markdown]
+# ## Public-sector exclusion list
+#
+# 33 O*NET occupations with statutory authority, coercive power, or
+# public-monopoly delivery that do not appear on commercial job boards.
+
+# %%
+#|export
+PUBLIC_SECTOR_TITLES = [
+    # Justice / Courts (8)
+    "Judges, Magistrate Judges, and Magistrates",
+    "Administrative Law Judges, Adjudicators, and Hearing Officers",
+    "Judicial Law Clerks",
+    "Coroners",
+    "Bailiffs",
+    "Probation Officers and Correctional Treatment Specialists",
+    "Court, Municipal, and License Clerks",
+    "Tax Examiners and Collectors, and Revenue Agents",
+    # Policing / Security (10)
+    "First-Line Supervisors of Police and Detectives",
+    "Detectives and Criminal Investigators",
+    "Police Identification and Records Officers",
+    "Intelligence Analysts",
+    "Fish and Game Wardens",
+    "Parking Enforcement Workers",
+    "Police and Sheriff's Patrol Officers",
+    "Customs and Border Protection Officers",
+    "Transit and Railroad Police",
+    "Transportation Security Screeners",
+    # Fire / Emergency (6)
+    "Emergency Management Directors",
+    "First-Line Supervisors of Firefighting and Prevention Workers",
+    "Firefighters",
+    "Fire Inspectors and Investigators",
+    "Forest Fire Inspectors and Prevention Specialists",
+    "Public Safety Telecommunicators",
+    # Corrections (2)
+    "First-Line Supervisors of Correctional Officers",
+    "Correctional Officers and Jailers",
+    # Postal (4)
+    "Postmasters and Mail Superintendents",
+    "Postal Service Clerks",
+    "Postal Service Mail Carriers",
+    "Postal Service Mail Sorters, Processors, and Processing Machine Operators",
+    # Government (1)
+    "Eligibility Interviewers, Government Programs",
+    # Inspection (1)
+    "Government Property Inspectors and Investigators",
+    # Infrastructure (1)
+    "Air Traffic Controllers",
+]
+
+# %% [markdown]
+# ## Read node variables
+
+# %%
+#|export
+exclude_public_sector = ctx.vars["onet_exclude_public_sector"]
+top_n = ctx.vars["onet_top_n"]
+
+# %% [markdown]
+# ## Build text descriptions
+#
+# For each occupation, construct:
+# - **Job Role Description**: `"{Title} - {Description}"`
+# - **Work Activities/Tasks/Skills**: `"{Title} - {top tasks, activities, skills}"`
+#   where top items are ranked by Importance (IM) scale score.
+
+# %%
+#|export
+occupation_data = onet_tables["Occupation Data"]
+task_statements = onet_tables["Task Statements"]
+skills = onet_tables["Skills"]
+work_activities = onet_tables["Work Activities"]
+
+def _top_items_by_importance(occ_df, detail_df, element_col, top_n):
+    """Get top-N items per occupation ranked by Importance scale score."""
+    merged = occ_df[["O*NET-SOC Code", "Title"]].merge(
+        detail_df[["O*NET-SOC Code", element_col, "Scale ID", "Data Value"]],
+        on="O*NET-SOC Code", how="left",
+    )
+    merged = merged[merged["Scale ID"] == "IM"].copy()
+    merged["Data Value"] = pd.to_numeric(merged["Data Value"], errors="coerce")
+    merged = merged.dropna(subset=["Data Value"])
+
+    grouped = merged.groupby(["Title", element_col], as_index=False)["Data Value"].sum()
+    top = (
+        grouped.sort_values(["Title", "Data Value"], ascending=[True, False])
+        .groupby("Title")
+        .head(top_n)
+    )
+    return top.groupby("Title")[element_col].apply(list).reset_index()
+
+# Top tasks (ranked by skill importance as cross-reference — matches old pipeline)
+occ_tasks = occupation_data[["O*NET-SOC Code", "Title"]].merge(
+    task_statements[["O*NET-SOC Code", "Task"]], on="O*NET-SOC Code", how="left",
+)
+occ_tasks_skills = occ_tasks.merge(
+    skills[["O*NET-SOC Code", "Element Name", "Scale ID", "Data Value"]],
+    on="O*NET-SOC Code", how="left",
+)
+occ_tasks_skills = occ_tasks_skills[occ_tasks_skills["Scale ID"] == "IM"].copy()
+occ_tasks_skills["Data Value"] = occ_tasks_skills["Data Value"].astype(float)
+task_scores = occ_tasks_skills.groupby(["Title", "Task"])["Data Value"].sum().reset_index()
+top_tasks = (
+    task_scores.sort_values(["Title", "Data Value"], ascending=[True, False])
+    .groupby("Title").head(top_n)
+)
+tasks_grouped = top_tasks.groupby("Title")["Task"].apply(list).reset_index()
+tasks_grouped.rename(columns={"Task": "Top_Tasks"}, inplace=True)
+
+# Top skills
+skills_grouped = _top_items_by_importance(occupation_data, skills, "Element Name", top_n)
+skills_grouped.rename(columns={"Element Name": "Top_Skills"}, inplace=True)
+
+# Top work activities
+activities_grouped = _top_items_by_importance(occupation_data, work_activities, "Element Name", top_n)
+activities_grouped.rename(columns={"Element Name": "Top_Activities"}, inplace=True)
+
+# Merge all
+merged = tasks_grouped.merge(activities_grouped, on="Title", how="outer")
+merged = merged.merge(skills_grouped, on="Title", how="outer")
+for col in ["Top_Tasks", "Top_Activities", "Top_Skills"]:
+    merged[col] = merged[col].apply(lambda x: x if isinstance(x, list) else [])
+merged["All_Items"] = merged["Top_Tasks"] + merged["Top_Activities"] + merged["Top_Skills"]
+
+# %% [markdown]
+# ## Assemble output DataFrame
+
+# %%
+#|export
+occ_df = occupation_data.copy()
+occ_df["All_Items"] = occ_df["Title"].map(merged.set_index("Title")["All_Items"].to_dict())
+occ_df = occ_df.dropna(subset=["All_Items"])
+
+onet_targets = occ_df[["O*NET-SOC Code", "Title", "Description"]].copy()
+onet_targets["Job Role Description"] = onet_targets["Title"] + " - " + onet_targets["Description"].astype(str)
+onet_targets["Work Activities/Tasks/Skills"] = (
+    onet_targets["Title"] + " - "
+    + occ_df["All_Items"].apply(lambda items: ", ".join(str(i) for i in items))
+)
+
+# %% [markdown]
+# ## Filter public sector occupations
+
+# %%
+#|export
+if exclude_public_sector:
+    exclude_set = set(PUBLIC_SECTOR_TITLES)
+    before = len(onet_targets)
+    onet_targets = onet_targets[~onet_targets["Title"].str.strip().isin(exclude_set)].reset_index(drop=True)
+    n_dropped = before - len(onet_targets)
+    print(f"prepare_onet_targets: dropped {n_dropped} public-sector occupations ({before} → {len(onet_targets)})")
+
+print(f"prepare_onet_targets: {len(onet_targets)} occupations with text descriptions (top_n={top_n})")
+
+onet_targets #|func_return_line
+
+# %% [markdown]
+# ## Sample output
+
+# %%
+print(f"Columns: {list(onet_targets.columns)}")
+print(f"Shape: {onet_targets.shape}")
+for _, row in onet_targets.head(2).iterrows():
+    print(f"\n--- {row['Title']} ---")
+    print(f"  Role: {row['Job Role Description'][:120]}...")
+    print(f"  Tasks/Skills: {row['Work Activities/Tasks/Skills'][:120]}...")
