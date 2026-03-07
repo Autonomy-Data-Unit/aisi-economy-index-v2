@@ -23,7 +23,7 @@ import pandas as pd
 import pytest
 
 from ai_index.utils.result_store import ResultStore
-from ai_index.utils.batch import run_batched
+from ai_index.utils.batch import run_batched, strict_format
 
 # %% [markdown]
 # ## ResultStore tests
@@ -275,3 +275,27 @@ class TestRunBatched:
         assert max_concurrent[0] <= 3
         assert store.counts() == (10, 0)
         store.close()
+
+# %% [markdown]
+# ## strict_format tests
+
+# %%
+#|export
+class TestStrictFormat:
+    def test_basic(self):
+        assert strict_format("Hello {name}!", name="world") == "Hello world!"
+
+    def test_extra_keys_raises(self):
+        with pytest.raises(ValueError, match="Unexpected template variables"):
+            strict_format("Hello {name}!", name="world", extra="bad")
+
+    def test_missing_key_raises(self):
+        with pytest.raises(KeyError):
+            strict_format("Hello {name} {missing}!", name="world")
+
+    def test_no_placeholders(self):
+        assert strict_format("plain text") == "plain text"
+
+    def test_multiple_placeholders(self):
+        result = strict_format("{a} and {b}", a="1", b="2")
+        assert result == "1 and 2"

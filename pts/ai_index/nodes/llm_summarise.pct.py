@@ -64,7 +64,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from ai_index import const
-from ai_index.utils import ResultStore, run_batched, allm_generate, get_adzuna_conn, get_all_ad_ids
+from ai_index.utils import ResultStore, run_batched, strict_format, allm_generate, get_adzuna_conn, get_all_ad_ids
 
 # %% [markdown]
 # ## Pydantic schema for LLM output
@@ -170,7 +170,7 @@ async def _work_fn(chunk_ids):
         category = ad_table.column("category_name")[i].as_py()
         description = ad_table.column("description")[i].as_py()
         job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
-        prompts.append(USER_TEMPLATE.format(job_text=job_text))
+        prompts.append(strict_format(USER_TEMPLATE, job_text=job_text))
 
     responses = await allm_generate(
         prompts,

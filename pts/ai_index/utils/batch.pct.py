@@ -22,11 +22,30 @@
 import asyncio
 import json
 from pathlib import Path
+from string import Formatter
 from typing import Any, Callable
 
 import pandas as pd
 
 from ai_index.utils.result_store import ResultStore
+
+
+def strict_format(template: str, **kwargs) -> str:
+    """Like str.format, but raises on unexpected keyword arguments.
+
+    Args:
+        template: A format string with ``{field}`` placeholders.
+        **kwargs: Values for the placeholders.
+
+    Raises:
+        ValueError: If kwargs contains keys not referenced in the template.
+        KeyError: If the template references a key not in kwargs.
+    """
+    expected = {fname for _, fname, _, _ in Formatter().parse(template) if fname}
+    extra = set(kwargs) - expected
+    if extra:
+        raise ValueError(f"Unexpected template variables: {extra}")
+    return template.format(**kwargs)
 
 
 async def run_batched(
