@@ -55,7 +55,10 @@
         "name": "fetch_onet",
         "description": "Download and extract O*NET 30.0 database.",
         "execution_config": {
-          "run_on_startup": true
+          "run_on_startup": true,
+          "signals": [
+            "done"
+          ]
         },
         "extra": {
           "ui": {
@@ -138,6 +141,12 @@
         "name": "prepare_onet_targets",
         "description": "Filter O*NET occupations and build text descriptions for embedding.",
         "execution_config": {
+          "controls": [
+            "start"
+          ],
+          "signals": [
+            "done"
+          ],
           "node_vars": {
             "onet_exclude_public_sector": {
               "type": "bool"
@@ -200,8 +209,8 @@
     ],
     "edges": [
       {
-        "source_str": "fetch_onet.onet_tables",
-        "target_str": "prepare_onet_targets.onet_tables"
+        "source_str": "fetch_onet.__signal_done__",
+        "target_str": "prepare_onet_targets.__control_start__"
       },
       {
         "source_str": "fetch_adzuna.__signal_epoch_finished__",

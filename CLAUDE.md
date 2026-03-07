@@ -8,16 +8,14 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 4 nodes and 2 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
+The pipeline is defined in `config/netrun.json`. It currently contains 5 nodes and 3 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
 
 ```
   fetch_onet (run_on_startup)
-     │
-     │ onet_tables
+     │ signal: done
      ▼
   prepare_onet_targets
-     │
-     │ onet_targets
+     │ signal: done
      ▼
   (not yet connected to downstream)
 
@@ -37,11 +35,11 @@ The pipeline is defined in `config/netrun.json`. It currently contains 4 nodes a
 ```
 
 ### Nodes (5 total, no subgraphs)
-- `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database. Output: `onet_tables`
+- `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `done`.
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
 - `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
-- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Input: `onet_tables`. Output: `onet_targets` (DataFrame with 861 occupations). Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
+- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` signal, signals `done`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
 
 ### Planned pipeline stages (not yet implemented)
 
@@ -89,9 +87,9 @@ Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`
 
 ### Key files
 - `pts/ai_index/run_pipeline.pct.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
-- `pts/ai_index/const.pct.py` — Path constants (`assets_path`, `store_path`, `inputs_path`, config paths)
-- `src/ai_index/assets/run_defs.toml` — Run definitions
-- `src/ai_index/assets/netrun.json` — Pipeline graph with unfilled node_var placeholders
+- `pts/ai_index/const.pct.py` — Path constants (`store_path`, `inputs_path`, config paths)
+- `config/run_defs.toml` — Run definitions
+- `config/netrun.json` — Pipeline graph with unfilled node_var placeholders
 
 ## Configuration Files
 
@@ -117,9 +115,15 @@ llm_max_concurrent_batches = 1   # Max concurrent batch LLM calls
 [defaults.fetch_adzuna]
 fetch_years = "all"
 
+[defaults.prepare_onet_targets]
+onet_exclude_public_sector = true
+onet_top_n = 10
+
 [defaults.llm_summarise]
 summarise_resume = true          # Resume from previous partial run
 summarise_max_retries = 0        # Retry rounds for failed ads
+system_prompt = "llm_summarise/main/system"  # Path in prompt_library/
+user_prompt = "llm_summarise/main/user"      # Path in prompt_library/
 
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)
@@ -217,7 +221,7 @@ time = "00:30:00"
 
 ### `isambard_config.toml` — HPC cluster config
 
-Configures the Isambard AI Phase 2 cluster connection. Symlinked from `src/isambard_utils/assets/config.toml`.
+Configures the Isambard AI Phase 2 cluster connection. Located at `src/isambard_utils/assets/config.toml`.
 
 ```toml
 [isambard]
@@ -275,9 +279,9 @@ Execution mode is determined per-model via the `mode` field in `embed_models.tom
 | `sbatch` | Orchestrate from local: serialize inputs, submit SBATCH job to Isambard, wait, download results |
 
 ### Key files
-- `pts/ai_index/utils.pct.py` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
-- `src/ai_index/assets/embed_models.toml` — Embedding model configs
-- `src/ai_index/assets/llm_models.toml` — LLM model configs
+- `pts/ai_index/utils/` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
+- `config/embed_models.toml` — Embedding model configs
+- `config/llm_models.toml` — LLM model configs
 
 ## `ai_index.utils` — Pipeline utilities
 
@@ -361,24 +365,20 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 ├── nblite.toml              # nblite config (export pipelines)
 ├── pyproject.toml            # Package config (ai-index)
 ├── .env                      # Environment variables (ISAMBARD_HOST, ADZUNA_S3_PREFIX, etc.)
-├── isambard_config.toml      # Symlink -> src/isambard_utils/assets/config.toml
-├── netrun.json               # Symlink -> src/ai_index/assets/netrun.json
-├── run_defs.toml             # Symlink -> src/ai_index/assets/run_defs.toml
-├── embed_models.toml         # Symlink -> src/ai_index/assets/embed_models.toml
-├── llm_models.toml           # Symlink -> src/ai_index/assets/llm_models.toml
+├── config/                   # All configuration files
+│   ├── netrun.json           # Pipeline graph with node_var placeholders
+│   ├── run_defs.toml         # Run definitions (defaults + named runs)
+│   ├── embed_models.toml     # Embedding model configs
+│   └── llm_models.toml       # LLM model configs
+├── prompt_library/           # Prompt templates (Markdown files)
 ├── agent-context/            # Reference docs for netrun & nblite
 ├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
 │   ├── const.pct.py          # Path constants
-│   ├── utils.pct.py          # embed(), llm_generate(), cosine_topk()
+│   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
 │   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (4 nodes)
+│   └── nodes/                # Node functions (5 nodes)
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
-│   └── assets/
-│       ├── netrun.json       # Pipeline graph
-│       ├── run_defs.toml     # Run definitions
-│       ├── embed_models.toml # Embedding model configs
-│       └── llm_models.toml   # LLM model configs
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
 ├── nbs/isambard_utils/       # Isambard notebooks (auto-generated)
 ├── src/isambard_utils/       # Isambard utils Python modules (auto-generated)

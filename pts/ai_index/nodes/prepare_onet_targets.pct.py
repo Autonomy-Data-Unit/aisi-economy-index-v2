@@ -27,9 +27,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print, onet_tables: dict) -> {
-    'onet_targets': 'pd.DataFrame'
-}:
+def main(ctx, print):
     """Filter O*NET occupations and build text descriptions for embedding."""
     ...
 
@@ -113,6 +111,21 @@ exclude_public_sector = ctx.vars["onet_exclude_public_sector"]
 top_n = ctx.vars["onet_top_n"]
 
 # %% [markdown]
+# ## Load O*NET tables from disk
+
+# %%
+#|export
+extract_dir = const.onet_store_path / "db_30_0_text"
+
+def _load_onet_table(name):
+    return pd.read_csv(extract_dir / f"{name}.txt", sep="\t", header=0, encoding="utf-8", dtype=str)
+
+occupation_data = _load_onet_table("Occupation Data")
+task_statements = _load_onet_table("Task Statements")
+skills = _load_onet_table("Skills")
+work_activities = _load_onet_table("Work Activities")
+
+# %% [markdown]
 # ## Build text descriptions
 #
 # For each occupation, construct:
@@ -122,11 +135,6 @@ top_n = ctx.vars["onet_top_n"]
 
 # %%
 #|export
-occupation_data = onet_tables["Occupation Data"]
-task_statements = onet_tables["Task Statements"]
-skills = onet_tables["Skills"]
-work_activities = onet_tables["Work Activities"]
-
 def _top_items_by_importance(occ_df, detail_df, element_col, top_n):
     """Get top-N items per occupation ranked by Importance scale score."""
     merged = occ_df[["O*NET-SOC Code", "Title"]].merge(
@@ -210,8 +218,6 @@ print(f"prepare_onet_targets: {len(onet_targets)} occupations with text descript
 
 onet_targets.to_parquet(const.onet_targets_path, index=False)
 print(f"prepare_onet_targets: wrote {const.onet_targets_path}")
-
-onet_targets #|func_return_line
 
 # %% [markdown]
 # ## Sample output
