@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -19,6 +19,9 @@
 # - **vLLM**: Uses built-in `GuidedDecodingParams`
 # - **API**: Uses OpenAI-compatible `response_format` (supported by
 #   OpenAI, Gemini via litellm, etc.)
+
+# %%
+from ai_index import const
 
 # %% [markdown]
 # ## Define a schema
@@ -41,10 +44,10 @@ print(schema)
 # ## Local transformers (CPU)
 #
 # Uses `outlines` to constrain token generation via logits processing.
-# This runs on CPU with a tiny model so it works anywhere.
+# The `qwen-0.5b-mac` model key resolves to CPU/float32 so it runs anywhere.
 
 # %%
-from llm_runner import run_llm_generate
+from ai_index.utils import llm_generate
 
 prompts = [
     "Extract structured info from this job ad: "
@@ -52,12 +55,9 @@ prompts = [
     "FastAPI, and PostgreSQL. Must know Docker and CI/CD.",
 ]
 
-responses = run_llm_generate(
+responses = llm_generate(
     prompts,
-    model_name="HuggingFaceTB/SmolLM2-135M-Instruct",
-    device="cpu",
-    dtype="float32",
-    backend="transformers",
+    model="qwen-0.5b-mac",
     max_new_tokens=120,
     system_message="Extract job information as JSON.",
     json_schema=schema,
@@ -85,10 +85,9 @@ print(f"Years experience: {parsed.years_experience}")
 
 # %%
 #|eval: false
-responses_api = run_llm_generate(
+responses_api = llm_generate(
     prompts,
-    model_name="openai/gpt-4o-mini",
-    backend="api",
+    model="gpt-5.2",
     max_new_tokens=200,
     system_message="Extract job information as JSON.",
     json_schema=schema,
@@ -100,22 +99,22 @@ print(f"Skills: {parsed_api.skills}")
 print(f"Years experience: {parsed_api.years_experience}")
 
 # %% [markdown]
-# ## vLLM backend
+# ## Sbatch backend (Isambard)
 #
-# Uses vLLM's built-in guided decoding. Requires a GPU with vLLM installed.
+# Submits an sbatch job to Isambard, which uses vLLM's built-in guided
+# decoding on a remote GPU. Requires an active Clifton cert.
 
 # %%
 #|eval: false
-responses_vllm = run_llm_generate(
+responses_sbatch = llm_generate(
     prompts,
-    model_name="Qwen/Qwen2.5-7B-Instruct",
-    backend="vllm",
+    model="qwen-7b-sbatch",
     max_new_tokens=200,
     system_message="Extract job information as JSON.",
     json_schema=schema,
 )
 
-parsed_vllm = JobSummary.model_validate_json(responses_vllm[0])
-print(f"Title: {parsed_vllm.job_title}")
-print(f"Skills: {parsed_vllm.skills}")
-print(f"Years experience: {parsed_vllm.years_experience}")
+parsed_sbatch = JobSummary.model_validate_json(responses_sbatch[0])
+print(f"Title: {parsed_sbatch.job_title}")
+print(f"Skills: {parsed_sbatch.skills}")
+print(f"Years experience: {parsed_sbatch.years_experience}")
