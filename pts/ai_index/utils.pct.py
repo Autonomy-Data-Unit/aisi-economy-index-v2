@@ -379,6 +379,12 @@ def get_ads_by_id(
         conn.close()
     return result
 
+def get_all_ad_ids():
+    conn = get_adzuna_conn(read_only=True)
+    all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()
+    conn.close()
+    return all_ids
+
 # %% [markdown]
 # ## Cosine top-K
 
