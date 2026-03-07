@@ -36,7 +36,7 @@ The pipeline is defined in `config/netrun.json`. It currently contains 4 nodes a
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database. Output: `onet_tables`
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
-- `llm_summarise` — Run LLM to extract structured summaries from job ads. Input: `ad_ids`. Output: `summary_meta` (dict with parquet path + counts). Writes summaries to `store/pipeline/{run_name}/summaries.parquet`.
+- `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental parquet writes and resume support. Input: `ad_ids`. Output: `summary_meta` (dict with parquet path + counts). Writes summaries to `store/pipeline/{run_name}/summaries.parquet`. Node vars: `llm_batch_size`, `llm_max_new_tokens` (global), `summarise_resume` (per-node).
 
 ### Planned pipeline stages (not yet implemented)
 
@@ -103,6 +103,8 @@ embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
 cosine_mode = "api"      # "api", "local", or "sbatch"
 topk = 5                 # Top-K candidates for cosine similarity
 llm_model = "gpt-5.2"   # Key into llm_models.toml
+llm_batch_size = 1000   # Number of prompts per LLM call
+llm_max_new_tokens = 220 # Max tokens per LLM response
 
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)
@@ -221,7 +223,25 @@ torch_index_url = "https://download.pytorch.org/whl/cu126"
 
 Defines the DAG, node_var placeholders, and cache settings. Global node_vars are declared with types but no values (filled at runtime by run_defs). Per-node vars use `"inherit": true` to pull from globals.
 
-Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+
+### Adding new node variables
+
+There are two kinds of node variables:
+
+1. **Global node_vars** — Declared in `config/netrun.json` top-level `node_vars` with a type. Defaults come from `config/run_defs.toml` `[defaults]`. Available to all nodes via `ctx.vars["var_name"]`. To add one:
+   - Add `"var_name": {"type": "int"}` to `netrun.json` `node_vars`
+   - Add `var_name = 1000` to `run_defs.toml` `[defaults]`
+
+2. **Per-node vars** — Declared in a node's `execution_config.node_vars` in `netrun.json`. These are node-specific and have a fixed value (or inherit from globals). To add one:
+   - Add to the node's `execution_config.node_vars` in `netrun.json`:
+     ```json
+     "node_vars": { "my_var": { "value": true } }
+     ```
+   - Access via `ctx.vars.get("my_var", default)` in the node function
+   - Per-node overrides from `run_defs.toml` go in `[defaults.<node_name>]` or `[runs.<run_name>.<node_name>]` subtables
+
+All node vars are accessible in node functions via `ctx.vars["var_name"]`. Values from TOML are Python-typed (int, str, bool) but may need explicit casting with `int()` when the type system returns strings.
 
 ## Execution Modes
 
@@ -265,11 +285,19 @@ Model-key-based utility functions used by pipeline nodes. Each function resolves
 Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls. Explicit `**kwargs` passed to `llm_generate`/`embed` override TOML config values (via `cfg.update(kwargs)` in `_resolve_model_args`).
 
 ### `llm_generate` kwargs passthrough
-All three backends (transformers `LLM`, `VllmLLM`, `ApiLLM`) support `system_message` and `max_new_tokens` in their `generate()` method. To use a system prompt from a node, pass it as a kwarg:
+All three backends (transformers `LLM`, `VllmLLM`, `ApiLLM`) support `system_message`, `max_new_tokens`, and `json_schema` in their `generate()` method. To use a system prompt from a node, pass it as a kwarg:
 ```python
-llm_generate(prompts, model="gpt-5.2", system_message="You are...", max_new_tokens=220)
+llm_generate(prompts, model="gpt-5.2", system_message="You are...", max_new_tokens=220, json_schema=schema)
 ```
 The `system_message` flows through: `llm_generate` → `run_llm_generate` → backend `.generate(system_message=...)`. Each backend handles it correctly (chat template for transformers, chat messages for vLLM, `system=` param for API/adulib).
+
+### Structured JSON output (`json_schema`)
+All three backends support constraining LLM output to valid JSON matching a schema. Pass a `json_schema` dict (from Pydantic's `model_json_schema()`) to guarantee parseable output:
+- **transformers**: Uses [outlines](https://github.com/dottxt-ai/outlines) (`pip install outlines`). API: `outlines.from_transformers(model, tokenizer)` → `outlines.Generator(outlines_model, outlines.json_schema(schema))` → `generator.batch(texts, max_new_tokens=N)`
+- **vLLM** (0.17.0): Uses `SamplingParams(structured_outputs=StructuredOutputsParams(json=json_schema))` from `vllm.sampling_params`
+- **API**: Passes `response_format={"type": "json_schema", "json_schema": {"name": "response", "schema": json_schema}}` to adulib's `async_single`
+
+See `pts/examples/02_structured_output.pct.py` for usage examples.
 
 ## Isambard HPC
 
