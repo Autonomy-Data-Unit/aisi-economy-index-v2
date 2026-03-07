@@ -255,6 +255,7 @@ There are two kinds of node variables:
 **Conventions:**
 - `netrun.json` only declares names and types. All default values go in `run_defs.toml`.
 - Node code must use `ctx.vars["var_name"]` (direct access), never `ctx.vars.get("var_name", default)`. Hidden defaults in code are a code smell — if a variable is missing, it should fail loudly so the missing config entry is noticed and fixed.
+- Do not cast `ctx.vars` values (e.g. `int(ctx.vars["x"])`). The node_var type declarations in `netrun.json` handle type coercion. Only cast if netrun's type system doesn't support the desired type.
 
 All node vars are accessible in node functions via `ctx.vars["var_name"]`. Values from TOML are Python-typed (int, str, bool) but may need explicit casting with `int()` when the type system returns strings.
 
