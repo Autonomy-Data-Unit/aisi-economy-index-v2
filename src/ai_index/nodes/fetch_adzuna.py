@@ -32,8 +32,8 @@ def main(ctx, print):
     years = sorted(years)
     print(f"fetch_adzuna: discovered {len(years)} year(s) in S3: {years}")
     
-    # Filter to requested years (empty string = all)
-    if years_filter:
+    # Filter to requested years
+    if years_filter and years_filter != "all":
         requested = {y.strip() for y in years_filter.split(",")}
         years = [y for y in years if y in requested]
         print(f"fetch_adzuna: filtered to {len(years)} year(s): {years}")
