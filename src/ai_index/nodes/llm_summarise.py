@@ -11,7 +11,6 @@ class JobInfoModel(BaseModel):
     skills: List[str]
     domain: str
     level: str
-    automation_prof_score: int
 
 async def main(ctx, print, ad_ids: np.ndarray) -> {
     'successful_ad_ids': list[int]

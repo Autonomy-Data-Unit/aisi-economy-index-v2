@@ -80,7 +80,6 @@ class JobInfoModel(BaseModel):
     skills: List[str]
     domain: str
     level: str
-    automation_prof_score: int
 
 # %% [markdown]
 # ## Prompt templates
