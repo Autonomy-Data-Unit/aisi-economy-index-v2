@@ -90,8 +90,14 @@ def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
 
 # %%
 #|export
-async def run_pipeline_async(run_name: str | None = None):
-    """Load and run the full pipeline, returning output queue results."""
+async def run_pipeline_async(run_name: str | None = None, *, observe: bool = False, observe_port: int = 8000):
+    """Load and run the full pipeline, returning output queue results.
+
+    Args:
+        run_name: Name of the run definition from run_defs.toml.
+        observe: If True, start the ObserveServer dashboard alongside the pipeline.
+        observe_port: Port for the observe server (default 8000).
+    """
     load_dotenv()
     from ai_index.const import run_defs_path, netrun_config_path
 
@@ -110,16 +116,31 @@ async def run_pipeline_async(run_name: str | None = None):
     config.project_root_override = str(Path.cwd())
     print(f"run_pipeline: using run definition {run_name!r}")
 
-    async with Net(config) as net:
-        made_progress = True
-        while made_progress:
-            made_progress, _ = await net.run_until_blocked()
+    # Create the Net without starting it so the observe server can attach first.
+    # async-with calls net.start() which runs source nodes (fetch_onet, fetch_adzuna)
+    # — those do network downloads and we want them visible in the dashboard.
+    net = Net(config)
+    server = None
+    if observe:
+        from ai_index.utils.observe import ObserveServer
+        server = ObserveServer(net, port=observe_port)
+        await server.start()
+        print(f"run_pipeline: observe dashboard at http://127.0.0.1:{observe_port}/dashboard")
 
-        results = net.flush_all_output_queues()
-        for queue_name, outputs in results.items():
-            print(f"\n=== Output queue: {queue_name} ({len(outputs)} packet(s)) ===")
-            for i, output in enumerate(outputs):
-                print(f"  [{i}] {output}")
+    try:
+        async with net:
+            made_progress = True
+            while made_progress:
+                made_progress, _ = await net.run_until_blocked()
+
+            results = net.flush_all_output_queues()
+            for queue_name, outputs in results.items():
+                print(f"\n=== Output queue: {queue_name} ({len(outputs)} packet(s)) ===")
+                for i, output in enumerate(outputs):
+                    print(f"  [{i}] {output}")
+    finally:
+        if server:
+            await server.stop()
 
     return results
 
@@ -127,4 +148,10 @@ async def run_pipeline_async(run_name: str | None = None):
 #|export
 def main():
     """Sync entry point for the run-pipeline CLI command."""
-    asyncio.run(run_pipeline_async())
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the AISI Economy Index pipeline")
+    parser.add_argument("run_name", nargs="?", default=None, help="Run definition name from run_defs.toml")
+    parser.add_argument("--observe", action="store_true", help="Start the observe dashboard alongside the pipeline")
+    parser.add_argument("--observe-port", type=int, default=8000, help="Port for the observe server (default: 8000)")
+    args = parser.parse_args()
+    asyncio.run(run_pipeline_async(args.run_name, observe=args.observe, observe_port=args.observe_port))
