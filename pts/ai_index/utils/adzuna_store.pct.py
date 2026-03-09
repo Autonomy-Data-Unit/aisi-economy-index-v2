@@ -176,6 +176,38 @@ def get_ads_by_id(
         conn.close()
     return result
 
+def print_ads(*ids: int, width: int = 80) -> None:
+    """Pretty-print one or more job ads by ID.
+
+    Usage:
+        print_ads(12345)
+        print_ads(12345, 67890, 11111)
+        print_ads(12345, width=120)
+    """
+    import textwrap
+
+    table = get_ads_by_id(list(ids), columns=["id", "title", "category_name", "description",
+                                               "location_raw", "company_raw", "salary_min", "salary_max"])
+    if table.num_rows == 0:
+        print(f"No ads found for ids: {ids}")
+        return
+
+    for i in range(table.num_rows):
+        row = {col: table.column(col)[i].as_py() for col in table.column_names}
+        print(f"{'='*width}")
+        print(f"ID:       {row['id']}")
+        print(textwrap.fill(f"Title:    {row['title']}", width=width, subsequent_indent="          "))
+        print(f"Category: {row['category_name']}")
+        print(f"Company:  {row['company_raw']}")
+        print(f"Location: {row['location_raw']}")
+        salary_min, salary_max = row['salary_min'], row['salary_max']
+        if salary_min or salary_max:
+            print(f"Salary:   {salary_min} - {salary_max}")
+        print(f"{'-'*width}")
+        print(textwrap.fill(row['description'] or '', width=width))
+        print()
+
+
 def get_all_ad_ids():
     conn = get_adzuna_conn(read_only=True)
     all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()

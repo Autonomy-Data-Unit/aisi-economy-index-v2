@@ -16,7 +16,7 @@ from ai_index.utils.embed import embed, aembed
 from ai_index.utils.cosine import cosine_topk, acosine_topk
 from ai_index.utils.adzuna_store import (
     get_adzuna_conn, ensure_ads_table, build_insert_from_parquet,
-    get_ads_by_id, get_all_ad_ids,
+    get_ads_by_id, get_all_ad_ids, print_ads,
 )
 from ai_index.utils.result_store import ResultStore
 from ai_index.utils.batch import run_batched, strict_format
