@@ -355,7 +355,7 @@ function render(data) {
   const sorted = [...epochs].reverse();
   let eh = '<table><tr><th>Epoch</th><th>Node</th><th>State</th><th>Duration</th></tr>';
   for (const e of sorted.slice(0, 50)) {
-    eh += `<tr><td style="font-family:monospace;font-size:.75rem">${e.epoch_id.slice(0,8)}</td>` +
+    eh += `<tr><td style="font-family:monospace;font-size:.75rem">${e.epoch_id.slice(0,12)}</td>` +
           `<td>${e.node_name}</td><td>${badge(e.state)}</td>` +
           `<td>${fmtDuration(e.duration_seconds)}</td></tr>`;
   }
