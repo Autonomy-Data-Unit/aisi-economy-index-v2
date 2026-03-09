@@ -168,7 +168,28 @@ for log in await client.get_all_logs():
     print(f"  [{log.node_name}] {log.message}")
 
 # %% [markdown]
-# ## 5. Clean up
+# ## 5. Controls via the client
+#
+# The client also exposes control methods — enable/disable nodes, send controls,
+# and inject data. These call the same netrun APIs as direct `Net` access.
+
+# %%
+# Disable a node
+resp = await client.disable_node("process")
+print(resp.message)
+
+node = await client.get_node("process")
+print(f"  process enabled={node.enabled}")
+
+# Re-enable it
+resp = await client.enable_node("process")
+print(resp.message)
+
+node = await client.get_node("process")
+print(f"  process enabled={node.enabled}")
+
+# %% [markdown]
+# ## 6. Clean up
 
 # %%
 await client.close()

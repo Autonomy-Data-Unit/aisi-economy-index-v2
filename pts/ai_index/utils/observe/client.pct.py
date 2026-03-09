@@ -20,7 +20,7 @@
 #|export
 import httpx
 from ai_index.utils.observe.models import (
-    NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry,
+    NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry, ControlResponse,
 )
 
 # %%
@@ -76,6 +76,28 @@ class NetObserverClient:
         r = await self._client.get("/logs")
         r.raise_for_status()
         return [LogEntry(**entry) for entry in r.json()]
+
+    # -- Control methods --
+
+    async def enable_node(self, name: str) -> ControlResponse:
+        r = await self._client.post(f"/nodes/{name}/enable")
+        r.raise_for_status()
+        return ControlResponse(**r.json())
+
+    async def disable_node(self, name: str) -> ControlResponse:
+        r = await self._client.post(f"/nodes/{name}/disable")
+        r.raise_for_status()
+        return ControlResponse(**r.json())
+
+    async def send_control(self, node_name: str, control_type: str, value: str | int | None = None) -> ControlResponse:
+        r = await self._client.post("/control", json={"node_name": node_name, "control_type": control_type, "value": value})
+        r.raise_for_status()
+        return ControlResponse(**r.json())
+
+    async def inject_data(self, node_name: str, port_name: str, values: list) -> ControlResponse:
+        r = await self._client.post("/inject", json={"node_name": node_name, "port_name": port_name, "values": values})
+        r.raise_for_status()
+        return ControlResponse(**r.json())
 
     async def close(self) -> None:
         await self._client.aclose()

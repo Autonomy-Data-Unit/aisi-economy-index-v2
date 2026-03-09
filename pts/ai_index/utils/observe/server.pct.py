@@ -18,13 +18,15 @@
 # %%
 #|export
 import asyncio
-from fastapi import FastAPI
+import json
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 import uvicorn
 from netrun.core import Net
 from ai_index.utils.observe.core import NetObserver
 from ai_index.utils.observe.models import (
     NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry,
+    SendControlRequest, InjectDataRequest, ControlResponse,
 )
 
 # %%
@@ -40,12 +42,14 @@ class ObserveServer:
         await server.stop()
     """
 
-    def __init__(self, net: Net, host: str = "127.0.0.1", port: int = 8000):
+    def __init__(self, net: Net, host: str = "127.0.0.1", port: int = 8000, ws_interval: float = 1.0):
         self.observer = NetObserver(net)
         self.host = host
         self.port = port
+        self.ws_interval = ws_interval
         self._server: uvicorn.Server | None = None
         self._task: asyncio.Task | None = None
+        self._ws_clients: set[WebSocket] = set()
         self.app = self._create_app()
 
     def _create_app(self) -> FastAPI:
@@ -80,11 +84,66 @@ class ObserveServer:
         def get_node_logs(node_name: str) -> list[LogEntry]:
             return obs.get_node_logs(node_name)
 
+        # -- Control endpoints --
+
+        @app.post("/nodes/{name}/enable", response_model=ControlResponse)
+        def enable_node(name: str) -> ControlResponse:
+            return obs.enable_node(name)
+
+        @app.post("/nodes/{name}/disable", response_model=ControlResponse)
+        def disable_node(name: str) -> ControlResponse:
+            return obs.disable_node(name)
+
+        @app.post("/control", response_model=ControlResponse)
+        def send_control(req: SendControlRequest) -> ControlResponse:
+            return obs.send_control(req.node_name, req.control_type, req.value)
+
+        @app.post("/inject", response_model=ControlResponse)
+        def inject_data(req: InjectDataRequest) -> ControlResponse:
+            return obs.inject_data(req.node_name, req.port_name, req.values)
+
+        # -- WebSocket --
+
+        @app.websocket("/ws")
+        async def websocket_endpoint(ws: WebSocket):
+            await ws.accept()
+            self._ws_clients.add(ws)
+            try:
+                while True:
+                    await ws.receive_text()  # keep connection alive
+            except WebSocketDisconnect:
+                pass
+            finally:
+                self._ws_clients.discard(ws)
+
+        # -- Dashboard --
+
         @app.get("/dashboard", response_class=HTMLResponse)
         def dashboard() -> str:
             return _DASHBOARD_HTML
 
         return app
+
+    async def _ws_broadcast_loop(self) -> None:
+        """Periodically push full state to all WebSocket clients."""
+        while True:
+            if self._ws_clients:
+                obs = self.observer
+                payload = json.dumps({
+                    "status": obs.get_status().model_dump(),
+                    "nodes": [n.model_dump() for n in obs.get_nodes()],
+                    "epochs": [e.model_dump() for e in obs.get_epochs()],
+                    "logs": [l.model_dump() for l in obs.get_all_logs()],
+                })
+                dead: list[WebSocket] = []
+                for ws in list(self._ws_clients):
+                    try:
+                        await ws.send_text(payload)
+                    except Exception:
+                        dead.append(ws)
+                for ws in dead:
+                    self._ws_clients.discard(ws)
+            await asyncio.sleep(self.ws_interval)
 
     async def start(self) -> None:
         """Start the server as a background asyncio task (non-blocking)."""
@@ -93,9 +152,16 @@ class ObserveServer:
         )
         self._server = uvicorn.Server(config)
         self._task = asyncio.create_task(self._server.serve())
+        self._ws_task = asyncio.create_task(self._ws_broadcast_loop())
 
     async def stop(self) -> None:
         """Signal the server to shut down and wait for it."""
+        if hasattr(self, '_ws_task') and self._ws_task:
+            self._ws_task.cancel()
+            try:
+                await self._ws_task
+            except asyncio.CancelledError:
+                pass
         if self._server:
             self._server.should_exit = True
         if self._task:
@@ -138,11 +204,19 @@ _DASHBOARD_HTML = """\
   .log-node { color: var(--blue); }
   .status-bar { display: flex; gap: 1.5rem; margin-bottom: 1rem; color: var(--muted); font-size: .85rem; }
   .status-bar span { color: var(--text); font-weight: 600; }
+  .ws-indicator { font-size: .75rem; margin-left: auto; }
+  .ws-indicator.connected { color: var(--green); }
+  .ws-indicator.disconnected { color: var(--red); }
+  .btn { background: var(--card); border: 1px solid var(--border); color: var(--text);
+         padding: 2px 8px; border-radius: 4px; font-size: .75rem; cursor: pointer; }
+  .btn:hover { border-color: var(--blue); }
+  .btn-enable { color: var(--green); }
+  .btn-disable { color: var(--red); }
 </style>
 </head>
 <body>
 <h1>Netrun Observer</h1>
-<div class="status-bar" id="status-bar"></div>
+<div class="status-bar" id="status-bar"><span class="ws-indicator disconnected" id="ws-status">disconnected</span></div>
 <div class="grid">
   <div class="card"><h2>Nodes</h2><div id="nodes-table"></div></div>
   <div class="card"><h2>Epochs</h2><div id="epochs-table"></div></div>
@@ -150,12 +224,11 @@ _DASHBOARD_HTML = """\
 </div>
 <script>
 const BASE = window.location.origin;
-const POLL_MS = 2000;
+const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
+const FALLBACK_POLL_MS = 3000;
 
-async function fetchJSON(path) {
-  const r = await fetch(BASE + path);
-  return r.json();
-}
+let ws = null;
+let fallbackTimer = null;
 
 function badge(text, cls) {
   return `<span class="badge badge-${cls || text}">${text}</span>`;
@@ -168,67 +241,121 @@ function fmtDuration(s) {
   return (s / 60).toFixed(1) + 'm';
 }
 
-async function refresh() {
-  try {
-    const [status, nodes, epochs, logs] = await Promise.all([
-      fetchJSON('/status'), fetchJSON('/nodes'),
-      fetchJSON('/epochs'), fetchJSON('/logs'),
-    ]);
-
-    // Status bar
-    const parts = Object.entries(status.epochs_by_state).map(
-      ([k, v]) => `${k}: <span>${v}</span>`
-    ).join(' &middot; ');
-    document.getElementById('status-bar').innerHTML =
-      `Nodes: <span>${status.node_names.length}</span> &middot; ` +
-      `Edges: <span>${status.edge_count}</span> &middot; ` +
-      `Epochs: <span>${status.total_epochs}</span> &middot; ${parts}`;
-
-    // Nodes table
-    let nh = '<table><tr><th>Node</th><th>Status</th><th>Epochs</th><th>Running</th></tr>';
-    for (const n of nodes) {
-      const st = !n.enabled ? badge('disabled') : n.is_busy ? badge('busy') : badge('idle');
-      nh += `<tr><td>${n.name}</td><td>${st}</td><td>${n.epoch_count}</td>` +
-            `<td>${n.running_epoch_ids.length}</td></tr>`;
-    }
-    nh += '</table>';
-    document.getElementById('nodes-table').innerHTML = nh;
-
-    // Epochs table (most recent first)
-    const sorted = [...epochs].reverse();
-    let eh = '<table><tr><th>Epoch</th><th>Node</th><th>State</th><th>Duration</th></tr>';
-    for (const e of sorted.slice(0, 50)) {
-      eh += `<tr><td style="font-family:monospace;font-size:.75rem">${e.epoch_id.slice(0,8)}</td>` +
-            `<td>${e.node_name}</td><td>${badge(e.state)}</td>` +
-            `<td>${fmtDuration(e.duration_seconds)}</td></tr>`;
-    }
-    eh += '</table>';
-    document.getElementById('epochs-table').innerHTML = eh;
-
-    // Logs (most recent last, scroll to bottom)
-    const box = document.getElementById('logs-box');
-    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
-    let lh = '';
-    for (const l of logs) {
-      const ts = l.timestamp.split(' ').pop()?.split('.')[0] || l.timestamp;
-      const node = l.node_name || '';
-      lh += `<span class="log-ts">${ts}</span> <span class="log-node">[${node}]</span> ${escapeHtml(l.message)}\\n`;
-    }
-    box.innerHTML = lh;
-    if (atBottom) box.scrollTop = box.scrollHeight;
-  } catch (e) {
-    console.error('Refresh failed:', e);
-  }
-}
-
 function escapeHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
 }
 
-refresh();
-setInterval(refresh, POLL_MS);
+async function postAction(path, body) {
+  try {
+    const r = await fetch(BASE + path, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json();
+    if (!data.ok) console.error('Action failed:', data.message);
+  } catch (e) { console.error('Action error:', e); }
+}
+
+function render(data) {
+  const {status, nodes, epochs, logs} = data;
+
+  // Status bar
+  const parts = Object.entries(status.epochs_by_state).map(
+    ([k, v]) => `${k}: <span>${v}</span>`
+  ).join(' &middot; ');
+  const wsEl = document.getElementById('ws-status');
+  const wsHtml = wsEl ? wsEl.outerHTML : '';
+  document.getElementById('status-bar').innerHTML =
+    `Nodes: <span>${status.node_names.length}</span> &middot; ` +
+    `Edges: <span>${status.edge_count}</span> &middot; ` +
+    `Epochs: <span>${status.total_epochs}</span> &middot; ${parts}` + wsHtml;
+
+  // Nodes table with control buttons
+  let nh = '<table><tr><th>Node</th><th>Status</th><th>Epochs</th><th>Running</th><th>Actions</th></tr>';
+  for (const n of nodes) {
+    const st = !n.enabled ? badge('disabled') : n.is_busy ? badge('busy') : badge('idle');
+    const toggleBtn = n.enabled
+      ? `<button class="btn btn-disable" onclick="postAction('/nodes/${n.name}/disable')">disable</button>`
+      : `<button class="btn btn-enable" onclick="postAction('/nodes/${n.name}/enable')">enable</button>`;
+    nh += `<tr><td>${n.name}</td><td>${st}</td><td>${n.epoch_count}</td>` +
+          `<td>${n.running_epoch_ids.length}</td><td>${toggleBtn}</td></tr>`;
+  }
+  nh += '</table>';
+  document.getElementById('nodes-table').innerHTML = nh;
+
+  // Epochs table (most recent first)
+  const sorted = [...epochs].reverse();
+  let eh = '<table><tr><th>Epoch</th><th>Node</th><th>State</th><th>Duration</th></tr>';
+  for (const e of sorted.slice(0, 50)) {
+    eh += `<tr><td style="font-family:monospace;font-size:.75rem">${e.epoch_id.slice(0,8)}</td>` +
+          `<td>${e.node_name}</td><td>${badge(e.state)}</td>` +
+          `<td>${fmtDuration(e.duration_seconds)}</td></tr>`;
+  }
+  eh += '</table>';
+  document.getElementById('epochs-table').innerHTML = eh;
+
+  // Logs (most recent last, scroll to bottom)
+  const box = document.getElementById('logs-box');
+  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  let lh = '';
+  for (const l of logs) {
+    const ts = l.timestamp.split(' ').pop()?.split('.')[0] || l.timestamp;
+    const node = l.node_name || '';
+    lh += `<span class="log-ts">${ts}</span> <span class="log-node">[${node}]</span> ${escapeHtml(l.message)}\\n`;
+  }
+  box.innerHTML = lh;
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+// -- WebSocket with HTTP polling fallback --
+
+function setWsStatus(connected) {
+  const el = document.getElementById('ws-status');
+  if (!el) return;
+  el.textContent = connected ? 'live' : 'polling';
+  el.className = 'ws-indicator ' + (connected ? 'connected' : 'disconnected');
+}
+
+function connectWs() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    setWsStatus(true);
+    if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+  };
+  ws.onmessage = (e) => {
+    try { render(JSON.parse(e.data)); } catch (err) { console.error('WS parse error:', err); }
+  };
+  ws.onclose = () => {
+    setWsStatus(false);
+    startFallbackPolling();
+    setTimeout(connectWs, 2000);
+  };
+  ws.onerror = () => { ws.close(); };
+}
+
+async function fallbackRefresh() {
+  try {
+    const [status, nodes, epochs, logs] = await Promise.all([
+      fetch(BASE + '/status').then(r => r.json()),
+      fetch(BASE + '/nodes').then(r => r.json()),
+      fetch(BASE + '/epochs').then(r => r.json()),
+      fetch(BASE + '/logs').then(r => r.json()),
+    ]);
+    render({status, nodes, epochs, logs});
+  } catch (e) { console.error('Poll failed:', e); }
+}
+
+function startFallbackPolling() {
+  if (!fallbackTimer) {
+    fallbackTimer = setInterval(fallbackRefresh, FALLBACK_POLL_MS);
+  }
+}
+
+// Initial load via HTTP, then switch to WebSocket
+fallbackRefresh();
+connectWs();
 </script>
 </body>
 </html>

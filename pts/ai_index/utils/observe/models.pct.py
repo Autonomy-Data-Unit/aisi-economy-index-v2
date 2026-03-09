@@ -71,3 +71,23 @@ class LogEntry(BaseModel):
     message: str
     node_name: str | None = None
     epoch_id: str | None = None
+
+
+class SendControlRequest(BaseModel):
+    """Request to send a control command to a node."""
+    node_name: str
+    control_type: str
+    value: str | int | None = None
+
+
+class InjectDataRequest(BaseModel):
+    """Request to inject data into a node's input port."""
+    node_name: str
+    port_name: str
+    values: list
+
+
+class ControlResponse(BaseModel):
+    """Response from a control action."""
+    ok: bool
+    message: str

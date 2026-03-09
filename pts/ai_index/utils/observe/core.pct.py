@@ -18,7 +18,7 @@
 #|export
 from netrun.core import Net
 from ai_index.utils.observe.models import (
-    NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry,
+    NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry, ControlResponse,
 )
 
 def _state_str(state) -> str:
@@ -117,3 +117,21 @@ class NetObserver:
             LogEntry(timestamp=str(ts), message=msg, node_name=node_name, epoch_id=str(epoch_id))
             for ts, epoch_id, node_name, msg in logs
         ]
+
+    # -- Control methods --
+
+    def enable_node(self, name: str) -> ControlResponse:
+        self.net.enable_node(name)
+        return ControlResponse(ok=True, message=f"Node '{name}' enabled")
+
+    def disable_node(self, name: str) -> ControlResponse:
+        self.net.disable_node(name)
+        return ControlResponse(ok=True, message=f"Node '{name}' disabled")
+
+    def send_control(self, node_name: str, control_type: str, value: str | int | None = None) -> ControlResponse:
+        self.net.send_control(node_name, control_type, value)
+        return ControlResponse(ok=True, message=f"Sent '{control_type}' to node '{node_name}'")
+
+    def inject_data(self, node_name: str, port_name: str, values: list) -> ControlResponse:
+        self.net.inject_data(node_name, port_name, values)
+        return ControlResponse(ok=True, message=f"Injected {len(values)} value(s) into '{node_name}.{port_name}'")
