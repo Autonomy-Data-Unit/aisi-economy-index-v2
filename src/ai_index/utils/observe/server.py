@@ -130,13 +130,39 @@ class ObserveServer:
                     self._ws_clients.discard(ws)
             await asyncio.sleep(self.ws_interval)
 
+    async def _run_server(self) -> None:
+        """Wrapper that catches SystemExit from uvicorn bind failures."""
+        try:
+            await self._server.serve()
+        except SystemExit as e:
+            self._startup_error = RuntimeError(
+                f"ObserveServer failed to start on {self.host}:{self.port} "
+                f"(port may be in use)"
+            )
+
     async def start(self) -> None:
-        """Start the server as a background asyncio task (non-blocking)."""
+        """Start the server as a background asyncio task (non-blocking).
+
+        Waits until uvicorn is actually listening before returning.
+        Raises RuntimeError if the server fails to bind (e.g. port in use).
+        """
         config = uvicorn.Config(
             self.app, host=self.host, port=self.port, log_level="warning",
         )
         self._server = uvicorn.Server(config)
-        self._task = asyncio.create_task(self._server.serve())
+        self._startup_error: RuntimeError | None = None
+        self._task = asyncio.create_task(self._run_server())
+
+        # Wait for uvicorn to confirm it's listening, or fail early
+        while not self._server.started:
+            if self._startup_error:
+                raise self._startup_error
+            if self._task.done():
+                if self._startup_error:
+                    raise self._startup_error
+                raise RuntimeError(f"ObserveServer exited before starting on {self.host}:{self.port}")
+            await asyncio.sleep(0.05)
+
         self._ws_task = asyncio.create_task(self._ws_broadcast_loop())
 
     async def stop(self) -> None:
