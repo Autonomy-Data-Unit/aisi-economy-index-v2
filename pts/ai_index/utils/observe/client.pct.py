@@ -1,0 +1,82 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # observe.client
+#
+# `NetObserverClient` — HTTP client that mirrors the `NetObserver` interface.
+
+# %%
+#|default_exp utils.observe.client
+
+# %%
+#|export
+import httpx
+from ai_index.utils.observe.models import (
+    NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry,
+)
+
+# %%
+#|export
+class NetObserverClient:
+    """HTTP client that mirrors the NetObserver interface.
+
+    Usage::
+
+        client = NetObserverClient("http://localhost:8000")
+        status = client.get_status()
+        nodes = client.get_nodes()
+    """
+
+    def __init__(self, base_url: str = "http://127.0.0.1:8000"):
+        self.base_url = base_url.rstrip("/")
+        self._client = httpx.Client(base_url=self.base_url)
+
+    def get_status(self) -> NetStatus:
+        r = self._client.get("/status")
+        r.raise_for_status()
+        return NetStatus(**r.json())
+
+    def get_nodes(self) -> list[NodeStatus]:
+        r = self._client.get("/nodes")
+        r.raise_for_status()
+        return [NodeStatus(**n) for n in r.json()]
+
+    def get_node(self, name: str) -> NodeStatus:
+        r = self._client.get(f"/nodes/{name}")
+        r.raise_for_status()
+        return NodeStatus(**r.json())
+
+    def get_epochs(self) -> list[EpochInfo]:
+        r = self._client.get("/epochs")
+        r.raise_for_status()
+        return [EpochInfo(**e) for e in r.json()]
+
+    def get_edges(self) -> list[EdgeStatus]:
+        r = self._client.get("/edges")
+        r.raise_for_status()
+        return [EdgeStatus(**e) for e in r.json()]
+
+    def get_node_logs(self, node_name: str) -> list[LogEntry]:
+        r = self._client.get(f"/logs/{node_name}")
+        r.raise_for_status()
+        return [LogEntry(**l) for l in r.json()]
+
+    def get_all_logs(self) -> list[LogEntry]:
+        r = self._client.get("/logs")
+        r.raise_for_status()
+        return [LogEntry(**l) for l in r.json()]
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()

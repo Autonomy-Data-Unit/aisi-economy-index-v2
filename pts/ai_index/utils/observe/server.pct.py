@@ -1,0 +1,235 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # observe.server
+#
+# FastAPI server that exposes the `NetObserver` API over HTTP.
+# Starts non-blocking alongside a running netrun pipeline.
+
+# %%
+#|default_exp utils.observe.server
+
+# %%
+#|export
+import asyncio
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+import uvicorn
+from netrun.core import Net
+from ai_index.utils.observe.core import NetObserver
+from ai_index.utils.observe.models import (
+    NetStatus, NodeStatus, EpochInfo, EdgeStatus, LogEntry,
+)
+
+# %%
+#|export
+class ObserveServer:
+    """Non-blocking FastAPI server wrapping a NetObserver.
+
+    Usage (inside an async context, e.g. alongside a running netrun)::
+
+        server = ObserveServer(net)
+        await server.start()
+        # ... pipeline runs ...
+        await server.stop()
+    """
+
+    def __init__(self, net: Net, host: str = "127.0.0.1", port: int = 8000):
+        self.observer = NetObserver(net)
+        self.host = host
+        self.port = port
+        self._server: uvicorn.Server | None = None
+        self._task: asyncio.Task | None = None
+        self.app = self._create_app()
+
+    def _create_app(self) -> FastAPI:
+        app = FastAPI(title="Netrun Observer")
+        obs = self.observer
+
+        @app.get("/status", response_model=NetStatus)
+        def get_status() -> NetStatus:
+            return obs.get_status()
+
+        @app.get("/nodes", response_model=list[NodeStatus])
+        def get_nodes() -> list[NodeStatus]:
+            return obs.get_nodes()
+
+        @app.get("/nodes/{name}", response_model=NodeStatus)
+        def get_node(name: str) -> NodeStatus:
+            return obs.get_node(name)
+
+        @app.get("/epochs", response_model=list[EpochInfo])
+        def get_epochs() -> list[EpochInfo]:
+            return obs.get_epochs()
+
+        @app.get("/edges", response_model=list[EdgeStatus])
+        def get_edges() -> list[EdgeStatus]:
+            return obs.get_edges()
+
+        @app.get("/logs", response_model=list[LogEntry])
+        def get_all_logs() -> list[LogEntry]:
+            return obs.get_all_logs()
+
+        @app.get("/logs/{node_name}", response_model=list[LogEntry])
+        def get_node_logs(node_name: str) -> list[LogEntry]:
+            return obs.get_node_logs(node_name)
+
+        @app.get("/dashboard", response_class=HTMLResponse)
+        def dashboard() -> str:
+            return _DASHBOARD_HTML
+
+        return app
+
+    async def start(self) -> None:
+        """Start the server as a background asyncio task (non-blocking)."""
+        config = uvicorn.Config(
+            self.app, host=self.host, port=self.port, log_level="warning",
+        )
+        self._server = uvicorn.Server(config)
+        self._task = asyncio.create_task(self._server.serve())
+
+    async def stop(self) -> None:
+        """Signal the server to shut down and wait for it."""
+        if self._server:
+            self._server.should_exit = True
+        if self._task:
+            await self._task
+
+# %%
+#|export
+_DASHBOARD_HTML = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Netrun Observer</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3;
+          --muted: #8b949e; --green: #3fb950; --yellow: #d29922; --red: #f85149;
+          --blue: #58a6ff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--text); padding: 1.5rem; }
+  h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+  h2 { font-size: 1.1rem; margin-bottom: .5rem; color: var(--blue); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .card.full { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: .75rem; font-weight: 600; }
+  .badge-Finished { background: #23392e; color: var(--green); }
+  .badge-Running  { background: #2d2a1e; color: var(--yellow); }
+  .badge-Startable { background: #1c2333; color: var(--blue); }
+  .badge-busy { background: #2d2a1e; color: var(--yellow); }
+  .badge-idle { background: #23392e; color: var(--green); }
+  .badge-disabled { background: #2d1f1f; color: var(--red); }
+  .logs-box { max-height: 400px; overflow-y: auto; font-family: 'SF Mono', 'Menlo', monospace;
+              font-size: .8rem; line-height: 1.5; white-space: pre-wrap; padding: .5rem;
+              background: var(--bg); border-radius: 4px; }
+  .log-ts { color: var(--muted); }
+  .log-node { color: var(--blue); }
+  .status-bar { display: flex; gap: 1.5rem; margin-bottom: 1rem; color: var(--muted); font-size: .85rem; }
+  .status-bar span { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Netrun Observer</h1>
+<div class="status-bar" id="status-bar"></div>
+<div class="grid">
+  <div class="card"><h2>Nodes</h2><div id="nodes-table"></div></div>
+  <div class="card"><h2>Epochs</h2><div id="epochs-table"></div></div>
+  <div class="card full"><h2>Logs</h2><div class="logs-box" id="logs-box"></div></div>
+</div>
+<script>
+const BASE = window.location.origin;
+const POLL_MS = 2000;
+
+async function fetchJSON(path) {
+  const r = await fetch(BASE + path);
+  return r.json();
+}
+
+function badge(text, cls) {
+  return `<span class="badge badge-${cls || text}">${text}</span>`;
+}
+
+function fmtDuration(s) {
+  if (s == null) return '-';
+  if (s < 1) return (s * 1000).toFixed(0) + 'ms';
+  if (s < 60) return s.toFixed(1) + 's';
+  return (s / 60).toFixed(1) + 'm';
+}
+
+async function refresh() {
+  try {
+    const [status, nodes, epochs, logs] = await Promise.all([
+      fetchJSON('/status'), fetchJSON('/nodes'),
+      fetchJSON('/epochs'), fetchJSON('/logs'),
+    ]);
+
+    // Status bar
+    const parts = Object.entries(status.epochs_by_state).map(
+      ([k, v]) => `${k}: <span>${v}</span>`
+    ).join(' &middot; ');
+    document.getElementById('status-bar').innerHTML =
+      `Nodes: <span>${status.node_names.length}</span> &middot; ` +
+      `Edges: <span>${status.edge_count}</span> &middot; ` +
+      `Epochs: <span>${status.total_epochs}</span> &middot; ${parts}`;
+
+    // Nodes table
+    let nh = '<table><tr><th>Node</th><th>Status</th><th>Epochs</th><th>Running</th></tr>';
+    for (const n of nodes) {
+      const st = !n.enabled ? badge('disabled') : n.is_busy ? badge('busy') : badge('idle');
+      nh += `<tr><td>${n.name}</td><td>${st}</td><td>${n.epoch_count}</td>` +
+            `<td>${n.running_epoch_ids.length}</td></tr>`;
+    }
+    nh += '</table>';
+    document.getElementById('nodes-table').innerHTML = nh;
+
+    // Epochs table (most recent first)
+    const sorted = [...epochs].reverse();
+    let eh = '<table><tr><th>Epoch</th><th>Node</th><th>State</th><th>Duration</th></tr>';
+    for (const e of sorted.slice(0, 50)) {
+      eh += `<tr><td style="font-family:monospace;font-size:.75rem">${e.epoch_id.slice(0,8)}</td>` +
+            `<td>${e.node_name}</td><td>${badge(e.state)}</td>` +
+            `<td>${fmtDuration(e.duration_seconds)}</td></tr>`;
+    }
+    eh += '</table>';
+    document.getElementById('epochs-table').innerHTML = eh;
+
+    // Logs (most recent last, scroll to bottom)
+    const box = document.getElementById('logs-box');
+    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+    let lh = '';
+    for (const l of logs) {
+      const ts = l.timestamp.split(' ').pop()?.split('.')[0] || l.timestamp;
+      const node = l.node_name || '';
+      lh += `<span class="log-ts">${ts}</span> <span class="log-node">[${node}]</span> ${escapeHtml(l.message)}\\n`;
+    }
+    box.innerHTML = lh;
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  } catch (e) {
+    console.error('Refresh failed:', e);
+  }
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+refresh();
+setInterval(refresh, POLL_MS);
+</script>
+</body>
+</html>
+"""
