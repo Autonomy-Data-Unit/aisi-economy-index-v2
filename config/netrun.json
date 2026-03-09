@@ -61,10 +61,11 @@
           ]
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_onet.py",
           "ui": {
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "position": {
-              "x": 270,
+              "x": 255,
               "y": 345
             }
           }
@@ -80,22 +81,25 @@
         "execution_config": {
           "run_on_startup": true,
           "node_vars": {
-            "fetch_years": {
-              "type": "str"
-            }
+            "fetch_years": {}
           },
           "signals": [
             "epoch_finished"
           ]
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_adzuna.py",
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
-              "x": -15,
-              "y": 105
+              "x": -40,
+              "y": 80
             },
-            "headerColor": "#00a3d7"
+            "headerColor": "#00a3d7",
+            "dimensions": {
+              "width": 170,
+              "height": 182
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -114,14 +118,15 @@
           ]
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/sample_ads.py",
           "ui": {
             "position": {
-              "x": 240,
-              "y": 75
+              "x": 220,
+              "y": 80
             },
             "dimensions": {
               "width": 249,
-              "height": 162
+              "height": 182
             },
             "portGroups": {
               "in:__all__": false
@@ -140,12 +145,6 @@
         "name": "prepare_onet_targets",
         "description": "Filter O*NET occupations and build text descriptions for embedding.",
         "execution_config": {
-          "controls": [
-            "start_epoch"
-          ],
-          "signals": [
-            "epoch_finished"
-          ],
           "node_vars": {
             "onet_exclude_public_sector": {
               "type": "bool"
@@ -153,15 +152,22 @@
             "onet_top_n": {
               "type": "int"
             }
-          }
+          },
+          "signals": [
+            "epoch_finished"
+          ],
+          "controls": [
+            "start_epoch"
+          ]
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/prepare_onet_targets.py",
           "ui": {
             "position": {
-              "x": 555,
-              "y": 345
+              "x": 525,
+              "y": 360
             },
-            "descriptionExpanded": false
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -181,19 +187,16 @@
             "summarise_max_retries": {
               "type": "int"
             },
-            "system_prompt": {
-              "type": "str"
-            },
-            "user_prompt": {
-              "type": "str"
-            }
+            "system_prompt": {},
+            "user_prompt": {}
           }
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_summarise.py",
           "ui": {
             "position": {
-              "x": 585,
-              "y": 90
+              "x": 580,
+              "y": 120
             },
             "headerColor": "#00a3d7",
             "descriptionExpanded": false
@@ -214,12 +217,17 @@
           ]
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_ads.py",
           "ui": {
             "position": {
-              "x": 870,
-              "y": 90
+              "x": 915,
+              "y": 120
             },
-            "descriptionExpanded": false
+            "descriptionExpanded": false,
+            "dimensions": {
+              "width": 285,
+              "height": 100
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -232,20 +240,25 @@
         "name": "embed_onet",
         "description": "Embed O*NET occupation text descriptions.",
         "execution_config": {
-          "controls": [
-            "start_epoch"
-          ],
           "signals": [
             "epoch_finished"
+          ],
+          "controls": [
+            "start_epoch"
           ]
         },
         "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_onet.py",
           "ui": {
             "position": {
-              "x": 840,
-              "y": 345
+              "x": 855,
+              "y": 330
             },
-            "descriptionExpanded": false
+            "descriptionExpanded": true,
+            "dimensions": {
+              "width": 298,
+              "height": 130
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -258,23 +271,28 @@
     "edges": [
       {
         "source_str": "fetch_onet.__signal_epoch_finished__",
-        "target_str": "prepare_onet_targets.__control_start_epoch__"
+        "target_str": "prepare_onet_targets.__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_str": "fetch_adzuna.__signal_epoch_finished__",
-        "target_str": "sample_ads.__control_start_epoch__"
+        "target_str": "sample_ads.__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_str": "sample_ads.ad_ids",
-        "target_str": "llm_summarise.ad_ids"
+        "target_str": "llm_summarise.ad_ids",
+        "dependency": false
       },
       {
         "source_str": "llm_summarise.successful_ad_ids",
-        "target_str": "embed_ads.successful_ad_ids"
+        "target_str": "embed_ads.successful_ad_ids",
+        "dependency": false
       },
       {
         "source_str": "prepare_onet_targets.__signal_epoch_finished__",
-        "target_str": "embed_onet.__control_start_epoch__"
+        "target_str": "embed_onet.__control_start_epoch__",
+        "dependency": false
       }
     ],
     "extra": {
@@ -285,8 +303,14 @@
             "id": "action-1772823442075-3d083mql9",
             "label": "Open in cursor",
             "command": "cursor $PROJECT_ROOT/nbs/ai_index/nodes/$NODE_NAME.ipynb"
+          },
+          {
+            "id": "action-1772974980777-knwrbn6ng",
+            "label": "open",
+            "command": "$DEFAULT_CMD $PROJECT_ROOT/nbs/ai_index/nodes/$NODE_NAME.ipynb"
           }
-        ]
+        ],
+        "defaultCmd": "code"
       }
     }
   }

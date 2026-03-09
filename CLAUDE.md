@@ -276,6 +276,22 @@ There are two kinds of node variables:
 
 All node vars are accessible in node functions via `ctx.vars["var_name"]`. Values from TOML are Python-typed (int, str, bool) but may need explicit casting with `int()` when the type system returns strings.
 
+## No Silent Fallbacks
+
+**NEVER use `.get(key, default)` or fallback values when accessing data that is expected to exist.** Use direct key access (`d["key"]`) so that missing or malformed data fails immediately with a clear error. Silent fallbacks (empty strings, empty lists, `None`) hide bugs and produce subtly wrong results that are much harder to debug downstream.
+
+This applies everywhere — not just `ctx.vars`, but also parsed JSON, dataframe columns, config dicts, and any structured data where the schema is known. If a field is required, access it directly and let `KeyError` surface the problem.
+
+```python
+# WRONG — silently produces garbage if schema changes
+domain = parsed.get("domain", "")
+tasks = parsed.get("tasks", [])
+
+# RIGHT — fails loudly if the field is missing
+domain = parsed["domain"]
+tasks = parsed["tasks"]
+```
+
 ## Execution Modes
 
 Execution mode is determined per-model via the `mode` field in `embed_models.toml` / `llm_models.toml`. The pipeline's `embedding_model`, `llm_model`, and `cosine_mode` node_vars select which model config (and therefore which mode) to use.

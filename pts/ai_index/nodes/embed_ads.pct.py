@@ -96,10 +96,10 @@ taskskill_texts = []
 
 for ad_id, data_str in rows:
     parsed = json.loads(data_str)
-    domain = parsed.get("domain", "")
-    short_desc = parsed.get("short_description", "")
-    tasks = parsed.get("tasks", [])
-    skills = parsed.get("skills", [])
+    domain = parsed["domain"]
+    short_desc = parsed["short_description"]
+    tasks = parsed["tasks"]
+    skills = parsed["skills"]
 
     role_texts.append(f"[{domain}] {short_desc}")
     taskskill_texts.append(f"{short_desc} - {', '.join(tasks + skills)}")
