@@ -112,19 +112,20 @@ print("API docs at   http://127.0.0.1:8000/docs")
 # %% [markdown]
 # ## 3. Use the Python client to query status
 #
-# The `NetObserverClient` gives you the same interface as `NetObserver`, but
-# over HTTP — so it works from a separate process or machine.
+# The `NetObserverClient` is async, so it works in the same event loop as the
+# server (no deadlock). It gives you the same interface as `NetObserver`, but
+# over HTTP — so it also works from a separate process or machine.
 
 # %%
 from ai_index.utils.observe import NetObserverClient
 
 client = NetObserverClient("http://127.0.0.1:8000")
 
-status = client.get_status()
+status = await client.get_status()
 print("Net status:", status)
 
 # %%
-nodes = client.get_nodes()
+nodes = await client.get_nodes()
 for n in nodes:
     print(f"  {n.name:20s}  busy={n.is_busy}  epochs={n.epoch_count}  ports_in={n.in_ports}  ports_out={n.out_ports}")
 
@@ -152,25 +153,25 @@ print("Pipeline results:", results)
 # Check the observer again after the run:
 
 # %%
-status = client.get_status()
+status = await client.get_status()
 print(f"Total epochs: {status.total_epochs}")
 print(f"Epochs by state: {status.epochs_by_state}")
 
 # %%
-for e in client.get_epochs():
+for e in await client.get_epochs():
     dur = f"{e.duration_seconds:.3f}s" if e.duration_seconds else "-"
     print(f"  {e.epoch_id[:8]}  {e.node_name:20s}  {e.state:10s}  {dur}")
 
 # %%
 print("Logs:")
-for log in client.get_all_logs():
+for log in await client.get_all_logs():
     print(f"  [{log.node_name}] {log.message}")
 
 # %% [markdown]
 # ## 5. Clean up
 
 # %%
-client.close()
+await client.close()
 await server.stop()
 print("Server stopped.")
 
