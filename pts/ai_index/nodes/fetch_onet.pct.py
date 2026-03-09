@@ -18,7 +18,7 @@
 
 # %%
 #|set_func_signature
-async def main(ctx, print):
+def main(ctx, print):
     """Download and extract O*NET 30.0 database."""
     ...
 

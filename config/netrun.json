@@ -47,6 +47,14 @@
       "storage_path": ".cache/netrun"
     }
   },
+  "pools": {
+    "main": {
+      "spec": {
+        "type": "thread",
+        "num_workers": 4
+      }
+    }
+  },
   "max_epochs": 1,
   "project_root_override": "../",
   "graph": {

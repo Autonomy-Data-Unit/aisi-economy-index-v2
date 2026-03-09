@@ -10,19 +10,23 @@ llm_max_new_tokens = 220
 llm_max_concurrent_batches = 1
 [defaults.fetch_adzuna]
 fetch_years = "all"
-
 [defaults.prepare_onet_targets]
 onet_exclude_public_sector = true
 onet_top_n = 10
-
 [defaults.llm_summarise]
 summarise_resume = true
 summarise_max_retries = 0
 system_prompt = "llm_summarise/main/system"
 user_prompt = "llm_summarise/main/user"
 
+# --------
+#   Runs
+# --------
+
 [runs.baseline]
 # inherits all defaults
+
+# 
 
 [runs.test]
 sample_n = 10

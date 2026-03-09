@@ -2,7 +2,7 @@
 
 import numpy as np
 
-async def main(ctx, print) -> {
+def main(ctx, print) -> {
     'ad_ids': np.ndarray
 }:
     """Sample job ads for processing (or pass through all if sample_n=0)."""

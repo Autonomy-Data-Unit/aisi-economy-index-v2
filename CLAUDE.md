@@ -522,6 +522,32 @@ Signals are output ports that fire automatically on lifecycle events. Controls a
 
 Edge format: `"source_str": "nodeA.__signal_epoch_finished__"` → `"target_str": "nodeB.__control_start_epoch__"`
 
+### Worker Pools
+
+Pools control how node functions are executed. Configured at the net level in `pools`:
+
+| Type | Config | Use case |
+|------|--------|----------|
+| `main` | `{"type": "main"}` | Single async worker (default if no pools defined) |
+| `thread` | `{"type": "thread", "num_workers": N}` | Thread pool — supports both sync and async functions |
+| `multiprocess` | `{"type": "multiprocess", "num_processes": N}` | CPU-bound work |
+| `remote` | `{"type": "remote", "url": "ws://..."}` | Distributed execution |
+
+**Thread pools support async functions.** When an async function runs in a thread pool, netrun uses `run_until_complete()` to execute it. This means all nodes (sync and async) can run in the same thread pool without issue.
+
+**This project** overrides the default `"main"` pool with a thread pool (`"num_workers": 4`) so that sync I/O nodes (fetch_onet, fetch_adzuna, sample_ads, prepare_onet_targets) don't block the event loop. Async nodes (llm_summarise, embed_ads, embed_onet) also run in this pool via `run_until_complete()`.
+
+There is no net-level setting to change the default pool assignment — all nodes default to `pools: ["main"]`. To use a different pool, set `"pools": ["pool_name"]` per-node in `execution_config`.
+
+Pool config uses nested `spec` in JSON:
+```json
+"pools": {
+  "main": {
+    "spec": { "type": "thread", "num_workers": 4 }
+  }
+}
+```
+
 ### Key Net APIs
 - **`run_to_targets(targets)`** — Run upstream nodes and collect input salvos at target. Auto-starts the Net if not started. Executes all source nodes (`run_on_startup=True`) automatically. Returns `list[TargetInputSalvo]` with `.packets: dict[str, list[Any]]`.
 - **`inject_data(node_name, port, values)`** — Inject data into a node's input port. Works before `Net.start()`.
