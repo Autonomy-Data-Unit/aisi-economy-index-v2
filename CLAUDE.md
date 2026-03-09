@@ -466,7 +466,7 @@ nbl test                      # Test all notebooks execute
 - `#|default_exp module_name` - Set export target module (once per notebook, near top)
 - `#|export` - Export cell to the Python module
 - `#|exporti` - Export but exclude from `__all__`
-- `#|top_export` - Export at module level (for function-export notebooks)
+- `#|top_export` - Export at module level, **outside** the generated function (for `export_as_func` notebooks). Use this for classes, constants, or imports that need to be importable from the module by other modules. Example: `JobInfoModel` in `llm_summarise` is `#|top_export` so `embed_ads` can `from ai_index.nodes.llm_summarise import JobInfoModel`.
 - `#|hide` - Hide cell from docs
 - `#|eval: false` - Skip cell during execution
 - `#|export_as_func true` - Export entire notebook as a callable function

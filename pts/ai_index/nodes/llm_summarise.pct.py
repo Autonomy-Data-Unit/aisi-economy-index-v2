@@ -34,7 +34,10 @@
 
 # %%
 #|top_export
+from typing import List
+
 import numpy as np
+from pydantic import BaseModel
 
 # %%
 #|set_func_signature
@@ -60,10 +63,8 @@ show_node_vars('llm_summarise', run_name=run_name)
 # %%
 #|export
 import json
-from typing import List
 
 import pandas as pd
-from pydantic import BaseModel
 
 from ai_index import const
 from ai_index.utils import ResultStore, run_batched, strict_format, load_prompt, allm_generate, get_adzuna_conn, get_all_ad_ids
@@ -72,7 +73,7 @@ from ai_index.utils import ResultStore, run_batched, strict_format, load_prompt,
 # ## Pydantic schema for LLM output
 
 # %%
-#|export
+#|top_export
 class JobInfoModel(BaseModel):
     short_description: str
     tasks: List[str]

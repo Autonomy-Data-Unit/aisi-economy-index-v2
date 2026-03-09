@@ -47,12 +47,11 @@ show_node_vars('embed_ads', run_name=run_name)
 
 # %%
 #|export
-import json
-
 import duckdb
 import numpy as np
 
 from ai_index import const
+from ai_index.nodes.llm_summarise import JobInfoModel
 from ai_index.utils import aembed
 
 # %% [markdown]
@@ -95,14 +94,10 @@ role_texts = []
 taskskill_texts = []
 
 for ad_id, data_str in rows:
-    parsed = json.loads(data_str)
-    domain = parsed["domain"]
-    short_desc = parsed["short_description"]
-    tasks = parsed["tasks"]
-    skills = parsed["skills"]
+    info = JobInfoModel.model_validate_json(data_str)
 
-    role_texts.append(f"[{domain}] {short_desc}")
-    taskskill_texts.append(f"{short_desc} - {', '.join(tasks + skills)}")
+    role_texts.append(f"[{info.domain}] {info.short_description}")
+    taskskill_texts.append(f"{info.short_description} - {', '.join(info.tasks + info.skills)}")
     ad_ids.append(ad_id)
 
 print(f"embed_ads: built texts for {len(ad_ids)} ads")
