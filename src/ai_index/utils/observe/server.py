@@ -186,6 +186,13 @@ _DASHBOARD_HTML = """\
               background: var(--bg); border-radius: 4px; }
   .log-ts { color: var(--muted); }
   .log-node { color: var(--blue); }
+  .log-tabs { display: flex; gap: 0; margin-bottom: .5rem; flex-wrap: wrap; }
+  .log-tab { background: transparent; border: 1px solid var(--border); border-bottom: none;
+             color: var(--muted); padding: 4px 12px; font-size: .75rem; cursor: pointer;
+             border-radius: 6px 6px 0 0; font-family: inherit; }
+  .log-tab:hover { color: var(--text); }
+  .log-tab.active { background: var(--bg); color: var(--blue); border-color: var(--blue);
+                    border-bottom: 1px solid var(--bg); font-weight: 600; }
   .status-bar { display: flex; gap: 1.5rem; margin-bottom: 1rem; color: var(--muted); font-size: .85rem; }
   .status-bar span { color: var(--text); font-weight: 600; }
   .ws-indicator { font-size: .75rem; margin-left: auto; }
@@ -204,7 +211,7 @@ _DASHBOARD_HTML = """\
 <div class="grid">
   <div class="card"><h2>Nodes</h2><div id="nodes-table"></div></div>
   <div class="card"><h2>Epochs</h2><div id="epochs-table"></div></div>
-  <div class="card full"><h2>Logs</h2><div class="logs-box" id="logs-box"></div></div>
+  <div class="card full"><h2>Logs</h2><div class="log-tabs" id="log-tabs"></div><div class="logs-box" id="logs-box"></div></div>
 </div>
 <script>
 const BASE = window.location.origin;
@@ -213,6 +220,8 @@ const FALLBACK_POLL_MS = 3000;
 
 let ws = null;
 let fallbackTimer = null;
+let logFilter = null;  // null = all, string = node name
+let lastData = null;   // cache for re-rendering on filter change
 
 function badge(text, cls) {
   return `<span class="badge badge-${cls || text}">${text}</span>`;
@@ -242,7 +251,38 @@ async function postAction(path, body) {
   } catch (e) { console.error('Action error:', e); }
 }
 
+function setLogFilter(name) {
+  logFilter = name;
+  if (lastData) renderLogs(lastData.logs, lastData.nodes);
+}
+
+function renderLogs(logs, nodes) {
+  // Build tab bar
+  const nodeNames = nodes.map(n => n.name);
+  let tabs = `<button class="log-tab ${logFilter === null ? 'active' : ''}" onclick="setLogFilter(null)">All</button>`;
+  for (const name of nodeNames) {
+    const count = logs.filter(l => l.node_name === name).length;
+    const active = logFilter === name ? ' active' : '';
+    tabs += `<button class="log-tab${active}" onclick="setLogFilter('${name}')">${name} (${count})</button>`;
+  }
+  document.getElementById('log-tabs').innerHTML = tabs;
+
+  // Filter and render log lines
+  const filtered = logFilter === null ? logs : logs.filter(l => l.node_name === logFilter);
+  const box = document.getElementById('logs-box');
+  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  let lh = '';
+  for (const l of filtered) {
+    const ts = l.timestamp.split(' ').pop()?.split('.')[0] || l.timestamp;
+    const node = l.node_name || '';
+    lh += `<span class="log-ts">${ts}</span> <span class="log-node">[${node}]</span> ${escapeHtml(l.message)}\\n`;
+  }
+  box.innerHTML = lh;
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
 function render(data) {
+  lastData = data;
   const {status, nodes, epochs, logs} = data;
 
   // Status bar
@@ -263,7 +303,7 @@ function render(data) {
     const toggleBtn = n.enabled
       ? `<button class="btn btn-disable" onclick="postAction('/nodes/${n.name}/disable')">disable</button>`
       : `<button class="btn btn-enable" onclick="postAction('/nodes/${n.name}/enable')">enable</button>`;
-    nh += `<tr><td>${n.name}</td><td>${st}</td><td>${n.epoch_count}</td>` +
+    nh += `<tr><td><a href="#" onclick="setLogFilter('${n.name}');return false" style="color:var(--text);text-decoration:none">${n.name}</a></td><td>${st}</td><td>${n.epoch_count}</td>` +
           `<td>${n.running_epoch_ids.length}</td><td>${toggleBtn}</td></tr>`;
   }
   nh += '</table>';
@@ -280,17 +320,8 @@ function render(data) {
   eh += '</table>';
   document.getElementById('epochs-table').innerHTML = eh;
 
-  // Logs (most recent last, scroll to bottom)
-  const box = document.getElementById('logs-box');
-  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
-  let lh = '';
-  for (const l of logs) {
-    const ts = l.timestamp.split(' ').pop()?.split('.')[0] || l.timestamp;
-    const node = l.node_name || '';
-    lh += `<span class="log-ts">${ts}</span> <span class="log-node">[${node}]</span> ${escapeHtml(l.message)}\\n`;
-  }
-  box.innerHTML = lh;
-  if (atBottom) box.scrollTop = box.scrollHeight;
+  // Logs
+  renderLogs(logs, nodes);
 }
 
 // -- WebSocket with HTTP polling fallback --
