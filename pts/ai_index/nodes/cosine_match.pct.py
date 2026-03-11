@@ -171,22 +171,46 @@ ad_ids #|func_return_line
 # Show the top O\*NET matches for each job ad, with the ad title for context.
 
 # %%
+import duckdb
 from ai_index.utils import get_adzuna_conn
+from ai_index.nodes.llm_summarise import JobInfoModel
+
+sample_ids = ad_ids[:5]
 
 conn = get_adzuna_conn(read_only=True)
 conn.execute("CREATE OR REPLACE TEMP TABLE _match_ids (id BIGINT)")
-conn.executemany("INSERT INTO _match_ids VALUES (?)", [(int(i),) for i in ad_ids])
-ad_titles = dict(conn.execute(
-    "SELECT a.id, a.title FROM ads a JOIN _match_ids m ON a.id = m.id"
-).fetchall())
+conn.executemany("INSERT INTO _match_ids VALUES (?)", [(int(i),) for i in sample_ids])
+raw_ads = {row[0]: {"title": row[1], "category_name": row[2], "description": row[3]}
+           for row in conn.execute(
+    "SELECT a.id, a.title, a.category_name, a.description "
+    "FROM ads a JOIN _match_ids m ON a.id = m.id"
+).fetchall()}
 conn.close()
 
-for ad_id in ad_ids[:5]:
+summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
+sconn = duckdb.connect(str(summaries_db), read_only=True)
+sample_set = set(int(i) for i in sample_ids)
+summaries = {row[0]: JobInfoModel.model_validate_json(row[1])
+             for row in sconn.execute(
+    "SELECT id, data FROM results WHERE error IS NULL"
+).fetchall() if row[0] in sample_set}
+sconn.close()
+
+for ad_id in sample_ids:
     ad_id = int(ad_id)
-    title = ad_titles[ad_id]
+    raw = raw_ads[ad_id]
+    summary = summaries[ad_id]
     ad_matches = matches_df[matches_df["ad_id"] == ad_id].head(5)
-    print(f"\n{'─'*80}")
-    print(f"Ad {ad_id}: {title}")
+    print(f"\n{'━'*80}")
+    print(f"Ad {ad_id}: {raw['title']}")
+    print(f"  Sector: {raw['category_name']}")
+    print(f"  Domain: {summary.domain} | Level: {summary.level}")
+    print(f"  Summary: {summary.short_description}")
+    print(f"  Tasks: {', '.join(summary.tasks)}")
+    print(f"  Skills: {', '.join(summary.skills)}")
+    desc = (raw["description"] or "")[:200].strip()
+    if desc:
+        print(f"  Description: {desc}...")
     print(f"{'─'*80}")
     for _, row in ad_matches.iterrows():
         print(f"  #{row['rank']+1}  {row['onet_code']}  {row['onet_title']:<45s}  "

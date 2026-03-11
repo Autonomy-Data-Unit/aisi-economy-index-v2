@@ -323,11 +323,20 @@ conn.close()
 
 for ad_id in sample_ids:
     ad_id = int(ad_id)
-    title = ad_titles[ad_id]
+    raw = raw_ads_by_id[ad_id]
+    summary = summaries_by_ad[ad_id]
     before = matches_df[matches_df["ad_id"] == ad_id].sort_values("rank")
     after = filtered_df[filtered_df["ad_id"] == ad_id].sort_values("rank")
-    print(f"\n{'─'*80}")
-    print(f"Ad {ad_id}: {title}")
+    print(f"\n{'━'*80}")
+    print(f"Ad {ad_id}: {raw['title']}")
+    print(f"  Sector: {raw['category_name']}")
+    print(f"  Domain: {summary.domain} | Level: {summary.level}")
+    print(f"  Summary: {summary.short_description}")
+    print(f"  Tasks: {', '.join(summary.tasks)}")
+    print(f"  Skills: {', '.join(summary.skills)}")
+    desc = (raw["description"] or "")[:200].strip()
+    if desc:
+        print(f"  Description: {desc}...")
     print(f"{'─'*80}")
     print(f"  BEFORE ({len(before)} candidates):")
     for _, row in before.iterrows():
