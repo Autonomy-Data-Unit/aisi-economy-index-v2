@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: ai-index (3.12.12)
 #     language: python
 #     name: python3
 # ---
@@ -82,7 +82,7 @@ score_set = OnetScoreSet(name="combined_exposure", scores=combined)
 score_set.save(output_dir)
 print(f"combine_onet_exposure: wrote {const.rel(output_dir / 'scores.csv')}")
 
-combined #|func_return_line
+combined; #|func_return_line
 
 # %% [markdown]
 # ## Sample output
@@ -90,4 +90,4 @@ combined #|func_return_line
 # %%
 print(f"\nScore columns: {[c for c in combined.columns if c != 'onet_code']}")
 print(f"\nFirst 5 rows:")
-print(combined.head())
+combined.head()

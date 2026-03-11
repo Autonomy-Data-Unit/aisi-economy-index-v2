@@ -27,4 +27,4 @@ def main(ctx, print, score_dfs: dict) -> "pd.DataFrame":
     score_set.save(output_dir)
     print(f"combine_onet_exposure: wrote {const.rel(output_dir / 'scores.csv')}")
     
-    return combined
+    return combined;
