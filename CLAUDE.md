@@ -547,6 +547,31 @@ Pool config uses nested `spec` in JSON:
 }
 ```
 
+### Input Port Types and Batch Collection
+
+In the `from_function` factory, parameter type annotations are purely type declarations. `list[int]` means "this port expects a single packet whose value is `list[int]`."
+
+To collect **multiple packets** into a list (batch semantics), use `Batch` from `netrun.node_factories.from_function`:
+
+```python
+from netrun.node_factories.from_function import Batch
+
+def process(data: Batch(str)):     # collects ALL packets into list[str]
+    ...
+
+def process(data: Batch(str, count=3)):  # collects up to 3 packets into list[str]
+    ...
+```
+
+| Annotation | Salvo count | Function receives |
+|---|---|---|
+| `x: int` | 1 packet | `int` |
+| `x: list[int]` | 1 packet | `list[int]` (single value) |
+| `x: Batch(int)` | All packets | `list[int]` (collected) |
+| `x: Batch(int, count=3)` | Up to 3 packets | `list[int]` (collected) |
+
+**Do NOT use `list[T]` for batch collection** — it will not collect packets. Use `Batch(T)` instead.
+
 ### Key Net APIs
 - **`run_to_targets(targets)`** — Run upstream nodes and collect input salvos at target. Auto-starts the Net if not started. Executes all source nodes (`run_on_startup=True`) automatically. Returns `list[TargetInputSalvo]` with `.packets: dict[str, list[Any]]`.
 - **`inject_data(node_name, port, values)`** — Inject data into a node's input port. Works before `Net.start()`.
