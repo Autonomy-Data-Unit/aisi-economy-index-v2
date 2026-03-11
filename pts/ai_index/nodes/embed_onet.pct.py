@@ -64,6 +64,22 @@ output_dir = const.pipeline_store_path / run_name / "embed_onet"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% [markdown]
+# ## Check for existing embeddings
+
+# %%
+#|export
+expected_files = [
+    output_dir / "onet_codes.npy",
+    output_dir / "onet_titles.npy",
+    output_dir / "role_embeddings.npy",
+    output_dir / "taskskill_embeddings.npy",
+]
+
+if all(f.exists() for f in expected_files):
+    print(f"embed_onet: all output files exist in {output_dir}, skipping embedding")
+    True #|func_return_line
+
+# %% [markdown]
 # ## Load O*NET targets
 
 # %%

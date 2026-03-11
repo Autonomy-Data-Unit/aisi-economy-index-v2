@@ -12,6 +12,16 @@ async def main(ctx, print) -> bool:
     
     output_dir = const.pipeline_store_path / run_name / "embed_onet"
     output_dir.mkdir(parents=True, exist_ok=True)
+    expected_files = [
+        output_dir / "onet_codes.npy",
+        output_dir / "onet_titles.npy",
+        output_dir / "role_embeddings.npy",
+        output_dir / "taskskill_embeddings.npy",
+    ]
+    
+    if all(f.exists() for f in expected_files):
+        print(f"embed_onet: all output files exist in {output_dir}, skipping embedding")
+        return True
     onet_targets = pd.read_parquet(const.onet_targets_path)
     print(f"embed_onet: loaded {len(onet_targets)} occupations from {const.onet_targets_path}")
     
