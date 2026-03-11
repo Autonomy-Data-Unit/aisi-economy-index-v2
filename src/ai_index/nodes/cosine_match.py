@@ -6,7 +6,9 @@ import pandas as pd
 from .. import const
 from ..utils import acosine_topk
 
-async def main(ctx, print, ad_ids: list[int], onet_done: bool):
+async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
+    'ad_ids': list[int]
+}:
     """Weighted dual cosine similarity matching."""
     run_name = ctx.vars["run_name"]
     cosine_mode = ctx.vars["cosine_mode"]
@@ -78,3 +80,5 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool):
     print(f"cosine_match: wrote {len(matches_df)} match rows ({n_ads} ads x topk={topk})")
     print(f"  output: {output_path}")
     print(f"  score range: {matches_df['combined_score'].min():.4f} - {matches_df['combined_score'].max():.4f}")
+    
+    return ad_ids

@@ -310,6 +310,37 @@
           "func": "ai_index.nodes.cosine_match.main"
         },
         "type": "node"
+      },
+      {
+        "name": "llm_filter_candidates",
+        "description": "Run LLM negative selection to filter cosine match candidates.",
+        "execution_config": {
+          "node_vars": {
+            "filter_resume": {
+              "type": "bool"
+            },
+            "filter_max_retries": {
+              "type": "int"
+            },
+            "system_prompt": {},
+            "user_prompt": {}
+          }
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_filter_candidates.py",
+          "ui": {
+            "position": {
+              "x": 1600,
+              "y": 240
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.llm_filter_candidates.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
@@ -346,6 +377,11 @@
       {
         "source_str": "embed_onet.out",
         "target_str": "cosine_match.onet_done",
+        "dependency": false
+      },
+      {
+        "source_str": "cosine_match.ad_ids",
+        "target_str": "llm_filter_candidates.ad_ids",
         "dependency": false
       }
     ],

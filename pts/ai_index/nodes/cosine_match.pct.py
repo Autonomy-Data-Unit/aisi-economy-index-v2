@@ -38,7 +38,9 @@ from ai_index.utils import acosine_topk
 
 # %%
 #|set_func_signature
-async def main(ctx, print, ad_ids: list[int], onet_done: bool):
+async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
+    'ad_ids': list[int]
+}:
     """Weighted dual cosine similarity matching."""
     ...
 
@@ -160,6 +162,8 @@ matches_df.to_parquet(output_path, index=False)
 print(f"cosine_match: wrote {len(matches_df)} match rows ({n_ads} ads x topk={topk})")
 print(f"  output: {output_path}")
 print(f"  score range: {matches_df['combined_score'].min():.4f} - {matches_df['combined_score'].max():.4f}")
+
+ad_ids #|func_return_line
 
 # %% [markdown]
 # ## Sample matches

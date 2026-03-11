@@ -8,7 +8,7 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 8 nodes and 7 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
+The pipeline is defined in `config/netrun.json`. It currently contains 9 nodes and 8 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
 
 ```
   fetch_onet (run_on_startup)
@@ -22,31 +22,32 @@ The pipeline is defined in `config/netrun.json`. It currently contains 8 nodes a
      │                     │
                            ▼
   fetch_adzuna ──► ... ──► cosine_match
-     │ signal: epoch_fin.  ▲
-     ▼                     │ out (bool)
-  sample_ads              │
-     │ ad_ids              │
+     │ signal: epoch_fin.  ▲        │
+     ▼                     │ ad_ids  │ ad_ids
+  sample_ads              │        ▼
+     │ ad_ids              │   llm_filter_candidates
      ▼                     │
   llm_summarise           │
      │ successful_ad_ids   │
      ▼                     │
   embed_ads ──────────────┘
-     │ signal: epoch_finished
+     │ ad_ids
 ```
 
-### Nodes (8 total, no subgraphs)
+### Nodes (9 total, no subgraphs)
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `epoch_finished`.
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
 - `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
 - `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
-- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`. Signals `epoch_finished`.
+- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Output: `ad_ids` (list[int]). Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`.
 - `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
-- `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ads_done` (bool from embed_ads), `onet_done` (bool from embed_onet). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Signals `epoch_finished`. Node vars: `cosine_alpha` (float).
+- `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ad_ids` (list[int] from embed_ads), `onet_done` (bool from embed_onet). Output: `ad_ids` (list[int]). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Node vars: `cosine_alpha` (float).
+- `llm_filter_candidates` — LLM negative selection to filter cosine match candidates. For each ad, builds a prompt with job context (title, sector, domain, tasks, raw description excerpt) and candidate occupations. LLM identifies which candidates to DROP, keeping 2-3 functional matches. Input: `ad_ids` (list[int] from cosine_match). Output: `ad_ids` (list[int]). Uses `run_batched` with `ResultStore` for incremental DuckDB writes and resume support. Writes `filtered_matches.parquet` to `store/pipeline/{run_name}/llm_filter/`. Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars. Node vars: `filter_resume` (bool), `filter_max_retries` (int).
 
 ### Planned pipeline stages (not yet implemented)
 
-The full pipeline will eventually include negative selection (LLM filtering of candidates), exposure scoring, and index generation stages. See `_dev/aisi_demo_pipeline_analysis.md` for the full plan.
+The full pipeline will eventually include exposure scoring and index generation stages. See `_dev/aisi_demo_pipeline_analysis.md` for the full plan.
 
 ### Node Function Paths
 
@@ -130,6 +131,12 @@ summarise_resume = true          # Resume from previous partial run
 summarise_max_retries = 0        # Retry rounds for failed ads
 system_prompt = "llm_summarise/main/system"  # Path in prompt_library/
 user_prompt = "llm_summarise/main/user"      # Path in prompt_library/
+
+[defaults.llm_filter_candidates]
+filter_resume = true             # Resume from previous partial run
+filter_max_retries = 0           # Retry rounds for failed ads
+system_prompt = "llm_filter/main/system"     # Path in prompt_library/
+user_prompt = "llm_filter/main/user"         # Path in prompt_library/
 
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)

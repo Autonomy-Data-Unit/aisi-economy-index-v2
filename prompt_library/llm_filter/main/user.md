@@ -1,0 +1,43 @@
+Return ONLY a valid JSON object with exactly one key "drop". No prose. No markdown.
+
+TASK
+Audit occupation matches. DROP candidates that are NOT functional matches for the job.
+
+KEEP POLICY
+There are {n_candidates} candidates (1-based).
+- Default: KEEP 2–3 candidates.
+- KEEP 1 ONLY if you are certain every other candidate is clearly wrong.
+- If more than 3 are valid, drop the most generic ones to fit the 3-candidate cap.
+- When in doubt, KEEP rather than DROP if functionally plausible.
+
+RANKING NOTE
+Candidates are ranked by cosine similarity (rank 1 = highest cosine). This is a weak prior.
+Do NOT assume rank 1 is correct.
+
+JOB CONTEXT (SOURCE OF TRUTH)
+Title: {job_ad_title}
+Sector: {job_sector_category}
+Domain: {domain}
+Tasks: {tasks_str}
+
+FULL AD EXCERPT (tools/duties evidence only):
+{full_ad_excerpt}
+
+CANDIDATES (1-based)
+{candidates_str}
+
+ANCHOR (FUNCTION FIRST)
+- Identify the functional anchor from title + tasks (function, not seniority).
+- You MUST keep the anchor unless core evidence contradicts it.
+- Title keyword lock: if the title contains a clear functional keyword and a direct-match candidate exists, you MUST keep it.
+
+GATES
+- Manager rule: if title does NOT include Manager/Lead/Director, keep manager roles only if tasks mention supervision, rotas, hiring, budgeting.
+- IT lock: if title/tasks mention concrete tech (Python/SQL/APIs/systems), keep relevant IT roles even if domain is non-IT.
+
+FINAL CHECK
+- Keep 2–3 by default.
+- Keeping only 1 requires clear mismatch for all others.
+
+OUTPUT
+Return ONLY JSON: {{"drop":[...]}}

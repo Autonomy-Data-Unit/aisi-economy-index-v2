@@ -1,0 +1,1 @@
+Return ONLY a valid JSON object with exactly one key "drop". No extra text.
