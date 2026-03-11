@@ -107,7 +107,7 @@ max_retries = ctx.vars["task_exposure_max_retries"]
 SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
 USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
 
-output_dir = const.onet_exposure_scores_path / "score_task_exposure"
+output_dir = const.onet_exposure_scores_path / "score_task_exposure" / llm_model
 output_dir.mkdir(parents=True, exist_ok=True)
 db_path = output_dir / "task_results.duckdb"
 
