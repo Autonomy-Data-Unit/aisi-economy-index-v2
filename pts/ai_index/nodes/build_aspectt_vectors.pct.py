@@ -39,9 +39,10 @@ def main(ctx, print):
 # Retrieve input arguments
 
 # %%
-from dotenv import load_dotenv; load_dotenv()
-from dev_utils import set_node_func_args
-set_node_func_args('build_aspectt_vectors')
+from dev_utils import *
+run_name = 'test_local'
+set_node_func_args('build_aspectt_vectors', run_name=run_name)
+show_node_vars('build_aspectt_vectors', run_name=run_name)
 
 # %% [markdown]
 #

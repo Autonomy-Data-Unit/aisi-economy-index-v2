@@ -50,9 +50,10 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
 # Retrieve input arguments
 
 # %%
-from dotenv import load_dotenv; load_dotenv()
-from dev_utils import set_node_func_args
-set_node_func_args('cosine_match')
+from dev_utils import *
+run_name = 'test_local'
+set_node_func_args('cosine_match', run_name=run_name)
+show_node_vars('cosine_match', run_name=run_name)
 
 # %% [markdown]
 #

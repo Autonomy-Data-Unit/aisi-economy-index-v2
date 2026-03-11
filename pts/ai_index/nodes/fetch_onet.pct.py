@@ -27,7 +27,7 @@ def main(ctx, print):
 # Retrieve input arguments
 
 # %%
-from dev_utils import set_node_func_args, show_node_vars
+from dev_utils import *
 run_name = 'test_local'
 set_node_func_args('fetch_onet', run_name=run_name)
 show_node_vars('fetch_onet', run_name=run_name)

@@ -69,9 +69,10 @@ async def main(ctx, print, ad_ids: list[int]) -> {
 # Retrieve input arguments
 
 # %%
-from dotenv import load_dotenv; load_dotenv()
-from dev_utils import set_node_func_args
-set_node_func_args('llm_filter_candidates')
+from dev_utils import *
+run_name = 'test_local'
+set_node_func_args('llm_filter_candidates', run_name=run_name)
+show_node_vars('llm_filter_candidates', run_name=run_name)
 
 # %% [markdown]
 #
