@@ -32,6 +32,9 @@ filter_max_retries = 0
 system_prompt = "llm_filter/main/system"
 user_prompt = "llm_filter/main/user"
 
+[defaults.compute_job_ad_aspectt_vectors]
+aspectt_chunk_size = 50000
+
 # --------
 #   Runs
 # --------

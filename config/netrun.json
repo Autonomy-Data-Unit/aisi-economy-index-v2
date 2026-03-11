@@ -361,7 +361,11 @@
             "hidePortNames": true,
             "position": {
               "x": 720,
-              "y": 600
+              "y": 640
+            },
+            "dimensions": {
+              "width": 150,
+              "height": 80
             }
           }
         },
@@ -395,6 +399,32 @@
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.build_aspectt_vectors.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "compute_job_ad_aspectt_vectors",
+        "description": "Compute per-ad weighted ASPECTT vectors from filtered occupation matches.",
+        "execution_config": {
+          "node_vars": {
+            "aspectt_chunk_size": {
+              "type": "int"
+            }
+          }
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_aspectt_vectors.py",
+          "ui": {
+            "position": {
+              "x": 1900,
+              "y": 440
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.compute_job_ad_aspectt_vectors.main"
         },
         "type": "node"
       }
@@ -448,6 +478,16 @@
       {
         "source_str": "cosine_match.ad_ids",
         "target_str": "llm_filter_candidates.ad_ids",
+        "dependency": false
+      },
+      {
+        "source_str": "llm_filter_candidates.ad_ids",
+        "target_str": "compute_job_ad_aspectt_vectors.ad_ids",
+        "dependency": false
+      },
+      {
+        "source_str": "build_aspectt_vectors.out",
+        "target_str": "compute_job_ad_aspectt_vectors.aspectt_done",
         "dependency": false
       }
     ],

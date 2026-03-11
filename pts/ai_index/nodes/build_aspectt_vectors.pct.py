@@ -30,7 +30,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print):
+def main(ctx, print) -> bool:
     """Build ASPECTT numeric vectors from O*NET database tables."""
     ...
 
@@ -170,6 +170,8 @@ print(f"  codes: {codes.shape}")
 print(f"  columns: {columns.shape}")
 print(f"  levels: {level_matrix.values.shape} (float32)")
 print(f"  importance: {importance_matrix.values.shape} (float32)")
+
+True #|func_return_line
 
 # %% [markdown]
 # ## Sample output
