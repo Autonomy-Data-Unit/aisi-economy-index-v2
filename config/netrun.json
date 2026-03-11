@@ -548,6 +548,25 @@
           ]
         },
         "type": "node"
+      },
+      {
+        "name": "combine_onet_exposure",
+        "description": "Merge all O*NET score DataFrames into a single combined exposure table.",
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/combine_onet_exposure.py",
+          "ui": {
+            "position": {
+              "x": 1700,
+              "y": 940
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.combine_onet_exposure.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
@@ -639,6 +658,11 @@
       {
         "source_str": "score_task_exposure.out",
         "target_str": "join_scores.task_exposure",
+        "dependency": false
+      },
+      {
+        "source_str": "join_scores.out",
+        "target_str": "combine_onet_exposure.score_dfs",
         "dependency": false
       }
     ],

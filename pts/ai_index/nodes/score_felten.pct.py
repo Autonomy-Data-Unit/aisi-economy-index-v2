@@ -30,7 +30,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print) -> bool:
+def main(ctx, print) -> "pd.DataFrame":
     """Compute Felten AIOE scores per O*NET occupation."""
     ...
 
@@ -268,7 +268,7 @@ score_set = OnetScoreSet(name="felten", scores=scores)
 score_set.save(output_dir)
 print(f"score_felten: wrote {output_dir / 'scores.parquet'}")
 
-True #|func_return_line
+scores #|func_return_line
 
 # %% [markdown]
 # ## Sample output

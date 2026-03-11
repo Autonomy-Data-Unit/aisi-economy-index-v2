@@ -63,7 +63,7 @@ class TaskExposureModel(BaseModel):
 
 # %%
 #|set_func_signature
-async def main(ctx, print) -> bool:
+async def main(ctx, print) -> "pd.DataFrame":
     """Classify O*NET tasks by AI exposure level and aggregate to occupations."""
     ...
 
@@ -331,7 +331,7 @@ score_set = OnetScoreSet(name="task_exposure", scores=scores)
 score_set.save(output_dir)
 print(f"score_task_exposure: wrote {output_dir / 'scores.parquet'}")
 
-True #|func_return_line
+scores #|func_return_line
 
 # %% [markdown]
 # ## Sample output

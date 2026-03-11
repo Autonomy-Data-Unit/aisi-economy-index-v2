@@ -25,7 +25,7 @@ class TaskExposureModel(BaseModel):
             raise ValueError(f"confidence must be in [0, 1], got {v}")
         return v
 
-async def main(ctx, print) -> bool:
+async def main(ctx, print) -> "pd.DataFrame":
     """Classify O*NET tasks by AI exposure level and aggregate to occupations."""
     import numpy as np
     import pandas as pd
@@ -212,4 +212,4 @@ async def main(ctx, print) -> bool:
     score_set.save(output_dir)
     print(f"score_task_exposure: wrote {output_dir / 'scores.parquet'}")
     
-    return True
+    return scores

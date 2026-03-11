@@ -28,7 +28,7 @@
 
 # %%
 #|set_func_signature
-def main(ctx, print) -> bool:
+def main(ctx, print) -> "pd.DataFrame":
     """Compute humanness/presence scores per O*NET occupation."""
     ...
 
@@ -316,7 +316,7 @@ score_set = OnetScoreSet(name="presence", scores=scores)
 score_set.save(output_dir)
 print(f"score_presence: wrote {output_dir / 'scores.parquet'} ({len(scores)} occupations)")
 
-True #|func_return_line
+scores #|func_return_line
 
 # %% [markdown]
 # ## Sample output
