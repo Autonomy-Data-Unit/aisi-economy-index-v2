@@ -38,6 +38,9 @@ user_prompt = "llm_filter/main/user"
 [defaults.compute_job_ad_aspectt_vectors]
 aspectt_chunk_size = 50000
 
+[defaults.compute_job_ad_exposure]
+exposure_chunk_size = 50000
+
 [defaults.score_felten]
 felten_alpha = 0.5
 felten_scenario = "baseline_2025"

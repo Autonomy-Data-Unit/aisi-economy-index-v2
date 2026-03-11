@@ -408,6 +408,7 @@
         "name": "compute_job_ad_aspectt_vectors",
         "description": "Compute per-ad weighted ASPECTT vectors from filtered occupation matches.",
         "execution_config": {
+          "enabled": false,
           "node_vars": {
             "aspectt_chunk_size": {
               "type": "int"
@@ -585,6 +586,57 @@
           "func": "ai_index.nodes.combine_onet_exposure.main"
         },
         "type": "node"
+      },
+      {
+        "name": "broadcast_filter_done",
+        "description": "Fan out llm_filter_candidates ad_ids to compute_job_ad_aspectt_vectors and compute_job_ad_exposure.",
+        "extra": {
+          "ui": {
+            "shape": "triangle-left",
+            "hideLabel": true,
+            "hideDescription": true,
+            "hidePortNames": true,
+            "position": {
+              "x": 1900,
+              "y": 240
+            },
+            "dimensions": {
+              "width": 150,
+              "height": 80
+            }
+          }
+        },
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {
+          "num_outputs": 2
+        },
+        "type": "node"
+      },
+      {
+        "name": "compute_job_ad_exposure",
+        "description": "Map occupation-level exposure scores to individual job ads via weighted averaging.",
+        "execution_config": {
+          "node_vars": {
+            "exposure_chunk_size": {
+              "type": "int"
+            }
+          }
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_exposure.py",
+          "ui": {
+            "position": {
+              "x": 2380,
+              "y": 600
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.compute_job_ad_exposure.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
@@ -640,7 +692,17 @@
       },
       {
         "source_str": "llm_filter_candidates.ad_ids",
+        "target_str": "broadcast_filter_done.in_0",
+        "dependency": false
+      },
+      {
+        "source_str": "broadcast_filter_done.out_0",
         "target_str": "compute_job_ad_aspectt_vectors.ad_ids",
+        "dependency": false
+      },
+      {
+        "source_str": "broadcast_filter_done.out_1",
+        "target_str": "compute_job_ad_exposure.ad_ids",
         "dependency": false
       },
       {
@@ -681,6 +743,11 @@
       {
         "source_str": "join_scores.out",
         "target_str": "combine_onet_exposure.score_dfs",
+        "dependency": false
+      },
+      {
+        "source_str": "combine_onet_exposure.out",
+        "target_str": "compute_job_ad_exposure.exposure_scores",
         "dependency": false
       }
     ],
