@@ -41,7 +41,7 @@ The pipeline is defined in `config/netrun.json`. It currently contains 11 nodes 
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
 - `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
 - `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
-- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Output: `ad_ids` (list[int]). Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`.
+- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model in chunks. Input: `successful_ad_ids`. Output: `ad_ids` (list[int]). Stores embeddings as BLOBs in DuckDB via ResultStore (supports resume). Node vars: `embed_chunk_size` (int).
 - `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
 - `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ad_ids` (list[int] from embed_ads), `onet_done` (bool from embed_onet). Output: `ad_ids` (list[int]). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Node vars: `cosine_alpha` (float).
 - `llm_filter_candidates` — LLM negative selection to filter cosine match candidates. For each ad, builds a prompt with job context (title, sector, domain, tasks, raw description excerpt) and candidate occupations. LLM identifies which candidates to DROP, keeping 2-3 functional matches. Input: `ad_ids` (list[int] from cosine_match). Output: `ad_ids` (list[int]). Uses `run_batched` with `ResultStore` for incremental DuckDB writes and resume support. Writes `filtered_matches.parquet` to `store/pipeline/{run_name}/llm_filter/`. Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars. Node vars: `filter_resume` (bool), `filter_max_retries` (int).
@@ -59,7 +59,7 @@ Each node stores its outputs under `store/pipeline/{run_name}/{node_name}/`, whe
 ```
 store/pipeline/{run_name}/
 ├── llm_summarise/           # DuckDB (ResultStore) — incremental LLM results
-├── embed_ads/               # .npy — dense embedding arrays
+├── embed_ads/               # DuckDB (ResultStore) — embeddings as BLOBs, keyed by ad_id
 ├── embed_onet/              # .npy — dense embedding arrays
 ├── cosine_match/            # .parquet — tabular match results
 ├── llm_filter_candidates/   # DuckDB (ResultStore) + .parquet — LLM responses + filtered matches

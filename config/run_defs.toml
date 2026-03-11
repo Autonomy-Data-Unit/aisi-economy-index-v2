@@ -13,6 +13,9 @@ fetch_years = "all"
 [defaults.prepare_onet_targets]
 onet_exclude_public_sector = true
 onet_top_n = 10
+[defaults.embed_ads]
+embed_chunk_size = 50000
+
 [defaults.cosine_match]
 cosine_alpha = 0.4
 

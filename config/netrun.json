@@ -224,6 +224,11 @@
         "name": "embed_ads",
         "description": "Build text descriptions from LLM summaries and embed them.",
         "execution_config": {
+          "node_vars": {
+            "embed_chunk_size": {
+              "type": "int"
+            }
+          },
           "signals": [
             "epoch_finished"
           ]

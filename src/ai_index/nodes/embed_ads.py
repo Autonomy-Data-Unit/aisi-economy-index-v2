@@ -6,12 +6,15 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
     """Build text descriptions from LLM summaries and embed them."""
     import duckdb
     import numpy as np
+    import pandas as pd
     
     from ai_index import const
     from ai_index.nodes.llm_summarise import JobInfoModel
     from ai_index.utils import aembed
+    from ai_index.utils.result_store import ResultStore
     run_name = ctx.vars["run_name"]
     embedding_model = ctx.vars["embedding_model"]
+    chunk_size = ctx.vars["embed_chunk_size"]
     
     output_dir = const.pipeline_store_path / run_name / "embed_ads"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -36,19 +39,48 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
         taskskill_texts.append(f"{info.short_description} - {', '.join(info.tasks + info.skills)}")
         ad_ids.append(ad_id)
     
-    print(f"embed_ads: built texts for {len(ad_ids)} ads")
+    n_total = len(ad_ids)
+    print(f"embed_ads: built texts for {n_total} ads")
     print(f"  role_text sample: {role_texts[0][:100]}...")
     print(f"  taskskill_text sample: {taskskill_texts[0][:100]}...")
-    role_embeddings = await aembed(role_texts, model=embedding_model)
-    print(f"embed_ads: role embeddings shape: {role_embeddings.shape}")
+    db_path = output_dir / "embeddings.duckdb"
+    store = ResultStore(db_path, {
+        "id": "BIGINT NOT NULL",
+        "role": "BLOB NOT NULL",
+        "taskskill": "BLOB NOT NULL",
+        "error": "VARCHAR",
+    })
     
-    taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model)
-    print(f"embed_ads: taskskill embeddings shape: {taskskill_embeddings.shape}")
-    np.save(output_dir / "role_embeddings.npy", role_embeddings)
-    np.save(output_dir / "taskskill_embeddings.npy", taskskill_embeddings)
+    done = store.done_ids()
+    remaining_indices = [i for i in range(n_total) if ad_ids[i] not in done]
+    n_remaining = len(remaining_indices)
+    print(f"embed_ads: {len(done)} already embedded, {n_remaining} remaining")
     
-    print(f"embed_ads: wrote {output_dir}")
-    print(f"  role_embeddings: {role_embeddings.shape}")
-    print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")
+    n_chunks = (n_remaining + chunk_size - 1) // chunk_size
+    
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * chunk_size
+        end = min(start + chunk_size, n_remaining)
+        chunk_indices = remaining_indices[start:end]
+    
+        chunk_role_texts = [role_texts[i] for i in chunk_indices]
+        chunk_taskskill_texts = [taskskill_texts[i] for i in chunk_indices]
+    
+        role_chunk = await aembed(chunk_role_texts, model=embedding_model)
+        taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model)
+    
+        df = pd.DataFrame({
+            "id": [ad_ids[i] for i in chunk_indices],
+            "role": [row.astype(np.float32).tobytes() for row in role_chunk],
+            "taskskill": [row.astype(np.float32).tobytes() for row in taskskill_chunk],
+            "error": [None] * len(chunk_indices),
+        })
+        store.insert(df)
+    
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: embedded {len(chunk_indices)} ads")
+    
+    n_ok, n_err = store.counts()
+    store.close()
+    print(f"embed_ads: done — {n_ok} succeeded, {n_err} failed")
     
     return ad_ids

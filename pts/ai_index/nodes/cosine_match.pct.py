@@ -30,6 +30,7 @@
 
 # %%
 #|top_export
+import duckdb
 import numpy as np
 import pandas as pd
 
@@ -72,23 +73,37 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% [markdown]
 # ## Load embeddings
+#
+# Ad embeddings are stored as BLOBs in DuckDB (from `embed_ads`).
+# O\*NET embeddings are `.npy` files (from `embed_onet`).
 
 # %%
 #|export
-ads_dir = const.pipeline_store_path / run_name / "embed_ads"
 onet_dir = const.pipeline_store_path / run_name / "embed_onet"
-
-ad_role_embeds = np.load(ads_dir / "role_embeddings.npy")
-ad_task_embeds = np.load(ads_dir / "taskskill_embeddings.npy")
 
 onet_codes = np.load(onet_dir / "onet_codes.npy")
 onet_titles = np.load(onet_dir / "onet_titles.npy")
 onet_role_embeds = np.load(onet_dir / "role_embeddings.npy")
 onet_task_embeds = np.load(onet_dir / "taskskill_embeddings.npy")
 
+# Load ad embeddings from DuckDB, ordered to match ad_ids
+embed_db = const.pipeline_store_path / run_name / "embed_ads" / "embeddings.duckdb"
+embed_conn = duckdb.connect(str(embed_db), read_only=True)
+embed_conn.execute("CREATE TEMP TABLE _ad_order (id BIGINT, pos INTEGER)")
+embed_conn.executemany("INSERT INTO _ad_order VALUES (?, ?)", [(int(aid), i) for i, aid in enumerate(ad_ids)])
+embed_rows = embed_conn.execute(
+    "SELECT r.role, r.taskskill FROM results r JOIN _ad_order a ON r.id = a.id ORDER BY a.pos"
+).fetchall()
+embed_conn.close()
+
+ad_role_embeds = np.stack([np.frombuffer(r[0], dtype=np.float32) for r in embed_rows])
+ad_task_embeds = np.stack([np.frombuffer(r[1], dtype=np.float32) for r in embed_rows])
+del embed_rows
+
 n_ads = len(ad_ids)
 n_onet = len(onet_codes)
 print(f"cosine_match: {n_ads} ads x {n_onet} occupations, topk={topk}, alpha={cosine_alpha}")
+print(f"  ad embeddings: {ad_role_embeds.shape}, onet embeddings: {onet_role_embeds.shape}")
 
 # %% [markdown]
 # ## Compute cosine similarity
