@@ -294,7 +294,16 @@ There are two kinds of node variables:
      ```
    - Add default to `run_defs.toml` in `[defaults.<node_name>]` subtable
    - Per-run overrides go in `[runs.<run_name>.<node_name>]` subtables
-   - Access via `ctx.vars.get("my_var", default)` in the node function
+   - Access via `ctx.vars["my_var"]` in the node function
+
+3. **Inherited per-node vars** — A per-node var can inherit its type, options, and default value from a global var of the same name using `"inherit": true`. The node can optionally override just the value. To add one:
+   - Add to the node's `execution_config.node_vars` in `netrun.json`:
+     ```json
+     "node_vars": { "llm_model": { "inherit": true } }
+     ```
+   - The var inherits type/options from the global `llm_model`. No need to set type.
+   - By default, the node gets the global value. To override, set `llm_model = "other-model"` in `[defaults.<node_name>]` in `run_defs.toml`.
+   - Constraints: `inherit: true` must not set `type` or `options` (they come from the global). A global var with the same name must exist.
 
 **Conventions:**
 - `netrun.json` only declares names and types. All default values go in `run_defs.toml`.

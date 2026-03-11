@@ -446,7 +446,7 @@
               "x": 1100,
               "y": 880
             },
-            "descriptionExpanded": false
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -474,7 +474,7 @@
           "ui": {
             "position": {
               "x": 1100,
-              "y": 1000
+              "y": 1060
             },
             "descriptionExpanded": true
           }
@@ -490,6 +490,9 @@
         "description": "Classify O*NET tasks by AI exposure level via LLM and aggregate to occupations.",
         "execution_config": {
           "node_vars": {
+            "llm_model": {
+              "inherit": true
+            },
             "task_exposure_resume": {
               "type": "bool"
             },
@@ -508,7 +511,7 @@
           "ui": {
             "position": {
               "x": 1100,
-              "y": 1200
+              "y": 1240
             },
             "descriptionExpanded": true
           }
@@ -526,17 +529,20 @@
           "ui": {
             "hidePortNames": true,
             "position": {
-              "x": 1560,
-              "y": 880
+              "x": 1540,
+              "y": 1060
             },
             "dimensions": {
               "width": 150,
-              "height": 220
+              "height": 120
             },
             "portGroups": {
               "in:__all__": false
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "hideDescription": true,
+            "hideLabel": true,
+            "shape": "cylinder"
           }
         },
         "factory": "netrun.node_factories.join",
@@ -556,10 +562,14 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/combine_onet_exposure.py",
           "ui": {
             "position": {
-              "x": 1700,
-              "y": 940
+              "x": 1840,
+              "y": 980
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "dimensions": {
+              "width": 281,
+              "height": 128
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
