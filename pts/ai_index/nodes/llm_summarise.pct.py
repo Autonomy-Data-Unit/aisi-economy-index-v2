@@ -190,12 +190,12 @@ store.close()
 
 # %%
 #|export
-print(f"llm_summarise: wrote {db_path}")
+print(f"llm_summarise: wrote {const.rel(db_path)}")
 
 meta_path = output_dir / "summary_meta.json"
 with open(meta_path, "w") as f:
     json.dump(summary_meta, f, indent=2)
-print(f"llm_summarise: wrote {meta_path}")
+print(f"llm_summarise: wrote {const.rel(meta_path)}")
 
 # %% [markdown]
 # ## Return results

@@ -217,7 +217,7 @@ if exclude_public_sector:
 print(f"prepare_onet_targets: {len(onet_targets)} occupations with text descriptions (top_n={top_n})")
 
 onet_targets.to_parquet(const.onet_targets_path, index=False)
-print(f"prepare_onet_targets: wrote {const.onet_targets_path}")
+print(f"prepare_onet_targets: wrote {const.rel(const.onet_targets_path)}")
 
 # %% [markdown]
 # ## Sample output

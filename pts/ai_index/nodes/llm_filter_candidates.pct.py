@@ -245,12 +245,12 @@ filter_meta = await run_batched(
     print_fn=print,
 )
 store.close()
-print(f"llm_filter: wrote {db_path}")
+print(f"llm_filter: wrote {const.rel(db_path)}")
 
 meta_path = output_dir / "filter_meta.json"
 with open(meta_path, "w") as f:
     json.dump(filter_meta, f, indent=2)
-print(f"llm_filter: wrote {meta_path}")
+print(f"llm_filter: wrote {const.rel(meta_path)}")
 
 # %% [markdown]
 # ## Build filtered matches

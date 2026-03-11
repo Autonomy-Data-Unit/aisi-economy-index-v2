@@ -446,7 +446,12 @@
               "x": 1100,
               "y": 880
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "headerColor": "#009e7e",
+            "dimensions": {
+              "width": 237,
+              "height": 142
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -476,7 +481,12 @@
               "x": 1100,
               "y": 1060
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "headerColor": "#009e7e",
+            "dimensions": {
+              "width": 237,
+              "height": 142
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -493,12 +503,6 @@
             "llm_model": {
               "inherit": true
             },
-            "task_exposure_resume": {
-              "type": "bool"
-            },
-            "task_exposure_max_retries": {
-              "type": "int"
-            },
             "system_prompt": {},
             "user_prompt": {}
           },
@@ -513,7 +517,12 @@
               "x": 1100,
               "y": 1240
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "headerColor": "#009e7e",
+            "dimensions": {
+              "width": 237,
+              "height": 128
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -533,16 +542,14 @@
               "y": 1060
             },
             "dimensions": {
-              "width": 150,
-              "height": 120
+              "width": 170,
+              "height": 160
             },
             "portGroups": {
               "in:__all__": false
             },
             "descriptionExpanded": true,
-            "hideDescription": true,
-            "hideLabel": true,
-            "shape": "cylinder"
+            "hideLabel": true
           }
         },
         "factory": "netrun.node_factories.join",
@@ -569,7 +576,8 @@
             "dimensions": {
               "width": 281,
               "height": 128
-            }
+            },
+            "headerColor": "#009e7e"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -720,6 +728,20 @@
           "label": "label_2",
           "text": "Fetch O*NET",
           "fontSize": 20
+        },
+        {
+          "id": "label_1",
+          "position": {
+            "x": 1440,
+            "y": 800
+          },
+          "width": 400,
+          "height": 120,
+          "decorationType": "label",
+          "label": "label_1",
+          "text": "O*NET exposure scores",
+          "fontSize": 40,
+          "fontColor": "#009e7e"
         }
       ]
     }

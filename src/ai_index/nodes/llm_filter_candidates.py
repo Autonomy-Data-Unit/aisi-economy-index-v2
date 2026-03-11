@@ -156,12 +156,12 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         print_fn=print,
     )
     store.close()
-    print(f"llm_filter: wrote {db_path}")
+    print(f"llm_filter: wrote {const.rel(db_path)}")
     
     meta_path = output_dir / "filter_meta.json"
     with open(meta_path, "w") as f:
         json.dump(filter_meta, f, indent=2)
-    print(f"llm_filter: wrote {meta_path}")
+    print(f"llm_filter: wrote {const.rel(meta_path)}")
     filter_conn = duckdb.connect(str(db_path), read_only=True)
     filter_rows = filter_conn.execute(
         "SELECT id, data FROM results WHERE error IS NULL"

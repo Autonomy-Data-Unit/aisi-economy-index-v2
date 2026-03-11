@@ -265,7 +265,7 @@ print(f"score_felten: {len(scores)} occupations, "
 #|export
 score_set = OnetScoreSet(name="felten", scores=scores)
 score_set.save(output_dir)
-print(f"score_felten: wrote {output_dir / 'scores.csv'}")
+print(f"score_felten: wrote {const.rel(output_dir / 'scores.csv')}")
 
 scores #|func_return_line
 

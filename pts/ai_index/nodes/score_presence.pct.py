@@ -314,7 +314,7 @@ print(f"  composite: mean={scores['presence_composite'].mean():.3f}, "
 #|export
 score_set = OnetScoreSet(name="presence", scores=scores)
 score_set.save(output_dir)
-print(f"score_presence: wrote {output_dir / 'scores.csv'} ({len(scores)} occupations)")
+print(f"score_presence: wrote {const.rel(output_dir / 'scores.csv')} ({len(scores)} occupations)")
 
 scores #|func_return_line
 

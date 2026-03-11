@@ -121,6 +121,6 @@ def main(ctx, print, ad_ids: list[int], aspectt_done: bool) -> {
     n_ok, n_err = store.counts()
     store.close()
     print(f"compute_ad_aspectt: done — {n_ok} succeeded, {n_err} failed")
-    print(f"  output: {db_path}")
+    print(f"  output: {const.rel(db_path)}")
     
     return ad_ids

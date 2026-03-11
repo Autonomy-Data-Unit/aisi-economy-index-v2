@@ -219,6 +219,6 @@ def main(ctx, print) -> "pd.DataFrame":
           f"std={scores['presence_composite'].std():.3f}")
     score_set = OnetScoreSet(name="presence", scores=scores)
     score_set.save(output_dir)
-    print(f"score_presence: wrote {output_dir / 'scores.csv'} ({len(scores)} occupations)")
+    print(f"score_presence: wrote {const.rel(output_dir / 'scores.csv')} ({len(scores)} occupations)")
     
     return scores

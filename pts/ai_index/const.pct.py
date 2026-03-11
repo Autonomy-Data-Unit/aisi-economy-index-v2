@@ -43,6 +43,13 @@ pipeline_store_path = store_path / "pipeline"
 onet_exposure_scores_path = store_path / "onet_exposure_scores"
 aspectt_vectors_path = inputs_path / "aspectt_vectors"
 
+def rel(path: Path) -> Path:
+    """Return path relative to repo root, for cleaner log output."""
+    try:
+        return path.relative_to(repo_root)
+    except ValueError:
+        return path
+
 # %%
 #|export
 import adulib.caching

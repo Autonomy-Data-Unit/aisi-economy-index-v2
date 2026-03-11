@@ -157,6 +157,6 @@ def main(ctx, print) -> "pd.DataFrame":
           f"std={scores['felten_score'].std():.4f}")
     score_set = OnetScoreSet(name="felten", scores=scores)
     score_set.save(output_dir)
-    print(f"score_felten: wrote {output_dir / 'scores.csv'}")
+    print(f"score_felten: wrote {const.rel(output_dir / 'scores.csv')}")
     
     return scores

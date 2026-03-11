@@ -80,7 +80,7 @@ print(f"combine_onet_exposure: {len(combined)} occupations, "
 #|export
 score_set = OnetScoreSet(name="combined_exposure", scores=combined)
 score_set.save(output_dir)
-print(f"combine_onet_exposure: wrote {output_dir / 'scores.csv'}")
+print(f"combine_onet_exposure: wrote {const.rel(output_dir / 'scores.csv')}")
 
 combined #|func_return_line
 

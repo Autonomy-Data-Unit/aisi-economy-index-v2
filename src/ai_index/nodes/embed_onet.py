@@ -20,10 +20,10 @@ async def main(ctx, print) -> bool:
     ]
     
     if all(f.exists() for f in expected_files):
-        print(f"embed_onet: all output files exist in {output_dir}, skipping embedding")
+        print(f"embed_onet: all output files exist in {const.rel(output_dir)}, skipping embedding")
         return True
     onet_targets = pd.read_parquet(const.onet_targets_path)
-    print(f"embed_onet: loaded {len(onet_targets)} occupations from {const.onet_targets_path}")
+    print(f"embed_onet: loaded {len(onet_targets)} occupations from {const.rel(const.onet_targets_path)}")
     
     role_texts = onet_targets["Job Role Description"].tolist()
     taskskill_texts = onet_targets["Work Activities/Tasks/Skills"].tolist()
@@ -42,7 +42,7 @@ async def main(ctx, print) -> bool:
     np.save(output_dir / "role_embeddings.npy", role_embeddings)
     np.save(output_dir / "taskskill_embeddings.npy", taskskill_embeddings)
     
-    print(f"embed_onet: wrote {output_dir}")
+    print(f"embed_onet: wrote {const.rel(output_dir)}")
     print(f"  onet_codes: {onet_codes.shape}")
     print(f"  role_embeddings: {role_embeddings.shape}")
     print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")

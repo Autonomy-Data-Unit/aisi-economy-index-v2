@@ -44,8 +44,6 @@ felten_scenario = "baseline_2025"
 
 [defaults.score_task_exposure]
 llm_model = "gpt-5.2"
-task_exposure_resume = true
-task_exposure_max_retries = 0
 system_prompt = "score_task_exposure/main/system"
 user_prompt = "score_task_exposure/main/user"
 

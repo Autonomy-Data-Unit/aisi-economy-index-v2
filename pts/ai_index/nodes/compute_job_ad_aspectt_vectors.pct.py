@@ -200,7 +200,7 @@ _matches_conn.close()
 n_ok, n_err = store.counts()
 store.close()
 print(f"compute_ad_aspectt: done — {n_ok} succeeded, {n_err} failed")
-print(f"  output: {db_path}")
+print(f"  output: {const.rel(db_path)}")
 
 ad_ids #|func_return_line
 

@@ -162,7 +162,7 @@ np.savez(
     importance=importance_matrix.values.astype(np.float32),
 )
 
-print(f"build_aspectt: wrote {output_dir / 'aspectt_vectors.npz'}")
+print(f"build_aspectt: wrote {const.rel(output_dir / 'aspectt_vectors.npz')}")
 print(f"  titles: {titles.shape}")
 print(f"  codes: {codes.shape}")
 print(f"  columns: {columns.shape}")
