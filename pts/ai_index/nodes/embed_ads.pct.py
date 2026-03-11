@@ -28,7 +28,9 @@
 
 # %%
 #|set_func_signature
-async def main(ctx, print, successful_ad_ids: list[int]) -> bool:
+async def main(ctx, print, successful_ad_ids: list[int]) -> {
+    'ad_ids': list[int]
+}:
     """Build text descriptions from LLM summaries and embed them."""
     ...
 
@@ -120,14 +122,11 @@ print(f"embed_ads: taskskill embeddings shape: {taskskill_embeddings.shape}")
 
 # %%
 #|export
-ad_ids_arr = np.array(ad_ids)
-np.save(output_dir / "ad_ids.npy", ad_ids_arr)
 np.save(output_dir / "role_embeddings.npy", role_embeddings)
 np.save(output_dir / "taskskill_embeddings.npy", taskskill_embeddings)
 
 print(f"embed_ads: wrote {output_dir}")
-print(f"  ad_ids: {ad_ids_arr.shape}")
 print(f"  role_embeddings: {role_embeddings.shape}")
 print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")
 
-True #|func_return_line
+ad_ids #|func_return_line

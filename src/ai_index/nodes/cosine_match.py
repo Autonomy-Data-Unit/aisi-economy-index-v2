@@ -6,7 +6,7 @@ import pandas as pd
 from .. import const
 from ..utils import acosine_topk
 
-async def main(ctx, print, ads_done: bool, onet_done: bool):
+async def main(ctx, print, ad_ids: list[int], onet_done: bool):
     """Weighted dual cosine similarity matching."""
     run_name = ctx.vars["run_name"]
     cosine_mode = ctx.vars["cosine_mode"]
@@ -18,7 +18,6 @@ async def main(ctx, print, ads_done: bool, onet_done: bool):
     ads_dir = const.pipeline_store_path / run_name / "embed_ads"
     onet_dir = const.pipeline_store_path / run_name / "embed_onet"
     
-    ad_ids = np.load(ads_dir / "ad_ids.npy")
     ad_role_embeds = np.load(ads_dir / "role_embeddings.npy")
     ad_task_embeds = np.load(ads_dir / "taskskill_embeddings.npy")
     

@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: ai-index (3.12.12)
 #     language: python
 #     name: python3
 # ---
@@ -93,8 +93,8 @@ print(f"embed_onet: taskskill embeddings shape: {taskskill_embeddings.shape}")
 
 # %%
 #|export
-onet_codes = onet_targets["O*NET-SOC Code"].values
-onet_titles = onet_targets["Title"].values
+onet_codes = np.array(onet_targets["O*NET-SOC Code"].tolist(), dtype=str)
+onet_titles = np.array(onet_targets["Title"].tolist(), dtype=str)
 np.save(output_dir / "onet_codes.npy", onet_codes)
 np.save(output_dir / "onet_titles.npy", onet_titles)
 np.save(output_dir / "role_embeddings.npy", role_embeddings)

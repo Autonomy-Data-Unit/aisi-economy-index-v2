@@ -25,8 +25,8 @@ async def main(ctx, print) -> bool:
     
     taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model)
     print(f"embed_onet: taskskill embeddings shape: {taskskill_embeddings.shape}")
-    onet_codes = onet_targets["O*NET-SOC Code"].values
-    onet_titles = onet_targets["Title"].values
+    onet_codes = np.array(onet_targets["O*NET-SOC Code"].tolist(), dtype=str)
+    onet_titles = np.array(onet_targets["Title"].tolist(), dtype=str)
     np.save(output_dir / "onet_codes.npy", onet_codes)
     np.save(output_dir / "onet_titles.npy", onet_titles)
     np.save(output_dir / "role_embeddings.npy", role_embeddings)

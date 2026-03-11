@@ -98,7 +98,7 @@
         "extra": {
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_adzuna.py",
           "ui": {
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "position": {
               "x": -40,
               "y": 80
@@ -106,7 +106,8 @@
             "dimensions": {
               "width": 170,
               "height": 182
-            }
+            },
+            "headerColor": "#00a2ad"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -138,7 +139,8 @@
             "portGroups": {
               "in:__all__": false
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "headerColor": "#00a2ad"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -173,7 +175,7 @@
               "x": 380,
               "y": 520
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": false
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -204,11 +206,12 @@
               "x": 500,
               "y": 80
             },
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "dimensions": {
               "width": 320,
               "height": 140
-            }
+            },
+            "headerColor": "#00a2ad"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -236,7 +239,8 @@
             "dimensions": {
               "width": 285,
               "height": 140
-            }
+            },
+            "headerColor": "#00a2ad"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -267,7 +271,8 @@
             "dimensions": {
               "width": 298,
               "height": 130
-            }
+            },
+            "headerColor": "#00a2ad"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -296,7 +301,8 @@
               "x": 1300,
               "y": 240
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": false,
+            "headerColor": "#00a2ad"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -333,8 +339,8 @@
         "dependency": false
       },
       {
-        "source_str": "embed_ads.out",
-        "target_str": "cosine_match.ads_done",
+        "source_str": "embed_ads.ad_ids",
+        "target_str": "cosine_match.ad_ids",
         "dependency": false
       },
       {

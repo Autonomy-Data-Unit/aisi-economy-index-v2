@@ -41,7 +41,7 @@ from ai_index.utils import acosine_topk
 
 # %%
 #|set_func_signature
-async def main(ctx, print, ads_done: bool, onet_done: bool):
+async def main(ctx, print, ad_ids: list[int], onet_done: bool):
     """Weighted dual cosine similarity matching."""
     ...
 
@@ -79,7 +79,6 @@ output_dir.mkdir(parents=True, exist_ok=True)
 ads_dir = const.pipeline_store_path / run_name / "embed_ads"
 onet_dir = const.pipeline_store_path / run_name / "embed_onet"
 
-ad_ids = np.load(ads_dir / "ad_ids.npy")
 ad_role_embeds = np.load(ads_dir / "role_embeddings.npy")
 ad_task_embeds = np.load(ads_dir / "taskskill_embeddings.npy")
 
@@ -164,3 +163,30 @@ matches_df.to_parquet(output_path, index=False)
 print(f"cosine_match: wrote {len(matches_df)} match rows ({n_ads} ads x topk={topk})")
 print(f"  output: {output_path}")
 print(f"  score range: {matches_df['combined_score'].min():.4f} - {matches_df['combined_score'].max():.4f}")
+
+# %% [markdown]
+# ## Sample matches
+#
+# Show the top O\*NET matches for each job ad, with the ad title for context.
+
+# %%
+from ai_index.utils import get_adzuna_conn
+
+conn = get_adzuna_conn(read_only=True)
+conn.execute("CREATE OR REPLACE TEMP TABLE _match_ids (id BIGINT)")
+conn.executemany("INSERT INTO _match_ids VALUES (?)", [(int(i),) for i in ad_ids])
+ad_titles = dict(conn.execute(
+    "SELECT a.id, a.title FROM ads a JOIN _match_ids m ON a.id = m.id"
+).fetchall())
+conn.close()
+
+for ad_id in ad_ids[:5]:
+    ad_id = int(ad_id)
+    title = ad_titles[ad_id]
+    ad_matches = matches_df[matches_df["ad_id"] == ad_id].head(5)
+    print(f"\n{'─'*80}")
+    print(f"Ad {ad_id}: {title}")
+    print(f"{'─'*80}")
+    for _, row in ad_matches.iterrows():
+        print(f"  #{row['rank']+1}  {row['onet_code']}  {row['onet_title']:<45s}  "
+              f"combined={row['combined_score']:.4f}  (role={row['role_score']:.4f}, task={row['taskskill_score']:.4f})")
