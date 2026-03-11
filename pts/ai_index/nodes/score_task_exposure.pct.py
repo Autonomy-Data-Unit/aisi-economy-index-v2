@@ -97,7 +97,6 @@ from ai_index.utils.scoring import OnetScoreSet
 
 # %%
 #|export
-run_name = ctx.vars["run_name"]
 llm_model = ctx.vars["llm_model"]
 batch_size = ctx.vars["llm_batch_size"]
 max_new_tokens = ctx.vars["llm_max_new_tokens"]
@@ -108,7 +107,7 @@ max_retries = ctx.vars["task_exposure_max_retries"]
 SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
 USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
 
-output_dir = const.pipeline_store_path / run_name / "score_task_exposure"
+output_dir = const.onet_exposure_scores_path / "score_task_exposure"
 output_dir.mkdir(parents=True, exist_ok=True)
 db_path = output_dir / "task_results.duckdb"
 
@@ -329,7 +328,7 @@ print(f"score_task_exposure: wrote {output_dir / 'task_details.parquet'}")
 #|export
 score_set = OnetScoreSet(name="task_exposure", scores=scores)
 score_set.save(output_dir)
-print(f"score_task_exposure: wrote {output_dir / 'scores.parquet'}")
+print(f"score_task_exposure: wrote {output_dir / 'scores.csv'}")
 
 scores #|func_return_line
 

@@ -15,8 +15,7 @@ def main(ctx, print, ad_ids: list[int], aspectt_done: bool) -> {
     
     output_dir = const.pipeline_store_path / run_name / "compute_job_ad_aspectt_vectors"
     output_dir.mkdir(parents=True, exist_ok=True)
-    aspectt_dir = const.pipeline_store_path / run_name / "build_aspectt_vectors"
-    aspectt = np.load(aspectt_dir / "aspectt_vectors.npz")
+    aspectt = np.load(const.aspectt_vectors_path / "aspectt_vectors.npz")
     
     aspectt_codes = aspectt["codes"]
     aspectt_columns = aspectt["columns"]

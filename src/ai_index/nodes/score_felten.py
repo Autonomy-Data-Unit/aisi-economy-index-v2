@@ -7,11 +7,10 @@ def main(ctx, print) -> "pd.DataFrame":
     
     from ai_index import const
     from ai_index.utils.scoring import OnetScoreSet
-    run_name = ctx.vars["run_name"]
     alpha = ctx.vars["felten_alpha"]
     scenario = ctx.vars["felten_scenario"]
     
-    output_dir = const.pipeline_store_path / run_name / "score_felten"
+    output_dir = const.onet_exposure_scores_path / "score_felten"
     output_dir.mkdir(parents=True, exist_ok=True)
     PROGRESS_SCENARIOS = {
         "felten_original": {
@@ -158,6 +157,6 @@ def main(ctx, print) -> "pd.DataFrame":
           f"std={scores['felten_score'].std():.4f}")
     score_set = OnetScoreSet(name="felten", scores=scores)
     score_set.save(output_dir)
-    print(f"score_felten: wrote {output_dir / 'scores.parquet'}")
+    print(f"score_felten: wrote {output_dir / 'scores.csv'}")
     
     return scores

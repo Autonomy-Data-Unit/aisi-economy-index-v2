@@ -40,6 +40,8 @@ onet_targets_path = inputs_path / "onet_targets.parquet"
 adzuna_db_path = inputs_path / "adzuna.duckdb"
 adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
 pipeline_store_path = store_path / "pipeline"
+onet_exposure_scores_path = store_path / "onet_exposure_scores"
+aspectt_vectors_path = inputs_path / "aspectt_vectors"
 
 # %%
 #|export

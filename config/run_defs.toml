@@ -8,11 +8,14 @@ llm_model = "gpt-5.2"
 llm_batch_size = 1000
 llm_max_new_tokens = 220
 llm_max_concurrent_batches = 1
+
 [defaults.fetch_adzuna]
 fetch_years = "all"
+
 [defaults.prepare_onet_targets]
 onet_exclude_public_sector = true
 onet_top_n = 10
+
 [defaults.embed_ads]
 embed_chunk_size = 50000
 
@@ -51,8 +54,6 @@ user_prompt = "score_task_exposure/main/user"
 
 [runs.baseline]
 # inherits all defaults
-
-# 
 
 [runs.test]
 sample_n = 10

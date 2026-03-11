@@ -6,9 +6,7 @@ def main(ctx, print) -> bool:
     import pandas as pd
     
     from ai_index import const
-    run_name = ctx.vars["run_name"]
-    
-    output_dir = const.pipeline_store_path / run_name / "build_aspectt_vectors"
+    output_dir = const.aspectt_vectors_path
     output_dir.mkdir(parents=True, exist_ok=True)
     onet_targets = pd.read_parquet(const.onet_targets_path)
     valid_codes = set(onet_targets["O*NET-SOC Code"].tolist())

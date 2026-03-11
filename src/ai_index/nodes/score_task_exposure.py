@@ -35,7 +35,6 @@ async def main(ctx, print) -> "pd.DataFrame":
         ResultStore, run_batched, strict_format, load_prompt, allm_generate,
     )
     from ai_index.utils.scoring import OnetScoreSet
-    run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
@@ -46,7 +45,7 @@ async def main(ctx, print) -> "pd.DataFrame":
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
     USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
     
-    output_dir = const.pipeline_store_path / run_name / "score_task_exposure"
+    output_dir = const.onet_exposure_scores_path / "score_task_exposure"
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "task_results.duckdb"
     extract_dir = const.onet_store_path / "db_30_0_text"
@@ -210,6 +209,6 @@ async def main(ctx, print) -> "pd.DataFrame":
     print(f"score_task_exposure: wrote {output_dir / 'task_details.parquet'}")
     score_set = OnetScoreSet(name="task_exposure", scores=scores)
     score_set.save(output_dir)
-    print(f"score_task_exposure: wrote {output_dir / 'scores.parquet'}")
+    print(f"score_task_exposure: wrote {output_dir / 'scores.csv'}")
     
     return scores

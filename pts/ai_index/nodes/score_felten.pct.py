@@ -61,11 +61,10 @@ from ai_index.utils.scoring import OnetScoreSet
 
 # %%
 #|export
-run_name = ctx.vars["run_name"]
 alpha = ctx.vars["felten_alpha"]
 scenario = ctx.vars["felten_scenario"]
 
-output_dir = const.pipeline_store_path / run_name / "score_felten"
+output_dir = const.onet_exposure_scores_path / "score_felten"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% [markdown]
@@ -266,7 +265,7 @@ print(f"score_felten: {len(scores)} occupations, "
 #|export
 score_set = OnetScoreSet(name="felten", scores=scores)
 score_set.save(output_dir)
-print(f"score_felten: wrote {output_dir / 'scores.parquet'}")
+print(f"score_felten: wrote {output_dir / 'scores.csv'}")
 
 scores #|func_return_line
 

@@ -60,9 +60,7 @@ from ai_index import const
 
 # %%
 #|export
-run_name = ctx.vars["run_name"]
-
-output_dir = const.pipeline_store_path / run_name / "build_aspectt_vectors"
+output_dir = const.aspectt_vectors_path
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% [markdown]

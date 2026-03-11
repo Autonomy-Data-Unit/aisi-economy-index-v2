@@ -12,10 +12,9 @@
 # Merge all O\*NET occupation-level score DataFrames into a single combined
 # exposure table. Receives a dict of `{name: pd.DataFrame}` from the
 # `join_scores` barrier node, joins them on `onet_code`, and saves a single
-# `combined_scores.parquet`.
+# `combined_scores.csv`.
 #
-# Node variables:
-# - `run_name` (global): Pipeline run name
+# Node variables: none
 
 # %%
 #|default_exp nodes.combine_onet_exposure
@@ -54,8 +53,7 @@ from ai_index.utils.scoring import OnetScoreSet
 
 # %%
 #|export
-run_name = ctx.vars["run_name"]
-output_dir = const.pipeline_store_path / run_name / "combine_onet_exposure"
+output_dir = const.onet_exposure_scores_path
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %%
@@ -82,7 +80,7 @@ print(f"combine_onet_exposure: {len(combined)} occupations, "
 #|export
 score_set = OnetScoreSet(name="combined_exposure", scores=combined)
 score_set.save(output_dir)
-print(f"combine_onet_exposure: wrote {output_dir / 'scores.parquet'}")
+print(f"combine_onet_exposure: wrote {output_dir / 'scores.csv'}")
 
 combined #|func_return_line
 

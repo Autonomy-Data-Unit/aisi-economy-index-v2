@@ -7,8 +7,7 @@ def main(ctx, print) -> "pd.DataFrame":
     
     from ai_index import const
     from ai_index.utils.scoring import OnetScoreSet
-    run_name = ctx.vars["run_name"]
-    output_dir = const.pipeline_store_path / run_name / "score_presence"
+    output_dir = const.onet_exposure_scores_path / "score_presence"
     output_dir.mkdir(parents=True, exist_ok=True)
     PHYSICAL_PRESENCE = {
         "work_context": [
@@ -220,6 +219,6 @@ def main(ctx, print) -> "pd.DataFrame":
           f"std={scores['presence_composite'].std():.3f}")
     score_set = OnetScoreSet(name="presence", scores=scores)
     score_set.save(output_dir)
-    print(f"score_presence: wrote {output_dir / 'scores.parquet'} ({len(scores)} occupations)")
+    print(f"score_presence: wrote {output_dir / 'scores.csv'} ({len(scores)} occupations)")
     
     return scores

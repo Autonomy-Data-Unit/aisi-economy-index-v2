@@ -53,11 +53,11 @@ class OnetScoreSet:
                 )
 
     def save(self, output_dir: Path):
-        """Write to the standard location: {output_dir}/scores.parquet"""
+        """Write to the standard location: {output_dir}/scores.csv"""
         self.validate()
-        self.scores.to_parquet(output_dir / "scores.parquet", index=False)
+        self.scores.to_csv(output_dir / "scores.csv", index=False)
 
     @staticmethod
     def load(path: Path) -> pd.DataFrame:
-        """Load a scores.parquet file."""
-        return pd.read_parquet(path)
+        """Load a scores.csv file."""
+        return pd.read_csv(path)
