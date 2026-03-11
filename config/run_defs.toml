@@ -3,7 +3,7 @@ sample_n = 10
 sample_seed = 42
 embedding_model = "text-embedding-3-large"
 cosine_mode = "api"
-topk = 5
+topk = 10
 llm_model = "gpt-5.2"
 llm_batch_size = 1000
 llm_max_new_tokens = 220
@@ -13,6 +13,9 @@ fetch_years = "all"
 [defaults.prepare_onet_targets]
 onet_exclude_public_sector = true
 onet_top_n = 10
+[defaults.cosine_match]
+cosine_alpha = 0.4
+
 [defaults.llm_summarise]
 summarise_resume = true
 summarise_max_retries = 0

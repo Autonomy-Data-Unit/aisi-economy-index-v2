@@ -8,7 +8,7 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 7 nodes and 5 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
+The pipeline is defined in `config/netrun.json`. It currently contains 8 nodes and 7 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
 
 ```
   fetch_onet (run_on_startup)
@@ -17,41 +17,36 @@ The pipeline is defined in `config/netrun.json`. It currently contains 7 nodes a
   prepare_onet_targets
      │ signal: epoch_finished
      ▼
-  embed_onet
+  embed_onet ─────────────┐
+     │ signal: epoch_fin.  │ out (bool)
+     │                     │
+                           ▼
+  fetch_adzuna ──► ... ──► cosine_match
+     │ signal: epoch_fin.  ▲
+     ▼                     │ out (bool)
+  sample_ads              │
+     │ ad_ids              │
+     ▼                     │
+  llm_summarise           │
+     │ successful_ad_ids   │
+     ▼                     │
+  embed_ads ──────────────┘
      │ signal: epoch_finished
-     ▼
-  (not yet connected to downstream — cosine_match)
-
-
-  fetch_adzuna (run_on_startup)
-     │ signal: epoch_finished
-     ▼
-  sample_ads
-     │
-     │ ad_ids
-     ▼
-  llm_summarise
-     │
-     │ successful_ad_ids
-     ▼
-  embed_ads
-     │ signal: epoch_finished
-     ▼
-  (not yet connected to downstream — cosine_match)
 ```
 
-### Nodes (7 total, no subgraphs)
+### Nodes (8 total, no subgraphs)
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `epoch_finished`.
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
 - `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
 - `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
-- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`. Signals `epoch_finished`.
-- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
+- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model. Input: `successful_ad_ids`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_ads/`. Signals `epoch_finished`.
+- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
+- `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ads_done` (bool from embed_ads), `onet_done` (bool from embed_onet). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Signals `epoch_finished`. Node vars: `cosine_alpha` (float).
 
 ### Planned pipeline stages (not yet implemented)
 
-The full pipeline will eventually include exposure scoring, job-ad-to-occupation matching, and index generation stages. These were present in an earlier iteration but have been removed for a rebuild. See the Old Repository Reference section for context on the intended pipeline.
+The full pipeline will eventually include negative selection (LLM filtering of candidates), exposure scoring, and index generation stages. See `_dev/aisi_demo_pipeline_analysis.md` for the full plan.
 
 ### Node Function Paths
 
@@ -114,7 +109,7 @@ sample_n = 0             # 0 = full run, N = sample N ads
 sample_seed = 42
 embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
 cosine_mode = "api"      # "api", "local", or "sbatch"
-topk = 5                 # Top-K candidates for cosine similarity
+topk = 10                # Top-K candidates for cosine similarity
 llm_model = "gpt-5.2"   # Key into llm_models.toml
 llm_batch_size = 1000    # Number of prompts per LLM call
 llm_max_new_tokens = 220 # Max tokens per LLM response
@@ -126,6 +121,9 @@ fetch_years = "all"
 [defaults.prepare_onet_targets]
 onet_exclude_public_sector = true
 onet_top_n = 10
+
+[defaults.cosine_match]
+cosine_alpha = 0.4               # Role score weight (task weight = 1 - alpha)
 
 [defaults.llm_summarise]
 summarise_resume = true          # Resume from previous partial run
@@ -400,7 +398,7 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 │   ├── const.pct.py          # Path constants
 │   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
 │   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (7 nodes)
+│   └── nodes/                # Node functions (8 nodes)
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
@@ -439,6 +437,7 @@ nbl export --reverse          # Sync pts changes back to nbs
 nbl test                      # Test notebooks execute without errors
 nbl fill                      # Execute notebooks and save outputs
 nbl new pts/ai_index/foo.pct.py  # Create new notebook
+nbl new --template dev/templates/func_node.pct.py.jinja pts/ai_index/nodes/foo.pct.py  # Create new node notebook from template
 ```
 
 ### Export pipeline (from nblite.toml)

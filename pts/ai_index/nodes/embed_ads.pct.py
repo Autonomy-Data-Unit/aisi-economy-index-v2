@@ -28,7 +28,7 @@
 
 # %%
 #|set_func_signature
-async def main(ctx, print, successful_ad_ids: list[int]):
+async def main(ctx, print, successful_ad_ids: list[int]) -> bool:
     """Build text descriptions from LLM summaries and embed them."""
     ...
 
@@ -129,3 +129,5 @@ print(f"embed_ads: wrote {output_dir}")
 print(f"  ad_ids: {ad_ids_arr.shape}")
 print(f"  role_embeddings: {role_embeddings.shape}")
 print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")
+
+True #|func_return_line

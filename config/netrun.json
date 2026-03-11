@@ -71,10 +71,10 @@
         "extra": {
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_onet.py",
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
-              "x": 255,
-              "y": 345
+              "x": 80,
+              "y": 520
             }
           }
         },
@@ -103,7 +103,6 @@
               "x": -40,
               "y": 80
             },
-            "headerColor": "#00a3d7",
             "dimensions": {
               "width": 170,
               "height": 182
@@ -129,7 +128,7 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/sample_ads.py",
           "ui": {
             "position": {
-              "x": 220,
+              "x": 200,
               "y": 80
             },
             "dimensions": {
@@ -139,8 +138,7 @@
             "portGroups": {
               "in:__all__": false
             },
-            "headerColor": "#00a3d7",
-            "descriptionExpanded": false
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -172,8 +170,8 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/prepare_onet_targets.py",
           "ui": {
             "position": {
-              "x": 525,
-              "y": 360
+              "x": 380,
+              "y": 520
             },
             "descriptionExpanded": true
           }
@@ -203,11 +201,14 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_summarise.py",
           "ui": {
             "position": {
-              "x": 580,
-              "y": 120
+              "x": 500,
+              "y": 80
             },
-            "headerColor": "#00a3d7",
-            "descriptionExpanded": false
+            "descriptionExpanded": true,
+            "dimensions": {
+              "width": 320,
+              "height": 140
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -228,13 +229,13 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_ads.py",
           "ui": {
             "position": {
-              "x": 915,
-              "y": 120
+              "x": 900,
+              "y": 140
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "dimensions": {
               "width": 285,
-              "height": 100
+              "height": 140
             }
           }
         },
@@ -259,8 +260,8 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_onet.py",
           "ui": {
             "position": {
-              "x": 855,
-              "y": 330
+              "x": 900,
+              "y": 360
             },
             "descriptionExpanded": true,
             "dimensions": {
@@ -272,6 +273,35 @@
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.embed_onet.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "cosine_match",
+        "description": "Weighted dual cosine similarity matching between ads and O*NET.",
+        "execution_config": {
+          "node_vars": {
+            "cosine_alpha": {
+              "type": "float"
+            }
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/cosine_match.py",
+          "ui": {
+            "position": {
+              "x": 1300,
+              "y": 240
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.cosine_match.main"
         },
         "type": "node"
       }
@@ -301,6 +331,16 @@
         "source_str": "prepare_onet_targets.__signal_epoch_finished__",
         "target_str": "embed_onet.__control_start_epoch__",
         "dependency": false
+      },
+      {
+        "source_str": "embed_ads.out",
+        "target_str": "cosine_match.ads_done",
+        "dependency": false
+      },
+      {
+        "source_str": "embed_onet.out",
+        "target_str": "cosine_match.onet_done",
+        "dependency": false
       }
     ],
     "extra": {
@@ -319,7 +359,35 @@
           }
         ],
         "defaultCmd": "code"
-      }
+      },
+      "decorations": [
+        {
+          "id": "label",
+          "position": {
+            "x": 260,
+            "y": -20
+          },
+          "width": 280,
+          "height": 60,
+          "decorationType": "label",
+          "label": "label",
+          "text": "Job ad processing",
+          "fontSize": 20
+        },
+        {
+          "id": "label_2",
+          "position": {
+            "x": 160,
+            "y": 420
+          },
+          "width": 280,
+          "height": 60,
+          "decorationType": "label",
+          "label": "label_2",
+          "text": "Fetch O*NET",
+          "fontSize": 20
+        }
+      ]
     }
   }
 }

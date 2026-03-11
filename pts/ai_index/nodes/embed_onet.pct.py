@@ -27,7 +27,7 @@
 
 # %%
 #|set_func_signature
-async def main(ctx, print):
+async def main(ctx, print) -> bool:
     """Embed O*NET occupation text descriptions."""
     ...
 
@@ -104,3 +104,5 @@ print(f"embed_onet: wrote {output_dir}")
 print(f"  onet_codes: {onet_codes.shape}")
 print(f"  role_embeddings: {role_embeddings.shape}")
 print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")
+
+True #|func_return_line
