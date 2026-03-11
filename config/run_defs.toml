@@ -18,6 +18,7 @@ embed_chunk_size = 50000
 
 [defaults.cosine_match]
 cosine_alpha = 0.4
+cosine_chunk_size = 50000
 
 [defaults.llm_summarise]
 summarise_resume = true

@@ -293,6 +293,9 @@
           "node_vars": {
             "cosine_alpha": {
               "type": "float"
+            },
+            "cosine_chunk_size": {
+              "type": "int"
             }
           },
           "signals": [

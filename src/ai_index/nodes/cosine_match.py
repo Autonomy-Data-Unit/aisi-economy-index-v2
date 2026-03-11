@@ -15,6 +15,7 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     cosine_mode = ctx.vars["cosine_mode"]
     topk = ctx.vars["topk"]
     cosine_alpha = ctx.vars["cosine_alpha"]
+    chunk_size = ctx.vars["cosine_chunk_size"]
     
     output_dir = const.pipeline_store_path / run_name / "cosine_match"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -25,67 +26,88 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     onet_role_embeds = np.load(onet_dir / "role_embeddings.npy")
     onet_task_embeds = np.load(onet_dir / "taskskill_embeddings.npy")
     
-    # Load ad embeddings from DuckDB, ordered to match ad_ids
     embed_db = const.pipeline_store_path / run_name / "embed_ads" / "embeddings.duckdb"
     embed_conn = duckdb.connect(str(embed_db), read_only=True)
-    embed_conn.execute("CREATE TEMP TABLE _ad_order (id BIGINT, pos INTEGER)")
-    embed_conn.executemany("INSERT INTO _ad_order VALUES (?, ?)", [(int(aid), i) for i, aid in enumerate(ad_ids)])
-    embed_rows = embed_conn.execute(
-        "SELECT r.role, r.taskskill FROM results r JOIN _ad_order a ON r.id = a.id ORDER BY a.pos"
-    ).fetchall()
-    embed_conn.close()
-    
-    ad_role_embeds = np.stack([np.frombuffer(r[0], dtype=np.float32) for r in embed_rows])
-    ad_task_embeds = np.stack([np.frombuffer(r[1], dtype=np.float32) for r in embed_rows])
-    del embed_rows
     
     n_ads = len(ad_ids)
     n_onet = len(onet_codes)
+    n_chunks = (n_ads + chunk_size - 1) // chunk_size
     print(f"cosine_match: {n_ads} ads x {n_onet} occupations, topk={topk}, alpha={cosine_alpha}")
-    print(f"  ad embeddings: {ad_role_embeds.shape}, onet embeddings: {onet_role_embeds.shape}")
-    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode)
-    print(f"cosine_match: role cosine done — indices {role_results['indices'].shape}")
+    print(f"  processing in {n_chunks} chunks of up to {chunk_size}")
+    def _load_chunk_embeddings(chunk_ad_ids):
+        """Load role and taskskill embeddings for a chunk of ad IDs from DuckDB."""
+        embed_conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_order (id BIGINT, pos INTEGER)")
+        embed_conn.executemany(
+            "INSERT INTO _chunk_order VALUES (?, ?)",
+            [(int(aid), i) for i, aid in enumerate(chunk_ad_ids)],
+        )
+        rows = embed_conn.execute(
+            "SELECT r.role, r.taskskill FROM results r "
+            "JOIN _chunk_order a ON r.id = a.id ORDER BY a.pos"
+        ).fetchall()
+        role_embeds = np.stack([np.frombuffer(r[0], dtype=np.float32) for r in rows])
+        task_embeds = np.stack([np.frombuffer(r[1], dtype=np.float32) for r in rows])
+        return role_embeds, task_embeds
     
-    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode)
-    print(f"cosine_match: task cosine done — indices {task_results['indices'].shape}")
-    role_indices = role_results["indices"]   # (n_ads, topk)
-    role_scores = role_results["scores"]     # (n_ads, topk)
-    task_indices = task_results["indices"]   # (n_ads, topk)
-    task_scores = task_results["scores"]     # (n_ads, topk)
     
-    rows = []
-    for i in range(n_ads):
-        # Build lookup: onet_idx -> [role_score, task_score]
-        candidates = {}
-        for j in range(topk):
-            idx = int(role_indices[i, j])
-            candidates[idx] = [float(role_scores[i, j]), 0.0]
-        for j in range(topk):
-            idx = int(task_indices[i, j])
-            if idx in candidates:
-                candidates[idx][1] = float(task_scores[i, j])
-            else:
-                candidates[idx] = [0.0, float(task_scores[i, j])]
+    def _weighted_merge(chunk_ad_ids, role_results, task_results):
+        """Merge role and task cosine results with weighted scoring for a chunk."""
+        role_indices = role_results["indices"]
+        role_scores = role_results["scores"]
+        task_indices = task_results["indices"]
+        task_scores = task_results["scores"]
     
-        # Compute combined scores and sort descending
-        scored = []
-        for idx, (rs, ts) in candidates.items():
-            combined = cosine_alpha * rs + (1.0 - cosine_alpha) * ts
-            scored.append((idx, rs, ts, combined))
-        scored.sort(key=lambda x: -x[3])
+        rows = []
+        for i in range(len(chunk_ad_ids)):
+            # Build lookup: onet_idx -> [role_score, task_score]
+            candidates = {}
+            for j in range(topk):
+                idx = int(role_indices[i, j])
+                candidates[idx] = [float(role_scores[i, j]), 0.0]
+            for j in range(topk):
+                idx = int(task_indices[i, j])
+                if idx in candidates:
+                    candidates[idx][1] = float(task_scores[i, j])
+                else:
+                    candidates[idx] = [0.0, float(task_scores[i, j])]
     
-        # Take final top-K
-        for rank, (idx, rs, ts, combined) in enumerate(scored[:topk]):
-            rows.append({
-                "ad_id": int(ad_ids[i]),
-                "rank": rank,
-                "onet_code": str(onet_codes[idx]),
-                "onet_title": str(onet_titles[idx]),
-                "role_score": rs,
-                "taskskill_score": ts,
-                "combined_score": combined,
-            })
-    matches_df = pd.DataFrame(rows)
+            # Compute combined scores and sort descending
+            scored = []
+            for idx, (rs, ts) in candidates.items():
+                combined = cosine_alpha * rs + (1.0 - cosine_alpha) * ts
+                scored.append((idx, rs, ts, combined))
+            scored.sort(key=lambda x: -x[3])
+    
+            # Take final top-K
+            for rank, (idx, rs, ts, combined) in enumerate(scored[:topk]):
+                rows.append({
+                    "ad_id": int(chunk_ad_ids[i]),
+                    "rank": rank,
+                    "onet_code": str(onet_codes[idx]),
+                    "onet_title": str(onet_titles[idx]),
+                    "role_score": rs,
+                    "taskskill_score": ts,
+                    "combined_score": combined,
+                })
+        return rows
+    all_rows = []
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * chunk_size
+        end = min(start + chunk_size, n_ads)
+        chunk_ad_ids = ad_ids[start:end]
+    
+        ad_role_embeds, ad_task_embeds = _load_chunk_embeddings(chunk_ad_ids)
+    
+        role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode)
+        task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode)
+    
+        chunk_rows = _weighted_merge(chunk_ad_ids, role_results, task_results)
+        all_rows.extend(chunk_rows)
+    
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads, {len(chunk_rows)} match rows")
+    
+    embed_conn.close()
+    matches_df = pd.DataFrame(all_rows)
     output_path = output_dir / "matches.parquet"
     matches_df.to_parquet(output_path, index=False)
     
