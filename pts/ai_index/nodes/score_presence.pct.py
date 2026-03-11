@@ -201,8 +201,9 @@ print(f"  Work Context: {len(wc_df)} rows")
 # %% [markdown]
 # ## Scoring functions
 #
-# For Skills/GWAs: score = (norm_importance + norm_level) / 2
-# For Work Context: score = norm_context_value (CX scale only)
+# For Skills/GWAs: $\text{score} = \frac{\text{norm}(IM) + \text{norm}(LV)}{2}$
+#
+# For Work Context: $\text{score} = \frac{CX - 1}{4}$
 
 # %%
 #|export

@@ -12,12 +12,12 @@
 # Compute Felten AIOE scores per O\*NET occupation using the ability-application
 # relatedness methodology from Felten et al. (2021).
 #
-# 1. Loads the ability-application relatedness matrix (52 abilities × 10 AI
+# 1. Loads the ability-application relatedness matrix (52 abilities $\times$ 10 AI
 #    applications) from the bundled AIOE Data Appendix (Appendix D).
 # 2. Loads O\*NET Abilities table for importance and level scores.
 # 3. Computes per-ability AI exposure as a progress-weighted average of
 #    relatedness scores across AI applications.
-# 4. Builds occupation-ability weight matrix: α × norm(importance) + (1-α) × norm(level).
+# 4. Builds occupation-ability weight matrix: $W = \alpha \cdot \text{norm}(IM) + (1-\alpha) \cdot \text{norm}(LV)$.
 # 5. Computes per-occupation exposure as a weighted average of ability exposures.
 #
 # Node variables:
@@ -182,7 +182,7 @@ print(f"  abilities: {len(abilities_df)} rows, {len(valid_codes)} occupations")
 # %% [markdown]
 # ## Step 1: Compute per-ability AI exposure
 #
-# E[ability] = Σ(Relatedness[ability, app] × Progress[app]) / Σ(Progress[app])
+# $$E_a = \frac{\sum_j R_{a,j} \cdot P_j}{\sum_j P_j}$$
 
 # %%
 #|export
@@ -206,7 +206,7 @@ print(f"  ability exposure: {len(ability_exposure)} abilities, "
 # %% [markdown]
 # ## Step 2: Build occupation-ability weight matrix
 #
-# Weight = α × (importance / 5) + (1 - α) × (level / 7)
+# $$W_{o,a} = \alpha \cdot \frac{IM_{o,a}}{5} + (1 - \alpha) \cdot \frac{LV_{o,a}}{7}$$
 
 # %%
 #|export
@@ -232,7 +232,7 @@ print(f"  weight matrix: {weight_matrix.shape}")
 # %% [markdown]
 # ## Step 3: Compute per-occupation exposure
 #
-# E[occ] = Σ(Weight[occ, ability] × E[ability]) / Σ(Weight[occ, ability])
+# $$E_o = \frac{\sum_a W_{o,a} \cdot E_a}{\sum_a W_{o,a}}$$
 
 # %%
 #|export
