@@ -107,7 +107,7 @@
               "width": 170,
               "height": 182
             },
-            "headerColor": "#00a2ad"
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -140,7 +140,7 @@
               "in:__all__": false
             },
             "descriptionExpanded": true,
-            "headerColor": "#00a2ad"
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -211,7 +211,7 @@
               "width": 320,
               "height": 140
             },
-            "headerColor": "#00a2ad"
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -240,12 +240,12 @@
               "x": 900,
               "y": 140
             },
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "dimensions": {
               "width": 285,
               "height": 140
             },
-            "headerColor": "#00a2ad"
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -277,7 +277,7 @@
               "width": 298,
               "height": 130
             },
-            "headerColor": "#00a2ad"
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -310,7 +310,7 @@
               "y": 240
             },
             "descriptionExpanded": false,
-            "headerColor": "#00a2ad"
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -341,7 +341,8 @@
               "x": 1600,
               "y": 240
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": false,
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -352,7 +353,7 @@
       },
       {
         "name": "broadcast_onet_ready",
-        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet and build_aspectt_vectors.",
+        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet, build_aspectt_vectors, and score nodes.",
         "extra": {
           "ui": {
             "shape": "triangle-left",
@@ -371,7 +372,7 @@
         },
         "factory": "netrun.node_factories.broadcast",
         "factory_args": {
-          "num_outputs": 2
+          "num_outputs": 5
         },
         "type": "node"
       },
@@ -390,10 +391,11 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/build_aspectt_vectors.py",
           "ui": {
             "position": {
-              "x": 1100,
-              "y": 660
+              "x": 1340,
+              "y": 520
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -419,12 +421,131 @@
               "x": 1900,
               "y": 440
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": false,
+            "headerColor": "#0084ff"
           }
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.compute_job_ad_aspectt_vectors.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "score_presence",
+        "description": "Compute humanness/presence scores (physical, emotional, creative) per O*NET occupation.",
+        "execution_config": {
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_presence.py",
+          "ui": {
+            "position": {
+              "x": 1100,
+              "y": 880
+            },
+            "descriptionExpanded": false
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.score_presence.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "score_felten",
+        "description": "Compute Felten AIOE ability-application AI exposure scores per O*NET occupation.",
+        "execution_config": {
+          "node_vars": {
+            "felten_alpha": {
+              "type": "float"
+            },
+            "felten_scenario": {}
+          },
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_felten.py",
+          "ui": {
+            "position": {
+              "x": 1100,
+              "y": 1000
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.score_felten.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "score_task_exposure",
+        "description": "Classify O*NET tasks by AI exposure level via LLM and aggregate to occupations.",
+        "execution_config": {
+          "node_vars": {
+            "task_exposure_resume": {
+              "type": "bool"
+            },
+            "task_exposure_max_retries": {
+              "type": "int"
+            },
+            "system_prompt": {},
+            "user_prompt": {}
+          },
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_task_exposure.py",
+          "ui": {
+            "position": {
+              "x": 1100,
+              "y": 1200
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.score_task_exposure.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "join_scores",
+        "description": "Synchronization barrier: wait for all O*NET score nodes to complete.",
+        "extra": {
+          "ui": {
+            "hidePortNames": true,
+            "position": {
+              "x": 1560,
+              "y": 880
+            },
+            "dimensions": {
+              "width": 150,
+              "height": 220
+            },
+            "portGroups": {
+              "in:__all__": false
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.join",
+        "factory_args": {
+          "ports": [
+            "presence",
+            "felten",
+            "task_exposure"
+          ]
         },
         "type": "node"
       }
@@ -489,6 +610,36 @@
         "source_str": "build_aspectt_vectors.out",
         "target_str": "compute_job_ad_aspectt_vectors.aspectt_done",
         "dependency": false
+      },
+      {
+        "source_str": "broadcast_onet_ready.out_2",
+        "target_str": "score_presence.__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_str": "broadcast_onet_ready.out_3",
+        "target_str": "score_felten.__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_str": "broadcast_onet_ready.out_4",
+        "target_str": "score_task_exposure.__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_str": "score_presence.out",
+        "target_str": "join_scores.presence",
+        "dependency": false
+      },
+      {
+        "source_str": "score_felten.out",
+        "target_str": "join_scores.felten",
+        "dependency": false
+      },
+      {
+        "source_str": "score_task_exposure.out",
+        "target_str": "join_scores.task_exposure",
+        "dependency": false
       }
     ],
     "extra": {
@@ -512,15 +663,16 @@
         {
           "id": "label",
           "position": {
-            "x": 260,
-            "y": -20
+            "x": 1200,
+            "y": -40
           },
-          "width": 280,
-          "height": 60,
+          "width": 400,
+          "height": 120,
           "decorationType": "label",
           "label": "label",
           "text": "Job ad processing",
-          "fontSize": 20
+          "fontSize": 40,
+          "fontColor": "#0084ff"
         },
         {
           "id": "label_2",
