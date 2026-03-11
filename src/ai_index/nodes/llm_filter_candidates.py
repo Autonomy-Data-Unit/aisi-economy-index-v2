@@ -44,58 +44,54 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "filter_results.duckdb"
     matches_path = const.pipeline_store_path / run_name / "cosine_match" / "matches.parquet"
-    matches_df = pd.read_parquet(matches_path)
-    
-    ad_ids_set = set(ad_ids)
-    matches_df = matches_df[matches_df["ad_id"].isin(ad_ids_set)]
-    
-    # Group candidates per ad: {ad_id: [{"rank": ..., "onet_title": ..., ...}, ...]}
-    matches_by_ad = {}
-    for ad_id, group in matches_df.groupby("ad_id"):
-        matches_by_ad[int(ad_id)] = group.sort_values("rank").to_dict("records")
-    
-    print(f"llm_filter: loaded {len(matches_df)} match rows for {len(matches_by_ad)} ads")
     summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
-    conn = duckdb.connect(str(summaries_db), read_only=True)
-    summary_rows = conn.execute(
-        "SELECT id, data FROM results WHERE error IS NULL ORDER BY id"
-    ).fetchall()
-    conn.close()
     
-    summaries_by_ad = {}
-    for row_id, data_str in summary_rows:
-        if row_id in ad_ids_set:
-            summaries_by_ad[row_id] = JobInfoModel.model_validate_json(data_str)
+    _matches_conn = duckdb.connect()  # in-memory, queries parquet directly
+    _summaries_conn = duckdb.connect(str(summaries_db), read_only=True)
+    _ads_conn = get_adzuna_conn(read_only=True)
     
-    print(f"llm_filter: loaded {len(summaries_by_ad)} summaries")
-    ads_conn = get_adzuna_conn(read_only=True)
-    ads_conn.execute("CREATE OR REPLACE TEMP TABLE _filter_ids (id BIGINT)")
-    ads_conn.executemany("INSERT INTO _filter_ids VALUES (?)", [(i,) for i in ad_ids])
-    raw_ads = ads_conn.execute(
-        "SELECT a.id, a.title, a.category_name, a.description "
-        "FROM ads a JOIN _filter_ids f ON a.id = f.id"
-    ).fetchall()
-    ads_conn.close()
+    print(f"llm_filter: {len(ad_ids)} ads to process")
     
-    raw_ads_by_id = {row[0]: {"title": row[1], "category_name": row[2], "description": row[3]} for row in raw_ads}
-    print(f"llm_filter: loaded {len(raw_ads_by_id)} raw ads")
-    def _build_prompt(ad_id: int) -> str:
+    
+    def _load_chunk_context(chunk_ids):
+        """Load matches, summaries, and raw ads for a chunk of ad IDs."""
+        id_list = ",".join(str(int(i)) for i in chunk_ids)
+    
+        # Matches from parquet
+        chunk_matches = _matches_conn.execute(
+            f"SELECT * FROM read_parquet('{matches_path}') WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+        ).fetchdf()
+        matches_by_ad = {}
+        for ad_id, group in chunk_matches.groupby("ad_id"):
+            matches_by_ad[int(ad_id)] = group.to_dict("records")
+    
+        # Summaries
+        summary_rows = _summaries_conn.execute(
+            f"SELECT id, data FROM results WHERE error IS NULL AND id IN ({id_list})"
+        ).fetchall()
+        summaries_by_ad = {int(rid): JobInfoModel.model_validate_json(data) for rid, data in summary_rows}
+    
+        # Raw ads
+        _ads_conn.execute(f"CREATE OR REPLACE TEMP TABLE _chunk_ids AS SELECT unnest([{id_list}]::BIGINT[]) AS id")
+        raw_rows = _ads_conn.execute(
+            "SELECT a.id, a.title, a.category_name, a.description FROM ads a JOIN _chunk_ids c ON a.id = c.id"
+        ).fetchall()
+        raw_ads_by_id = {int(r[0]): {"title": r[1], "category_name": r[2], "description": r[3]} for r in raw_rows}
+    
+        return matches_by_ad, summaries_by_ad, raw_ads_by_id
+    def _build_prompt(ad_id, candidates, summary, raw_ad):
         """Build the negative selection prompt for one ad."""
-        candidates = matches_by_ad[ad_id]
-        summary = summaries_by_ad[ad_id]
-        raw = raw_ads_by_id[ad_id]
-    
         tasks_str = ", ".join(summary.tasks + summary.skills)[:800]
         candidates_str = "\n".join(
             f"{i+1}. {c['onet_title']}" for i, c in enumerate(candidates)
         )
-        full_ad_excerpt = (raw["description"] or "")[:700].strip()
+        full_ad_excerpt = (raw_ad["description"] or "")[:700].strip()
     
         return strict_format(
             USER_PROMPT_TEMPLATE,
             n_candidates=len(candidates),
-            job_ad_title=raw["title"] or "",
-            job_sector_category=raw["category_name"] or "",
+            job_ad_title=raw_ad["title"] or "",
+            job_sector_category=raw_ad["category_name"] or "",
             domain=summary.domain,
             tasks_str=tasks_str,
             full_ad_excerpt=full_ad_excerpt,
@@ -121,12 +117,15 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     
     
     async def _work_fn(chunk_ids):
-        """Build prompts, call LLM, validate, return DataFrame."""
+        """Load chunk context, build prompts, call LLM, validate, return DataFrame."""
+        matches_by_ad, summaries_by_ad, raw_ads_by_id = _load_chunk_context(chunk_ids)
+    
         prompts = []
         n_candidates_per_ad = []
         for ad_id in chunk_ids:
-            prompts.append(_build_prompt(ad_id))
-            n_candidates_per_ad.append(len(matches_by_ad[ad_id]))
+            candidates = matches_by_ad[ad_id]
+            prompts.append(_build_prompt(ad_id, candidates, summaries_by_ad[ad_id], raw_ads_by_id[ad_id]))
+            n_candidates_per_ad.append(len(candidates))
     
         responses = await allm_generate(
             prompts,
@@ -168,25 +167,43 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     ).fetchall()
     filter_conn.close()
     
+    FILTER_CHUNK_SIZE = 5000
     filtered_rows = []
-    for ad_id, data_str in filter_rows:
-        ad_id = int(ad_id)
-        if ad_id not in matches_by_ad:
-            continue
-        parsed = json.loads(data_str)
-        drop_set = set(parsed["drop"])  # 1-based indices
-        candidates = matches_by_ad[ad_id]
-        kept = [c for i, c in enumerate(candidates) if (i + 1) not in drop_set]
-        for rank, c in enumerate(kept):
-            filtered_rows.append({
-                "ad_id": ad_id,
-                "rank": rank,
-                "onet_code": c["onet_code"],
-                "onet_title": c["onet_title"],
-                "role_score": c["role_score"],
-                "taskskill_score": c["taskskill_score"],
-                "combined_score": c["combined_score"],
-            })
+    for chunk_start in range(0, len(filter_rows), FILTER_CHUNK_SIZE):
+        chunk = filter_rows[chunk_start:chunk_start + FILTER_CHUNK_SIZE]
+        chunk_ad_ids = [int(row[0]) for row in chunk]
+    
+        # Load matches for this chunk from parquet
+        id_list = ",".join(str(i) for i in chunk_ad_ids)
+        chunk_matches = _matches_conn.execute(
+            f"SELECT * FROM read_parquet('{matches_path}') WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+        ).fetchdf()
+        matches_by_ad = {}
+        for ad_id, group in chunk_matches.groupby("ad_id"):
+            matches_by_ad[int(ad_id)] = group.to_dict("records")
+    
+        for ad_id_raw, data_str in chunk:
+            ad_id = int(ad_id_raw)
+            if ad_id not in matches_by_ad:
+                continue
+            parsed = json.loads(data_str)
+            drop_set = set(parsed["drop"])  # 1-based indices
+            candidates = matches_by_ad[ad_id]
+            kept = [c for i, c in enumerate(candidates) if (i + 1) not in drop_set]
+            for rank, c in enumerate(kept):
+                filtered_rows.append({
+                    "ad_id": ad_id,
+                    "rank": rank,
+                    "onet_code": c["onet_code"],
+                    "onet_title": c["onet_title"],
+                    "role_score": c["role_score"],
+                    "taskskill_score": c["taskskill_score"],
+                    "combined_score": c["combined_score"],
+                })
+    
+    _matches_conn.close()
+    _summaries_conn.close()
+    _ads_conn.close()
     
     filtered_df = pd.DataFrame(filtered_rows)
     filtered_path = output_dir / "filtered_matches.parquet"
