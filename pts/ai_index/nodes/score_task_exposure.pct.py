@@ -1,0 +1,355 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # nodes.score_task_exposure
+#
+# Classify each O\*NET task statement via LLM into a 3-level AI exposure scale,
+# then aggregate to occupation level.
+#
+# - Level 0 (NO CHANGE): physical, in-person, sensory, relationship-essential
+# - Level 1 (HUMAN + LLM COLLABORATION): ≥30% productivity gain, human judgment essential
+# - Level 2 (LLM INDEPENDENT): end-to-end with minimal human oversight
+#
+# Uses ResultStore for incremental persistence (~23K tasks) and run_batched for
+# chunked processing with resume support.
+#
+# Node variables:
+# - `llm_model` (global): Model key from llm_models.toml
+# - `llm_batch_size` (global): Number of prompts per LLM call
+# - `llm_max_new_tokens` (global): Max tokens per LLM response
+# - `llm_max_concurrent_batches` (global): Max concurrent batch LLM calls
+# - `task_exposure_resume` (per-node): Resume from previous partial run
+# - `task_exposure_max_retries` (per-node): Retry rounds for failed tasks
+# - `system_prompt` (per-node): Path in prompt_library/
+# - `user_prompt` (per-node): Path in prompt_library/
+
+# %%
+#|default_exp nodes.score_task_exposure
+#|export_as_func true
+
+# %%
+#|top_export
+import json
+from typing import List
+
+from pydantic import BaseModel, field_validator
+
+
+class TaskExposureModel(BaseModel):
+    occupation: str
+    task: str
+    exposure: int
+    confidence_0to1: float
+
+    @field_validator("exposure")
+    @classmethod
+    def exposure_in_range(cls, v):
+        if v not in (0, 1, 2):
+            raise ValueError(f"exposure must be 0, 1, or 2, got {v}")
+        return v
+
+    @field_validator("confidence_0to1")
+    @classmethod
+    def confidence_in_range(cls, v):
+        if v < 0 or v > 1:
+            raise ValueError(f"confidence must be in [0, 1], got {v}")
+        return v
+
+# %%
+#|set_func_signature
+async def main(ctx, print) -> bool:
+    """Classify O*NET tasks by AI exposure level and aggregate to occupations."""
+    ...
+
+# %% [markdown]
+#
+# Retrieve input arguments
+
+# %%
+from dev_utils import *
+run_name = 'test_local'
+set_node_func_args('score_task_exposure', run_name=run_name)
+show_node_vars('score_task_exposure', run_name=run_name)
+
+# %% [markdown]
+#
+# # Function body
+
+# %% [markdown]
+# ## Read node variables
+
+# %%
+#|export
+import numpy as np
+import pandas as pd
+
+from ai_index import const
+from ai_index.utils import (
+    ResultStore, run_batched, strict_format, load_prompt, allm_generate,
+)
+from ai_index.utils.scoring import OnetScoreSet
+
+# %%
+#|export
+run_name = ctx.vars["run_name"]
+llm_model = ctx.vars["llm_model"]
+batch_size = ctx.vars["llm_batch_size"]
+max_new_tokens = ctx.vars["llm_max_new_tokens"]
+max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+resume = ctx.vars["task_exposure_resume"]
+max_retries = ctx.vars["task_exposure_max_retries"]
+
+SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
+USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
+
+output_dir = const.pipeline_store_path / run_name / "score_task_exposure"
+output_dir.mkdir(parents=True, exist_ok=True)
+db_path = output_dir / "task_results.duckdb"
+
+# %% [markdown]
+# ## Load O\*NET task statements
+#
+# Each task has an occupation code, task ID, and task description.
+# Task Ratings provide Importance (IM) and Relevance (RT) scores.
+
+# %%
+#|export
+extract_dir = const.onet_store_path / "db_30_0_text"
+onet_targets = pd.read_parquet(const.onet_targets_path)
+valid_codes = set(onet_targets["O*NET-SOC Code"].tolist())
+code_to_title = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
+
+# Task statements
+tasks_raw = pd.read_csv(
+    extract_dir / "Task Statements.txt", sep="\t", header=0, encoding="utf-8", dtype=str,
+)
+tasks_df = tasks_raw[tasks_raw["O*NET-SOC Code"].isin(valid_codes)].copy()
+tasks_df["Task ID"] = tasks_df["Task ID"].astype(int)
+
+# Task ratings: Importance (IM) and Relevance (RT)
+ratings_raw = pd.read_csv(
+    extract_dir / "Task Ratings.txt", sep="\t", header=0, encoding="utf-8", dtype=str,
+)
+ratings_raw["Data Value"] = pd.to_numeric(ratings_raw["Data Value"], errors="coerce")
+ratings_raw["Task ID"] = ratings_raw["Task ID"].astype(int)
+
+# Pivot importance
+im_ratings = ratings_raw[ratings_raw["Scale ID"] == "IM"][
+    ["O*NET-SOC Code", "Task ID", "Data Value"]
+].rename(columns={"Data Value": "task_importance"})
+
+# Merge task statements with importance
+tasks_df = tasks_df.merge(im_ratings, on=["O*NET-SOC Code", "Task ID"], how="left")
+tasks_df["task_importance"] = tasks_df["task_importance"].fillna(0.0)
+
+print(f"score_task_exposure: {len(tasks_df)} tasks across "
+      f"{tasks_df['O*NET-SOC Code'].nunique()} occupations")
+
+# %% [markdown]
+# ## Build task index
+#
+# Create a unique integer ID for each task row (soc + task_id combination)
+# for use with ResultStore.
+
+# %%
+#|export
+tasks_df = tasks_df.reset_index(drop=True)
+tasks_df["_row_id"] = tasks_df.index
+all_task_ids = tasks_df["_row_id"].tolist()
+
+# Lookup dicts for building prompts
+_task_lookup = {
+    row["_row_id"]: row
+    for _, row in tasks_df[["_row_id", "O*NET-SOC Code", "Task ID", "Task", "task_importance"]].iterrows()
+}
+
+# %% [markdown]
+# ## Define work function
+
+# %%
+#|export
+def _validate_response(raw: str) -> str | None:
+    """Validate a task exposure response. Returns None if valid, or an error string."""
+    try:
+        TaskExposureModel.model_validate_json(raw)
+        return None
+    except Exception as e:
+        return f"{type(e).__name__}: {e}"
+
+
+async def _work_fn(chunk_ids):
+    """Build prompts for a chunk of task rows and call the LLM."""
+    prompts = []
+    for row_id in chunk_ids:
+        row = _task_lookup[row_id]
+        occupation = code_to_title[row["O*NET-SOC Code"]]
+        prompts.append(strict_format(
+            USER_PROMPT_TEMPLATE,
+            occupation=occupation,
+            task=row["Task"],
+        ))
+
+    responses = await allm_generate(
+        prompts,
+        model=llm_model,
+        system_message=SYSTEM_PROMPT,
+        max_new_tokens=max_new_tokens,
+        json_schema=TaskExposureModel.model_json_schema(),
+    )
+
+    records = []
+    for row_id, response in zip(chunk_ids, responses):
+        error = _validate_response(response)
+        records.append({"id": row_id, "data": response, "error": error})
+    return pd.DataFrame(records)
+
+# %% [markdown]
+# ## Run batched LLM calls
+
+# %%
+#|export
+store = ResultStore(db_path, {
+    "id": "BIGINT NOT NULL",
+    "data": "VARCHAR NOT NULL",
+    "error": "VARCHAR",
+})
+
+task_meta = await run_batched(
+    all_task_ids, store, _work_fn,
+    batch_size=batch_size,
+    max_concurrent=max_concurrent,
+    max_retries=max_retries,
+    resume=resume,
+    node_name="score_task_exposure",
+    print_fn=print,
+    raise_on_failure=False,
+)
+
+# %% [markdown]
+# ## Aggregate to occupation level
+#
+# Parse successful results, merge with task metadata, compute per-occupation
+# scores: mean exposure (normalized to [0,1]) and importance-weighted exposure.
+
+# %%
+#|export
+result_rows = store.conn.execute(
+    "SELECT id, data FROM results WHERE error IS NULL"
+).fetchall()
+store.close()
+print(f"score_task_exposure: {len(result_rows)} tasks classified successfully")
+
+# Parse exposure values
+parsed_results = []
+for row_id, data_str in result_rows:
+    parsed = json.loads(data_str)
+    task_row = _task_lookup[int(row_id)]
+    parsed_results.append({
+        "onet_code": task_row["O*NET-SOC Code"],
+        "task_id": task_row["Task ID"],
+        "exposure": int(parsed["exposure"]),
+        "confidence": float(parsed["confidence_0to1"]),
+        "task_importance": float(task_row["task_importance"]),
+    })
+
+results_df = pd.DataFrame(parsed_results)
+
+# %% [markdown]
+# ## Compute occupation-level scores
+
+# %%
+#|export
+occ_scores = []
+for onet_code, group in results_df.groupby("onet_code"):
+    n_tasks = len(group)
+    mean_exposure = group["exposure"].mean()  # 0-2 scale
+
+    # Importance-weighted exposure
+    imp_sum = group["task_importance"].sum()
+    if imp_sum > 0:
+        exposure_imp_weighted = (group["exposure"] * group["task_importance"]).sum() / imp_sum
+    else:
+        exposure_imp_weighted = mean_exposure
+
+    occ_scores.append({
+        "onet_code": onet_code,
+        # Normalize to [0, 1] for OnetScoreSet
+        "task_exposure_mean": mean_exposure / 2.0,
+        "task_exposure_importance_weighted": exposure_imp_weighted / 2.0,
+    })
+
+scores = pd.DataFrame(occ_scores)
+
+# Ensure all valid codes are present (some may have had all tasks fail)
+all_codes = pd.DataFrame({"onet_code": sorted(valid_codes)})
+scores = all_codes.merge(scores, on="onet_code", how="left")
+scores = scores.fillna(0.0)
+
+for col in ["task_exposure_mean", "task_exposure_importance_weighted"]:
+    scores[col] = scores[col].clip(0, 1).astype(float)
+
+print(f"score_task_exposure: {len(scores)} occupations")
+print(f"  task_exposure_mean: mean={scores['task_exposure_mean'].mean():.4f}")
+print(f"  task_exposure_importance_weighted: mean={scores['task_exposure_importance_weighted'].mean():.4f}")
+
+# %% [markdown]
+# ## Save detailed task breakdown (for analysis, not part of OnetScoreSet)
+
+# %%
+#|export
+detail_records = []
+for onet_code, group in results_df.groupby("onet_code"):
+    n = len(group)
+    detail_records.append({
+        "onet_code": onet_code,
+        "n_tasks": n,
+        "n_level_0": int((group["exposure"] == 0).sum()),
+        "n_level_1": int((group["exposure"] == 1).sum()),
+        "n_level_2": int((group["exposure"] == 2).sum()),
+        "pct_level_0": float((group["exposure"] == 0).sum()) / n * 100,
+        "pct_level_1": float((group["exposure"] == 1).sum()) / n * 100,
+        "pct_level_2": float((group["exposure"] == 2).sum()) / n * 100,
+        "mean_confidence": float(group["confidence"].mean()),
+    })
+
+details_df = pd.DataFrame(detail_records)
+details_df.to_parquet(output_dir / "task_details.parquet", index=False)
+print(f"score_task_exposure: wrote {output_dir / 'task_details.parquet'}")
+
+# %% [markdown]
+# ## Save OnetScoreSet and return
+
+# %%
+#|export
+score_set = OnetScoreSet(name="task_exposure", scores=scores)
+score_set.save(output_dir)
+print(f"score_task_exposure: wrote {output_dir / 'scores.parquet'}")
+
+True #|func_return_line
+
+# %% [markdown]
+# ## Sample output
+
+# %%
+merged = scores.merge(
+    onet_targets[["O*NET-SOC Code", "Title"]],
+    left_on="onet_code", right_on="O*NET-SOC Code", how="left",
+)
+
+print(f"\nTop 10 most task-exposed occupations:")
+top = merged.nlargest(10, "task_exposure_mean")
+for _, row in top.iterrows():
+    print(f"  {row['onet_code']}  mean={row['task_exposure_mean']:.3f}  "
+          f"imp_w={row['task_exposure_importance_weighted']:.3f}  {row['Title']}")
+
+print(f"\nBottom 10 least task-exposed occupations:")
+bot = merged.nsmallest(10, "task_exposure_mean")
+for _, row in bot.iterrows():
+    print(f"  {row['onet_code']}  mean={row['task_exposure_mean']:.3f}  "
+          f"imp_w={row['task_exposure_importance_weighted']:.3f}  {row['Title']}")
