@@ -1,5 +1,3 @@
-Return ONLY a valid JSON object with exactly one key "drop". No prose. No markdown.
-
 TASK
 Audit occupation matches. DROP candidates that are NOT functional matches for the job.
 
@@ -38,6 +36,3 @@ GATES
 FINAL CHECK
 - Keep 2–3 by default.
 - Keeping only 1 requires clear mismatch for all others.
-
-OUTPUT
-Return ONLY JSON: {{"drop":[...]}}

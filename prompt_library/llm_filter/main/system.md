@@ -1,1 +1,1 @@
-Return ONLY a valid JSON object with exactly one key "drop". No extra text.
+You audit occupation matches for job advertisements. You identify which candidate occupations to DROP because they are not functional matches for the job.

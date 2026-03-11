@@ -215,6 +215,7 @@ async def _work_fn(chunk_ids):
         model=llm_model,
         system_message=SYSTEM_PROMPT,
         max_new_tokens=max_new_tokens,
+        json_schema=FilterResponseModel.model_json_schema(),
     )
 
     records = []
