@@ -25,9 +25,6 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-from nblite import nbl_export; nbl_export();
-
-# %%
 #|default_exp nodes.cosine_match
 #|export_as_func true
 
