@@ -563,6 +563,21 @@ Edge format: `"source_str": "nodeA.__signal_epoch_finished__"` → `"target_str"
 
 Ports: `in_0` (input), `out_0`, `out_1`, ... `out_{N-1}` (outputs). Each incoming packet is replicated to all output ports. Optional `copy_mode`: `"none"` (default, same reference), `"shallow"`, or `"deep"`.
 
+**Fan-in / synchronization barrier:** Use a **join node** (`netrun.node_factories.join`) to wait for packets on multiple input ports before proceeding. The join fires once all ports have received their required packets, then emits a single dict on the `out` port.
+
+```json
+{
+  "name": "join_scores",
+  "factory": "netrun.node_factories.join",
+  "factory_args": { "ports": ["presence", "felten", "task_exposure"] },
+  "type": "node"
+}
+```
+
+- **List form:** `"ports": ["a", "b", "c"]` — each port collects 1 packet. Output: `{"a": val, "b": val, "c": val}`.
+- **Dict form:** `"ports": {"data": 1, "batch": 3}` — port "batch" collects 3 packets into a list. Output: `{"data": scalar, "batch": [v1, v2, v3]}`.
+- Single output port: `out`.
+
 ### Validating Config Changes
 
 **Always run `netrun validate` after modifying `netrun.json`:**
