@@ -8,7 +8,7 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 9 nodes and 8 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
+The pipeline is defined in `config/netrun.json`. It currently contains 11 nodes (10 function nodes + 1 broadcast) and 10 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
 
 ```
   fetch_onet (run_on_startup)
@@ -17,24 +17,25 @@ The pipeline is defined in `config/netrun.json`. It currently contains 9 nodes a
   prepare_onet_targets
      │ signal: epoch_finished
      ▼
-  embed_onet ─────────────┐
-     │ signal: epoch_fin.  │ out (bool)
-     │                     │
-                           ▼
-  fetch_adzuna ──► ... ──► cosine_match
-     │ signal: epoch_fin.  ▲        │
-     ▼                     │ ad_ids  │ ad_ids
-  sample_ads              │        ▼
-     │ ad_ids              │   llm_filter_candidates
-     ▼                     │
-  llm_summarise           │
-     │ successful_ad_ids   │
-     ▼                     │
-  embed_ads ──────────────┘
-     │ ad_ids
+  broadcast_onet_ready (broadcast, 1→2)
+     ├── out_0 ──────────────┐
+     │                       ▼
+     │                  embed_onet
+     │                       │ out (bool)
+     │                       ▼
+     │                  cosine_match ◄── embed_ads (ad_ids)
+     │                       │ ad_ids
+     │                       ▼
+     │                  llm_filter_candidates
+     │
+     └── out_1 ──────────────┐
+                             ▼
+                        build_aspectt_vectors
+
+  fetch_adzuna ──► sample_ads ──► llm_summarise ──► embed_ads
 ```
 
-### Nodes (9 total, no subgraphs)
+### Nodes (11 total: 10 function + 1 broadcast)
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `epoch_finished`.
 - `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
 - `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
@@ -44,10 +45,31 @@ The pipeline is defined in `config/netrun.json`. It currently contains 9 nodes a
 - `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
 - `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ad_ids` (list[int] from embed_ads), `onet_done` (bool from embed_onet). Output: `ad_ids` (list[int]). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Node vars: `cosine_alpha` (float).
 - `llm_filter_candidates` — LLM negative selection to filter cosine match candidates. For each ad, builds a prompt with job context (title, sector, domain, tasks, raw description excerpt) and candidate occupations. LLM identifies which candidates to DROP, keeping 2-3 functional matches. Input: `ad_ids` (list[int] from cosine_match). Output: `ad_ids` (list[int]). Uses `run_batched` with `ResultStore` for incremental DuckDB writes and resume support. Writes `filtered_matches.parquet` to `store/pipeline/{run_name}/llm_filter/`. Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars. Node vars: `filter_resume` (bool), `filter_max_retries` (int).
+- `broadcast_onet_ready` — Broadcast node (factory: `netrun.node_factories.broadcast`, `num_outputs: 2`). Fans out `prepare_onet_targets` `epoch_finished` signal to both `embed_onet` and `build_aspectt_vectors`.
+- `build_aspectt_vectors` — Build ASPECTT numeric vectors (Abilities, Skills, Knowledge, Work Activities) from O\*NET database tables. Reads `onet_targets.parquet` for filtered occupation codes, loads 4 O\*NET tables, pivots each by Level (LV) and Importance (IM) scales into ~157-dimensional feature vectors per occupation. Writes `aspectt_vectors.npz` to `store/pipeline/{run_name}/aspectt_vectors/`. Triggered by `prepare_onet_targets` `epoch_finished` signal. Runs in parallel with the ad processing branch.
 
 ### Planned pipeline stages (not yet implemented)
 
 The full pipeline will eventually include exposure scoring and index generation stages. See `_dev/aisi_demo_pipeline_analysis.md` for the full plan.
+
+### Node Storage Convention
+
+Each node stores its outputs under `store/pipeline/{run_name}/{node_name}/`, where `{node_name}` **must exactly match** the node's name in `netrun.json`. For example, `llm_filter_candidates` stores to `const.pipeline_store_path / run_name / "llm_filter_candidates"`.
+
+```
+store/pipeline/{run_name}/
+├── llm_summarise/           # DuckDB (ResultStore) — incremental LLM results
+├── embed_ads/               # .npy — dense embedding arrays
+├── embed_onet/              # .npy — dense embedding arrays
+├── cosine_match/            # .parquet — tabular match results
+├── llm_filter_candidates/   # DuckDB (ResultStore) + .parquet — LLM responses + filtered matches
+└── build_aspectt_vectors/   # .npz — numeric feature vectors
+```
+
+Storage format guidelines:
+- **DuckDB** (via `ResultStore`): Nodes with incremental/transactional writes and resume/retry (LLM processing nodes)
+- **Parquet**: Final tabular outputs read downstream (match results, filtered matches)
+- **NumPy** (`.npy`/`.npz`): Dense numeric arrays (embeddings, feature vectors)
 
 ### Node Function Paths
 
@@ -405,7 +427,7 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 │   ├── const.pct.py          # Path constants
 │   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
 │   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (8 nodes)
+│   └── nodes/                # Node functions (10 nodes)
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
@@ -527,6 +549,29 @@ Signals are output ports that fire automatically on lifecycle events. Controls a
 **Valid control types:** `start_node`, `start_epoch`, `enable`, `disable`, `cancel_epoch`, `cancel_all_epochs`, `reset_epoch_count`, `set_epoch_count`, `stop_node`
 
 Edge format: `"source_str": "nodeA.__signal_epoch_finished__"` → `"target_str": "nodeB.__control_start_epoch__"`
+
+**Fan-out restriction:** Netrun forbids connecting one output port to multiple input ports. Use a **broadcast node** (`netrun.node_factories.broadcast`) for fan-out:
+
+```json
+{
+  "name": "broadcast_my_signal",
+  "factory": "netrun.node_factories.broadcast",
+  "factory_args": { "num_outputs": 2 },
+  "type": "node"
+}
+```
+
+Ports: `in_0` (input), `out_0`, `out_1`, ... `out_{N-1}` (outputs). Each incoming packet is replicated to all output ports. Optional `copy_mode`: `"none"` (default, same reference), `"shallow"`, or `"deep"`.
+
+### Validating Config Changes
+
+**Always run `netrun validate` after modifying `netrun.json`:**
+
+```bash
+uv run netrun validate -c config/netrun.json
+```
+
+This catches fan-out violations, missing ports, invalid edges, and other graph errors before runtime. A valid config returns `{"valid": true, ...}`. An invalid config exits with code 1 and lists errors.
 
 ### Worker Pools
 

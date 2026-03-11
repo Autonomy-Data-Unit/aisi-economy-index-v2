@@ -105,7 +105,7 @@ max_retries = ctx.vars["filter_max_retries"]
 SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
 USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
 
-output_dir = const.pipeline_store_path / run_name / "llm_filter"
+output_dir = const.pipeline_store_path / run_name / "llm_filter_candidates"
 output_dir.mkdir(parents=True, exist_ok=True)
 db_path = output_dir / "filter_results.duckdb"
 
@@ -249,7 +249,7 @@ filter_meta = await run_batched(
     max_concurrent=max_concurrent,
     max_retries=max_retries,
     resume=resume,
-    node_name="llm_filter",
+    node_name="llm_filter_candidates",
     print_fn=print,
 )
 store.close()

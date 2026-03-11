@@ -74,7 +74,7 @@
             "descriptionExpanded": true,
             "position": {
               "x": 80,
-              "y": 520
+              "y": 560
             }
           }
         },
@@ -172,8 +172,8 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/prepare_onet_targets.py",
           "ui": {
             "position": {
-              "x": 380,
-              "y": 520
+              "x": 360,
+              "y": 560
             },
             "descriptionExpanded": false
           }
@@ -341,6 +341,54 @@
           "func": "ai_index.nodes.llm_filter_candidates.main"
         },
         "type": "node"
+      },
+      {
+        "name": "broadcast_onet_ready",
+        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet and build_aspectt_vectors.",
+        "extra": {
+          "ui": {
+            "shape": "triangle-left",
+            "hideLabel": true,
+            "hideDescription": true,
+            "hidePortNames": true,
+            "position": {
+              "x": 720,
+              "y": 600
+            }
+          }
+        },
+        "factory": "netrun.node_factories.broadcast",
+        "factory_args": {
+          "num_outputs": 2
+        },
+        "type": "node"
+      },
+      {
+        "name": "build_aspectt_vectors",
+        "description": "Build ASPECTT numeric vectors from O*NET database tables.",
+        "execution_config": {
+          "signals": [
+            "epoch_finished"
+          ],
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/build_aspectt_vectors.py",
+          "ui": {
+            "position": {
+              "x": 1100,
+              "y": 660
+            },
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.build_aspectt_vectors.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
@@ -366,7 +414,17 @@
       },
       {
         "source_str": "prepare_onet_targets.__signal_epoch_finished__",
+        "target_str": "broadcast_onet_ready.in_0",
+        "dependency": false
+      },
+      {
+        "source_str": "broadcast_onet_ready.out_0",
         "target_str": "embed_onet.__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_str": "broadcast_onet_ready.out_1",
+        "target_str": "build_aspectt_vectors.__control_start_epoch__",
         "dependency": false
       },
       {
