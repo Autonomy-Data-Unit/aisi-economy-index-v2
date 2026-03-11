@@ -572,7 +572,7 @@
               "x": 1840,
               "y": 980
             },
-            "descriptionExpanded": true,
+            "descriptionExpanded": false,
             "dimensions": {
               "width": 281,
               "height": 128
@@ -720,7 +720,7 @@
           "id": "label_2",
           "position": {
             "x": 160,
-            "y": 420
+            "y": 460
           },
           "width": 280,
           "height": 60,
