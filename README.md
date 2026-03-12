@@ -12,7 +12,7 @@ The pipeline has three stages, orchestrated as a 20-node DAG via [netrun](https:
 
 **Index construction** -- Map occupation-level scores to individual ads via weighted averaging, then aggregate by Local Authority District.
 
-[View interactive pipeline graph](https://htmlpreview.github.io/?https://github.com/Autonomy-Data-Unit/aisi-economy-index-v2/blob/main/docs/aisi_index_net.html)
+[View interactive pipeline graph]([https://htmlpreview.github.io/?https://github.com/Autonomy-Data-Unit/aisi-economy-index-v2/blob/main/docs/aisi_index_net.html](https://htmlpreview.github.io/?https://github.co))
 
 ```
 fetch_adzuna -> sample_ads -> llm_summarise -> embed_ads -----> cosine_match -> llm_filter -> compute_job_ad_exposure -> aggregate_geo
