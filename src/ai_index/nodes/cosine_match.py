@@ -51,7 +51,19 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     
     
     def _weighted_merge(chunk_ad_ids, role_results, task_results):
-        """Merge role and task cosine results with weighted scoring for a chunk."""
+        """Merge role and task cosine results with weighted scoring for a chunk.
+    
+        Each ad has two independent top-K lists: one from role embeddings and one
+        from taskskill embeddings. The same O*NET occupation may appear in both
+        lists. This function unions the two candidate sets, keeping both scores
+        when an occupation appears in both (and 0.0 for the missing channel when
+        it appears in only one). The final combined score is:
+    
+            combined = alpha * role_score + (1 - alpha) * taskskill_score
+    
+        The union may contain up to 2*topk candidates; we take the final top-K
+        by combined score.
+        """
         role_indices = role_results["indices"]
         role_scores = role_results["scores"]
         task_indices = task_results["indices"]
@@ -59,7 +71,9 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     
         rows = []
         for i in range(len(chunk_ad_ids)):
-            # Build lookup: onet_idx -> [role_score, task_score]
+            # Union role and task candidates. When the same O*NET occupation
+            # appears in both top-K lists, combine its role and task scores;
+            # when it appears in only one, the other score defaults to 0.0.
             candidates = {}
             for j in range(topk):
                 idx = int(role_indices[i, j])
