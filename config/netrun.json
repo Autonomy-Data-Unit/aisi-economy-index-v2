@@ -73,8 +73,13 @@
           "ui": {
             "descriptionExpanded": true,
             "position": {
-              "x": 80,
-              "y": 560
+              "x": -40,
+              "y": 540
+            },
+            "headerColor": "#363636",
+            "dimensions": {
+              "width": 212,
+              "height": 180
             }
           }
         },
@@ -98,14 +103,14 @@
         "extra": {
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_adzuna.py",
           "ui": {
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "position": {
-              "x": -40,
+              "x": -80,
               "y": 80
             },
             "dimensions": {
-              "width": 170,
-              "height": 182
+              "width": 250,
+              "height": 242
             },
             "headerColor": "#0084ff"
           }
@@ -129,7 +134,7 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/sample_ads.py",
           "ui": {
             "position": {
-              "x": 200,
+              "x": 220,
               "y": 80
             },
             "dimensions": {
@@ -172,10 +177,11 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/prepare_onet_targets.py",
           "ui": {
             "position": {
-              "x": 360,
-              "y": 560
+              "x": 260,
+              "y": 540
             },
-            "descriptionExpanded": false
+            "descriptionExpanded": true,
+            "headerColor": "#363636"
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -203,10 +209,10 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_summarise.py",
           "ui": {
             "position": {
-              "x": 500,
+              "x": 540,
               "y": 80
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "dimensions": {
               "width": 320,
               "height": 140
@@ -237,13 +243,13 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_ads.py",
           "ui": {
             "position": {
-              "x": 900,
-              "y": 140
+              "x": 940,
+              "y": 120
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "dimensions": {
-              "width": 285,
-              "height": 140
+              "width": 325,
+              "height": 180
             },
             "headerColor": "#0084ff"
           }
@@ -269,13 +275,13 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_onet.py",
           "ui": {
             "position": {
-              "x": 900,
+              "x": 880,
               "y": 360
             },
             "descriptionExpanded": true,
             "dimensions": {
-              "width": 298,
-              "height": 130
+              "width": 338,
+              "height": 190
             },
             "headerColor": "#0084ff"
           }
@@ -306,11 +312,15 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/cosine_match.py",
           "ui": {
             "position": {
-              "x": 1300,
-              "y": 240
+              "x": 1320,
+              "y": 160
             },
-            "descriptionExpanded": false,
-            "headerColor": "#0084ff"
+            "descriptionExpanded": true,
+            "headerColor": "#0084ff",
+            "dimensions": {
+              "width": 282,
+              "height": 240
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -338,10 +348,10 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_filter_candidates.py",
           "ui": {
             "position": {
-              "x": 1600,
-              "y": 240
+              "x": 1680,
+              "y": 180
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "headerColor": "#0084ff"
           }
         },
@@ -367,7 +377,8 @@
             "dimensions": {
               "width": 150,
               "height": 80
-            }
+            },
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.broadcast",
@@ -419,10 +430,10 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_aspectt_vectors.py",
           "ui": {
             "position": {
-              "x": 1900,
-              "y": 440
+              "x": 1800,
+              "y": 500
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "headerColor": "#0084ff"
           }
         },
@@ -450,8 +461,8 @@
             "descriptionExpanded": true,
             "headerColor": "#009e7e",
             "dimensions": {
-              "width": 237,
-              "height": 142
+              "width": 337,
+              "height": 202
             }
           }
         },
@@ -480,13 +491,13 @@
           "ui": {
             "position": {
               "x": 1100,
-              "y": 1060
+              "y": 1140
             },
             "descriptionExpanded": true,
             "headerColor": "#009e7e",
             "dimensions": {
-              "width": 237,
-              "height": 142
+              "width": 337,
+              "height": 182
             }
           }
         },
@@ -516,13 +527,13 @@
           "ui": {
             "position": {
               "x": 1100,
-              "y": 1240
+              "y": 1380
             },
             "descriptionExpanded": true,
             "headerColor": "#009e7e",
             "dimensions": {
-              "width": 237,
-              "height": 128
+              "width": 337,
+              "height": 208
             }
           }
         },
@@ -543,8 +554,8 @@
               "y": 1060
             },
             "dimensions": {
-              "width": 170,
-              "height": 160
+              "width": 210,
+              "height": 200
             },
             "portGroups": {
               "in:__all__": false
@@ -573,10 +584,10 @@
               "x": 1840,
               "y": 980
             },
-            "descriptionExpanded": false,
+            "descriptionExpanded": true,
             "dimensions": {
-              "width": 281,
-              "height": 128
+              "width": 361,
+              "height": 188
             },
             "headerColor": "#009e7e"
           }
@@ -597,13 +608,14 @@
             "hideDescription": true,
             "hidePortNames": true,
             "position": {
-              "x": 1900,
+              "x": 2100,
               "y": 240
             },
             "dimensions": {
               "width": 150,
               "height": 80
-            }
+            },
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.broadcast",
@@ -626,15 +638,44 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_exposure.py",
           "ui": {
             "position": {
-              "x": 2380,
+              "x": 2420,
               "y": 600
             },
-            "descriptionExpanded": true
+            "descriptionExpanded": true,
+            "headerColor": "#ba0808",
+            "dimensions": {
+              "width": 388,
+              "height": 220
+            }
           }
         },
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.compute_job_ad_exposure.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "aggregate_geo",
+        "description": "Aggregate ad-level AI exposure scores by Local Authority District (LAD22CD).",
+        "extra": {
+          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/aggregate_geo.py",
+          "ui": {
+            "position": {
+              "x": 2900,
+              "y": 600
+            },
+            "descriptionExpanded": true,
+            "headerColor": "#ba0808",
+            "dimensions": {
+              "width": 268,
+              "height": 222
+            }
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.aggregate_geo.main"
         },
         "type": "node"
       }
@@ -749,6 +790,11 @@
         "source_str": "combine_onet_exposure.out",
         "target_str": "compute_job_ad_exposure.exposure_scores",
         "dependency": false
+      },
+      {
+        "source_str": "compute_job_ad_exposure.ad_ids",
+        "target_str": "aggregate_geo.ad_ids",
+        "dependency": false
       }
     ],
     "extra": {
@@ -766,7 +812,9 @@
             "command": "$DEFAULT_CMD $PROJECT_ROOT/nbs/ai_index/nodes/$NODE_NAME.ipynb"
           }
         ],
-        "defaultCmd": "code"
+        "defaultCmd": "code",
+        "nodeTitleFontSize": 20,
+        "nodeDescFontSize": 16
       },
       "decorations": [
         {
@@ -786,7 +834,7 @@
         {
           "id": "label_2",
           "position": {
-            "x": 160,
+            "x": 200,
             "y": 460
           },
           "width": 280,
@@ -799,8 +847,8 @@
         {
           "id": "label_1",
           "position": {
-            "x": 1440,
-            "y": 800
+            "x": 1540,
+            "y": 780
           },
           "width": 400,
           "height": 120,
@@ -809,6 +857,20 @@
           "text": "O*NET exposure scores",
           "fontSize": 40,
           "fontColor": "#009e7e"
+        },
+        {
+          "id": "label_1_1",
+          "position": {
+            "x": 2580,
+            "y": 440
+          },
+          "width": 400,
+          "height": 120,
+          "decorationType": "label",
+          "label": "label_1_1",
+          "text": "Construct the index",
+          "fontSize": 40,
+          "fontColor": "#ba0808"
         }
       ]
     }
