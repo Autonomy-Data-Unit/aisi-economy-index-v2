@@ -38,6 +38,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
     resume = ctx.vars["summarise_resume"]
     max_retries = ctx.vars["summarise_max_retries"]
+    raise_on_failure = ctx.vars["summarise_raise_on_failure"]
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
     
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
@@ -100,6 +101,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
         resume=resume,
         node_name="llm_summarise",
         print_fn=print,
+        raise_on_failure=raise_on_failure,
     )
     store.close()
     print(f"llm_summarise: wrote {const.rel(db_path)}")

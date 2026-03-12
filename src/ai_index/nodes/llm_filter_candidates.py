@@ -17,7 +17,7 @@ class FilterResponseModel(BaseModel):
         return v
 
 async def main(ctx, print, ad_ids: list[int]) -> {
-    'ad_ids': list[int]
+    'successful_ad_ids': list[int]
 }:
     """Run LLM negative selection to filter cosine match candidates."""
     import duckdb
@@ -36,6 +36,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
     resume = ctx.vars["filter_resume"]
     max_retries = ctx.vars["filter_max_retries"]
+    raise_on_failure = ctx.vars["filter_raise_on_failure"]
     
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
     USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
@@ -154,6 +155,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         resume=resume,
         node_name="llm_filter_candidates",
         print_fn=print,
+        raise_on_failure=raise_on_failure,
     )
     store.close()
     print(f"llm_filter: wrote {const.rel(db_path)}")

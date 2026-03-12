@@ -26,12 +26,14 @@ cosine_chunk_size = 50000
 [defaults.llm_summarise]
 summarise_resume = true
 summarise_max_retries = 0
+summarise_raise_on_failure = false
 system_prompt = "llm_summarise/main/system"
 user_prompt = "llm_summarise/main/user"
 
 [defaults.llm_filter_candidates]
 filter_resume = true
 filter_max_retries = 0
+filter_raise_on_failure = false
 system_prompt = "llm_filter/main/system"
 user_prompt = "llm_filter/main/user"
 

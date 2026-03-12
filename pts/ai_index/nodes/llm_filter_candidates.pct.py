@@ -59,7 +59,7 @@ class FilterResponseModel(BaseModel):
 # %%
 #|set_func_signature
 async def main(ctx, print, ad_ids: list[int]) -> {
-    'ad_ids': list[int]
+    'successful_ad_ids': list[int]
 }:
     """Run LLM negative selection to filter cosine match candidates."""
     ...
@@ -102,6 +102,7 @@ max_new_tokens = ctx.vars["llm_max_new_tokens"]
 max_concurrent = ctx.vars["llm_max_concurrent_batches"]
 resume = ctx.vars["filter_resume"]
 max_retries = ctx.vars["filter_max_retries"]
+raise_on_failure = ctx.vars["filter_raise_on_failure"]
 
 SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
 USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
@@ -243,6 +244,7 @@ filter_meta = await run_batched(
     resume=resume,
     node_name="llm_filter_candidates",
     print_fn=print,
+    raise_on_failure=raise_on_failure,
 )
 store.close()
 print(f"llm_filter: wrote {const.rel(db_path)}")

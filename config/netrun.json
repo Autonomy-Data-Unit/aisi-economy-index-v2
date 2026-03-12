@@ -201,6 +201,9 @@
             "summarise_max_retries": {
               "type": "int"
             },
+            "summarise_raise_on_failure": {
+              "type": "bool"
+            },
             "system_prompt": {},
             "user_prompt": {}
           }
@@ -339,6 +342,9 @@
             },
             "filter_max_retries": {
               "type": "int"
+            },
+            "filter_raise_on_failure": {
+              "type": "bool"
             },
             "system_prompt": {},
             "user_prompt": {}
@@ -686,139 +692,162 @@
         "source_node": "fetch_onet",
         "source_port": "__signal_epoch_finished__",
         "target_node": "prepare_onet_targets",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "fetch_adzuna",
         "source_port": "__signal_epoch_finished__",
         "target_node": "sample_ads",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "sample_ads",
         "source_port": "ad_ids",
         "target_node": "llm_summarise",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "llm_summarise",
         "source_port": "successful_ad_ids",
         "target_node": "embed_ads",
-        "target_port": "successful_ad_ids"
+        "target_port": "successful_ad_ids",
+        "dependency": false
       },
       {
         "source_node": "prepare_onet_targets",
         "source_port": "__signal_epoch_finished__",
         "target_node": "broadcast_onet_ready",
-        "target_port": "in_0"
+        "target_port": "in_0",
+        "dependency": false
       },
       {
         "source_node": "broadcast_onet_ready",
         "source_port": "out_0",
         "target_node": "embed_onet",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "broadcast_onet_ready",
         "source_port": "out_1",
         "target_node": "build_aspectt_vectors",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "embed_ads",
         "source_port": "ad_ids",
         "target_node": "cosine_match",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "embed_onet",
         "source_port": "out",
         "target_node": "cosine_match",
-        "target_port": "onet_done"
+        "target_port": "onet_done",
+        "dependency": false
       },
       {
         "source_node": "cosine_match",
         "source_port": "ad_ids",
         "target_node": "llm_filter_candidates",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "llm_filter_candidates",
-        "source_port": "ad_ids",
+        "source_port": "successful_ad_ids",
         "target_node": "broadcast_filter_done",
-        "target_port": "in_0"
+        "target_port": "in_0",
+        "dependency": false
       },
       {
         "source_node": "broadcast_filter_done",
         "source_port": "out_0",
         "target_node": "compute_job_ad_aspectt_vectors",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "broadcast_filter_done",
         "source_port": "out_1",
         "target_node": "compute_job_ad_exposure",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "build_aspectt_vectors",
         "source_port": "out",
         "target_node": "compute_job_ad_aspectt_vectors",
-        "target_port": "aspectt_done"
+        "target_port": "aspectt_done",
+        "dependency": false
       },
       {
         "source_node": "broadcast_onet_ready",
         "source_port": "out_2",
         "target_node": "score_presence",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "broadcast_onet_ready",
         "source_port": "out_3",
         "target_node": "score_felten",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "broadcast_onet_ready",
         "source_port": "out_4",
         "target_node": "score_task_exposure",
-        "target_port": "__control_start_epoch__"
+        "target_port": "__control_start_epoch__",
+        "dependency": false
       },
       {
         "source_node": "score_presence",
         "source_port": "out",
         "target_node": "join_scores",
-        "target_port": "presence"
+        "target_port": "presence",
+        "dependency": false
       },
       {
         "source_node": "score_felten",
         "source_port": "out",
         "target_node": "join_scores",
-        "target_port": "felten"
+        "target_port": "felten",
+        "dependency": false
       },
       {
         "source_node": "score_task_exposure",
         "source_port": "out",
         "target_node": "join_scores",
-        "target_port": "task_exposure"
+        "target_port": "task_exposure",
+        "dependency": false
       },
       {
         "source_node": "join_scores",
         "source_port": "out",
         "target_node": "combine_onet_exposure",
-        "target_port": "score_dfs"
+        "target_port": "score_dfs",
+        "dependency": false
       },
       {
         "source_node": "combine_onet_exposure",
         "source_port": "out",
         "target_node": "compute_job_ad_exposure",
-        "target_port": "exposure_scores"
+        "target_port": "exposure_scores",
+        "dependency": false
       },
       {
         "source_node": "compute_job_ad_exposure",
         "source_port": "ad_ids",
         "target_node": "aggregate_geo",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       }
     ],
     "extra": {
