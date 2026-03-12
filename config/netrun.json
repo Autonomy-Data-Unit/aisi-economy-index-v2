@@ -312,7 +312,7 @@
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/cosine_match.py",
           "ui": {
             "position": {
-              "x": 1320,
+              "x": 1340,
               "y": 160
             },
             "descriptionExpanded": true,
@@ -391,6 +391,7 @@
         "name": "build_aspectt_vectors",
         "description": "Build ASPECTT numeric vectors from O*NET database tables.",
         "execution_config": {
+          "enabled": false,
           "signals": [
             "epoch_finished"
           ],

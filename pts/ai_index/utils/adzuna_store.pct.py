@@ -67,7 +67,7 @@ _CAST_IF_NUMERIC = {
 
 import time
 
-def get_adzuna_conn(read_only: bool = False, *, timeout: float = 60, poll_interval: float = 2) -> duckdb.DuckDBPyConnection:
+def get_adzuna_conn(read_only: bool = False, *, timeout: float = 300, poll_interval: float = 2) -> duckdb.DuckDBPyConnection:
     """Open a DuckDB connection to the Adzuna database.
 
     If the database is locked by another process, retries until timeout.
