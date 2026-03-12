@@ -8,68 +8,122 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 11 nodes (10 function nodes + 1 broadcast) and 10 edges. The matching, scoring, and analysis stages are being rebuilt (see `_dev/aisi_demo_pipeline_analysis.md` for the full plan).
+The pipeline is defined in `config/netrun.json`. It currently contains 20 nodes (17 function nodes + 2 broadcast + 1 join) and 23 edges. The pipeline has three main stages: job ad processing (blue), O\*NET exposure scoring (green), and index construction (red).
 
 ```
-  fetch_onet (run_on_startup)
-     │ signal: epoch_finished
-     ▼
-  prepare_onet_targets
-     │ signal: epoch_finished
-     ▼
-  broadcast_onet_ready (broadcast, 1→2)
-     ├── out_0 ──────────────┐
-     │                       ▼
-     │                  embed_onet
-     │                       │ out (bool)
-     │                       ▼
-     │                  cosine_match ◄── embed_ads (ad_ids)
-     │                       │ ad_ids
-     │                       ▼
-     │                  llm_filter_candidates
-     │
-     └── out_1 ──────────────┐
-                             ▼
-                        build_aspectt_vectors
-
-  fetch_adzuna ──► sample_ads ──► llm_summarise ──► embed_ads
+  ┌─── Job Ad Processing ───────────────────────────────────────────────────────┐
+  │                                                                             │
+  │  fetch_adzuna ──► sample_ads ──► llm_summarise ──► embed_ads ──┐            │
+  │                                                                 │            │
+  │  fetch_onet ──► prepare_onet_targets ──► broadcast_onet_ready ──┤            │
+  │                                          (1→5)  │ │ │          │            │
+  │                                                  │ │ │     embed_onet       │
+  │                                                  │ │ │          │            │
+  │                                                  │ │ │     cosine_match      │
+  │                                                  │ │ │          │            │
+  │                                                  │ │ │     llm_filter ──► broadcast_filter_done
+  │                                                  │ │ │                      (1→2)
+  └──────────────────────────────────────────────────┼─┼─┼──────────────────────┘
+                                                     │ │ │
+  ┌─── O*NET Exposure Scoring ───────────────────────┼─┼─┼──────────────────────┐
+  │                                                  │ │ │                       │
+  │  build_aspectt_vectors ◄─────────────────────────┘ │ │                       │
+  │  score_presence ◄──────────────────────────────────┘ │                       │
+  │  score_felten ◄──────────────────────────────────────┤                       │
+  │  score_task_exposure ◄───────────────────────────────┘                       │
+  │       │            │           │                                             │
+  │       └──► join_scores ◄───────┘                                             │
+  │                │                                                             │
+  │         combine_onet_exposure                                                │
+  └──────────────────────────────────────────────────────────────────────────────┘
+                        │
+  ┌─── Index Construction ──────────────────────────────────────────────────────┐
+  │                     │                                                       │
+  │  compute_job_ad_exposure ◄── broadcast_filter_done                          │
+  │         │                                                                   │
+  │    aggregate_geo                                                            │
+  │                                                                             │
+  │  compute_job_ad_aspectt_vectors ◄── broadcast_filter_done (currently disabled)│
+  └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Nodes (11 total: 10 function + 1 broadcast)
+### Nodes (20 total: 17 function + 2 broadcast + 1 join)
+
+**Data ingestion & preparation:**
 - `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `epoch_finished`.
-- `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`.
-- `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=-1`). Output: `ad_ids` (np.ndarray or None).
-- `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars.
-- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. No input/output ports; triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
+- `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`. Node vars: `fetch_years`.
+- `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=0`). Output: `ad_ids`.
+- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. Triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
+
+**Job ad processing (matching):**
+- `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars. Node vars: `summarise_resume` (bool), `summarise_max_retries` (int), `system_prompt`, `user_prompt`.
 - `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model in chunks. Input: `successful_ad_ids`. Output: `ad_ids` (list[int]). Stores embeddings as BLOBs in DuckDB via ResultStore (supports resume). Node vars: `embed_chunk_size` (int).
-- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered by `prepare_onet_targets` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`.
-- `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ad_ids` (list[int] from embed_ads), `onet_done` (bool from embed_onet). Output: `ad_ids` (list[int]). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Node vars: `cosine_alpha` (float).
-- `llm_filter_candidates` — LLM negative selection to filter cosine match candidates. For each ad, builds a prompt with job context (title, sector, domain, tasks, raw description excerpt) and candidate occupations. LLM identifies which candidates to DROP, keeping 2-3 functional matches. Input: `ad_ids` (list[int] from cosine_match). Output: `ad_ids` (list[int]). Uses `run_batched` with `ResultStore` for incremental DuckDB writes and resume support. Writes `filtered_matches.parquet` to `store/pipeline/{run_name}/llm_filter/`. Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars. Node vars: `filter_resume` (bool), `filter_max_retries` (int).
-- `broadcast_onet_ready` — Broadcast node (factory: `netrun.node_factories.broadcast`, `num_outputs: 2`). Fans out `prepare_onet_targets` `epoch_finished` signal to both `embed_onet` and `build_aspectt_vectors`.
-- `build_aspectt_vectors` — Build ASPECTT numeric vectors (Abilities, Skills, Knowledge, Work Activities) from O\*NET database tables. Reads `onet_targets.parquet` for filtered occupation codes, loads 4 O\*NET tables, pivots each by Level (LV) and Importance (IM) scales into ~157-dimensional feature vectors per occupation. Writes `aspectt_vectors.npz` to `store/pipeline/{run_name}/aspectt_vectors/`. Triggered by `prepare_onet_targets` `epoch_finished` signal. Runs in parallel with the ad processing branch.
+- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered via `start_epoch` control from `broadcast_onet_ready`, signals `epoch_finished`.
+- `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ad_ids` (list[int] from embed_ads), `onet_done` (bool from embed_onet). Output: `ad_ids` (list[int]). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Node vars: `cosine_alpha` (float), `cosine_chunk_size` (int).
+- `llm_filter_candidates` — LLM negative selection to filter cosine match candidates. For each ad, builds a prompt with job context (title, sector, domain, tasks, raw description excerpt) and candidate occupations. LLM identifies which candidates to DROP, keeping 2-3 functional matches. Input: `ad_ids` (list[int] from cosine_match). Output: `ad_ids` (list[int]). Uses `run_batched` with `ResultStore` for incremental DuckDB writes and resume support. Writes `filtered_matches.parquet` to `store/pipeline/{run_name}/llm_filter_candidates/`. Node vars: `filter_resume` (bool), `filter_max_retries` (int), `system_prompt`, `user_prompt`.
 
-### Planned pipeline stages (not yet implemented)
+**O\*NET exposure scoring:**
+- `build_aspectt_vectors` — Build ASPECTT numeric vectors (Abilities, Skills, Knowledge, Work Activities) from O\*NET database tables. Reads `onet_targets.parquet` for filtered occupation codes, loads 4 O\*NET tables, pivots each by Level (LV) and Importance (IM) scales into ~157-dimensional feature vectors per occupation. Writes `aspectt_vectors.npz` to `store/inputs/aspectt_vectors/`. Triggered via `start_epoch` control from `broadcast_onet_ready`. Runs in parallel with the ad processing branch and score nodes.
+- `score_presence` — Compute humanness/presence scores per O\*NET occupation across three dimensions: physical, emotional, and creative. Each dimension is defined by curated O\*NET element IDs (Work Context, Work Activities, Skills). Normalized to [0, 1] and averaged. Output: `out` (pd.DataFrame with `onet_code`, `presence_physical`, `presence_emotional`, `presence_creative`, `presence_composite`). Writes to `store/outputs/onet_exposure_scores/score_presence/`. Triggered via `start_epoch` control from `broadcast_onet_ready`.
+- `score_felten` — Compute Felten AIOE (AI Occupational Exposure) scores per O\*NET occupation using the ability-application relatedness methodology from Felten et al. (2021). Uses a progress-weighted average of ability-application relatedness scores across 10 AI applications. Output: `out` (pd.DataFrame with `onet_code`, `felten_score`). Writes to `store/outputs/onet_exposure_scores/score_felten/`. Node vars: `felten_alpha` (float), `felten_scenario` (str). Triggered via `start_epoch` control from `broadcast_onet_ready`.
+- `score_task_exposure` — Classify each O\*NET task statement via LLM into a 3-level AI exposure scale (0=no change, 1=human+LLM collaboration, 2=LLM independent), then aggregate to occupation level. Uses structured JSON output (`TaskExposureModel`). Output: `out` (pd.DataFrame with `onet_code`, `task_exposure_mean`, `task_exposure_importance_weighted`). Writes to `store/outputs/onet_exposure_scores/score_task_exposure/{llm_model}/`. Node vars: `llm_model` (inherited global), `system_prompt`, `user_prompt`. Triggered via `start_epoch` control from `broadcast_onet_ready`.
+- `combine_onet_exposure` — Merge all O\*NET score DataFrames into a single combined exposure table. Receives a dict of `{name: pd.DataFrame}` from `join_scores`. Joins on `onet_code` and saves `scores.csv` to `store/outputs/onet_exposure_scores/`. Output: `out` (pd.DataFrame). No node vars.
 
-The full pipeline will eventually include exposure scoring and index generation stages. See `_dev/aisi_demo_pipeline_analysis.md` for the full plan.
+**Index construction:**
+- `compute_job_ad_exposure` — Map occupation-level exposure scores to individual job ads using filtered match weights. Column-agnostic — computes weighted averages for whatever score columns exist in the combined exposure table. Processes in chunks. Inputs: `ad_ids` (list[int] from `broadcast_filter_done`), `exposure_scores` (pd.DataFrame from `combine_onet_exposure`). Output: `ad_ids` (list[int]). Writes `ad_exposure.parquet` to `store/pipeline/{run_name}/compute_job_ad_exposure/`. Node vars: `exposure_chunk_size` (int).
+- `aggregate_geo` — Aggregate ad-level AI exposure scores by Local Authority District (LAD22CD). Joins `ad_exposure.parquet` with the Adzuna ads table via DuckDB, computes per-LAD mean scores. Outputs `geo_lad.csv` to `store/outputs/{run_name}/`. Input: `ad_ids` (list[int] from `compute_job_ad_exposure`). No node vars beyond `run_name`.
+- `compute_job_ad_aspectt_vectors` (currently **disabled**) — Compute per-ad weighted ASPECTT vectors from filtered occupation matches. Uses `ResultStore` for resume support. Inputs: `ad_ids` (from `broadcast_filter_done`), `aspectt_done` (bool from `build_aspectt_vectors`). Node vars: `aspectt_chunk_size` (int).
+
+**Infrastructure nodes:**
+- `broadcast_onet_ready` — Broadcast node (`num_outputs: 5`). Fans out `prepare_onet_targets` `epoch_finished` signal to `embed_onet`, `build_aspectt_vectors`, `score_presence`, `score_felten`, and `score_task_exposure`.
+- `broadcast_filter_done` — Broadcast node (`num_outputs: 2`). Fans out `llm_filter_candidates` `ad_ids` to `compute_job_ad_aspectt_vectors` and `compute_job_ad_exposure`.
+- `join_scores` — Join node (synchronization barrier). Waits for packets on ports `presence`, `felten`, and `task_exposure` from the three score nodes, then emits a single dict on `out` to `combine_onet_exposure`.
 
 ### Node Storage Convention
 
-Each node stores its outputs under `store/pipeline/{run_name}/{node_name}/`, where `{node_name}` **must exactly match** the node's name in `netrun.json`. For example, `llm_filter_candidates` stores to `const.pipeline_store_path / run_name / "llm_filter_candidates"`.
+Three storage locations, each serving a different purpose:
 
+**`store/inputs/`** — Run-independent source data (shared across all runs):
+```
+store/inputs/
+├── onet/                    # O*NET database (fetch_onet)
+├── onet_targets.parquet     # Filtered O*NET occupations (prepare_onet_targets)
+├── adzuna.duckdb            # Adzuna ads (fetch_adzuna)
+├── aspectt_vectors/         # .npz — ASPECTT feature vectors (build_aspectt_vectors)
+├── lad22_lookup.csv         # ONS LAD22 name lookup table
+└── AIOE_DataAppendix.xlsx   # Felten et al. ability-application matrix
+```
+
+**`store/pipeline/{run_name}/`** — Run-specific pipeline intermediates:
 ```
 store/pipeline/{run_name}/
-├── llm_summarise/           # DuckDB (ResultStore) — incremental LLM results
-├── embed_ads/               # DuckDB (ResultStore) — embeddings as BLOBs, keyed by ad_id
-├── embed_onet/              # .npy — dense embedding arrays
-├── cosine_match/            # .parquet — tabular match results
-├── llm_filter_candidates/   # DuckDB (ResultStore) + .parquet — LLM responses + filtered matches
-└── build_aspectt_vectors/   # .npz — numeric feature vectors
+├── llm_summarise/               # DuckDB (ResultStore) — incremental LLM results
+├── embed_ads/                   # DuckDB (ResultStore) — embeddings as BLOBs
+├── embed_onet/                  # .npy — dense embedding arrays
+├── cosine_match/                # .parquet — tabular match results
+├── llm_filter_candidates/       # DuckDB (ResultStore) + .parquet — filtered matches
+├── compute_job_ad_exposure/     # .parquet — per-ad exposure scores
+└── compute_job_ad_aspectt_vectors/  # DuckDB (ResultStore) — per-ad ASPECTT vectors
+```
+
+**`store/outputs/`** — Final outputs:
+```
+store/outputs/
+├── onet_exposure_scores/        # O*NET occupation-level scores (run-independent)
+│   ├── score_presence/          # .csv — humanness/presence scores
+│   ├── score_felten/            # .csv — Felten AIOE scores
+│   ├── score_task_exposure/     # .csv + .parquet — per-model task exposure
+│   │   └── {llm_model}/        # Subdirectory per LLM model
+│   └── scores.csv              # Combined exposure table (combine_onet_exposure)
+└── {run_name}/                  # Run-specific final outputs
+    └── geo_lad.csv              # LAD-level geographic aggregation (aggregate_geo)
 ```
 
 Storage format guidelines:
 - **DuckDB** (via `ResultStore`): Nodes with incremental/transactional writes and resume/retry (LLM processing nodes)
-- **Parquet**: Final tabular outputs read downstream (match results, filtered matches)
+- **Parquet**: Final tabular outputs read downstream (match results, filtered matches, ad exposure)
 - **NumPy** (`.npy`/`.npz`): Dense numeric arrays (embeddings, feature vectors)
+- **CSV**: Small human-readable outputs (O\*NET scores, geographic aggregations)
 
 ### Node Function Paths
 
@@ -77,7 +131,7 @@ Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nod
 
 ### Old Pipeline Reference
 
-The old pipeline (to be rebuilt) had these stages:
+The old pipeline (now fully rebuilt in v2) had these stages:
 1. **Embedding Generation** — `nbs/isambard/2026_01/00_transformers_for_origin_and_target.ipynb`
 2. **Cosine Similarity Search** — `nbs/isambard/2026_01/01_cosine_sim_target_vs_origin.ipynb`
 3. **LLM Filtering** — `nbs/isambard/2026_01/02_llm_negative_selection.ipynb`
@@ -113,7 +167,7 @@ Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`
 
 ### Key files
 - `pts/ai_index/run_pipeline.pct.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
-- `pts/ai_index/const.pct.py` — Path constants (`store_path`, `inputs_path`, config paths)
+- `pts/ai_index/const.pct.py` — Path constants (`store_path`, `inputs_path`, `outputs_path`, `onet_exposure_scores_path`, `aspectt_vectors_path`, config paths)
 - `config/run_defs.toml` — Run definitions
 - `config/netrun.json` — Pipeline graph with unfilled node_var placeholders
 
@@ -127,8 +181,7 @@ Defines named pipeline configurations. `[defaults]` provides base values; `[runs
 
 ```toml
 [defaults]
-years = ""               # Comma-delimited year filter ("" = all years)
-sample_n = 0             # 0 = full run, N = sample N ads
+sample_n = 10            # N = sample N ads, 0 = full run
 sample_seed = 42
 embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
 cosine_mode = "api"      # "api", "local", or "sbatch"
@@ -145,8 +198,12 @@ fetch_years = "all"
 onet_exclude_public_sector = true
 onet_top_n = 10
 
+[defaults.embed_ads]
+embed_chunk_size = 50000
+
 [defaults.cosine_match]
 cosine_alpha = 0.4               # Role score weight (task weight = 1 - alpha)
+cosine_chunk_size = 50000
 
 [defaults.llm_summarise]
 summarise_resume = true          # Resume from previous partial run
@@ -159,6 +216,21 @@ filter_resume = true             # Resume from previous partial run
 filter_max_retries = 0           # Retry rounds for failed ads
 system_prompt = "llm_filter/main/system"     # Path in prompt_library/
 user_prompt = "llm_filter/main/user"         # Path in prompt_library/
+
+[defaults.compute_job_ad_aspectt_vectors]
+aspectt_chunk_size = 50000
+
+[defaults.compute_job_ad_exposure]
+exposure_chunk_size = 50000
+
+[defaults.score_felten]
+felten_alpha = 0.5
+felten_scenario = "baseline_2025"
+
+[defaults.score_task_exposure]
+llm_model = "gpt-5.2"                                # Override of inherited global
+system_prompt = "score_task_exposure/main/system"
+user_prompt = "score_task_exposure/main/user"
 
 [runs.baseline]          # Inherits all defaults
 [runs.test]              # Quick test (10 ads, otherwise defaults)
@@ -277,7 +349,7 @@ torch_index_url = "https://download.pytorch.org/whl/cu126"
 
 Defines the DAG, node_var placeholders, and cache settings. All node_vars (global and per-node) are declared with types only — no default values. Defaults live in `run_defs.toml`.
 
-Key global node_vars: `years`, `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `llm_max_concurrent_batches`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+Key global node_vars: `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `llm_max_concurrent_batches`, `run_name`, `adzuna_s3_prefix` (from `$env`).
 
 ### Adding new node variables
 
@@ -369,6 +441,9 @@ Model-key-based utility functions used by pipeline nodes. Each function resolves
 
 Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls. Explicit `**kwargs` passed to `llm_generate`/`embed` override TOML config values (via `cfg.update(kwargs)` in `_resolve_model_args`).
 
+### `OnetScoreSet` (scoring.py)
+Standard output format for O\*NET occupation-level score nodes. All score nodes (`score_presence`, `score_felten`, `score_task_exposure`) produce an `OnetScoreSet` — a validated DataFrame with `onet_code` + float score columns in [0, 1]. Provides `.validate()` (checks column types and ranges) and `.save(output_dir)` (writes `scores.csv`).
+
 ### `llm_generate` kwargs passthrough
 All three backends (transformers `LLM`, `VllmLLM`, `ApiLLM`) support `system_message`, `max_new_tokens`, and `json_schema` in their `generate()` method. To use a system prompt from a node, pass it as a kwarg:
 ```python
@@ -430,13 +505,13 @@ Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancella
 │   ├── run_defs.toml         # Run definitions (defaults + named runs)
 │   ├── embed_models.toml     # Embedding model configs
 │   └── llm_models.toml       # LLM model configs
-├── prompt_library/           # Prompt templates (Markdown files)
+├── prompt_library/           # Prompt templates (Markdown files: llm_summarise, llm_filter, score_task_exposure)
 ├── agent-context/            # Reference docs for netrun & nblite
 ├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
 │   ├── const.pct.py          # Path constants
 │   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
 │   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (10 nodes)
+│   └── nodes/                # Node functions (17 nodes)
 ├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
 ├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
 ├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
