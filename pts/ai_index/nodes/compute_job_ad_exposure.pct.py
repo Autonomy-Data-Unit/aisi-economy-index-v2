@@ -10,7 +10,7 @@
 # # nodes.compute_job_ad_exposure
 #
 # Map occupation-level exposure scores to individual job ads using filtered
-# match weights. Column-agnostic — computes weighted averages for whatever
+# match weights. Column-agnostic: computes weighted averages for whatever
 # score columns exist in the combined exposure table.
 #
 # For each job ad, takes its filtered O\*NET occupation matches (2-3 per ad),
@@ -75,7 +75,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 # ## Discover score columns
 #
 # The exposure\_scores DataFrame is small (~861 occupations) and stays in memory.
-# Score columns are discovered dynamically — adding a new score node upstream
+# Score columns are discovered dynamically, so adding a new score node upstream
 # automatically flows through here.
 
 # %%
@@ -122,7 +122,7 @@ for chunk_idx in range(n_chunks):
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no matches)")
         continue
 
-    # Inner join with exposure scores — drops unrecognized onet_codes
+    # Inner join with exposure scores (drops unrecognized onet_codes)
     merged = chunk_matches.merge(exposure_scores, on="onet_code", how="inner")
 
     if merged.empty:
@@ -163,7 +163,7 @@ n_err = n_ads - n_ok
 
 output_path = output_dir / "ad_exposure.parquet"
 results_df.to_parquet(output_path, index=False)
-print(f"compute_job_ad_exposure: done — {n_ok} succeeded, {n_err} failed")
+print(f"compute_job_ad_exposure: done, {n_ok} succeeded, {n_err} failed")
 print(f"  output: {const.rel(output_path)}")
 
 ad_ids #|func_return_line

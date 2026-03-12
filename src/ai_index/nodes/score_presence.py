@@ -106,7 +106,7 @@ def main(ctx, print) -> "pd.DataFrame":
     
     def _load_onet_table(name):
         return pd.read_csv(extract_dir / f"{name}.txt", sep="\t", header=0, encoding="utf-8", dtype=str)
-    # Skills (also used for Abilities — same column structure)
+    # Skills (also used for Abilities, same column structure)
     skills_raw = _load_onet_table("Skills")
     skills_df = skills_raw[skills_raw["O*NET-SOC Code"].isin(valid_codes)].copy()
     skills_df["Data Value"] = pd.to_numeric(skills_df["Data Value"], errors="coerce")

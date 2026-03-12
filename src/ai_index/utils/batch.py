@@ -50,7 +50,7 @@ async def run_batched(
     Args:
         all_ids: Complete list of IDs to process.
         store: ResultStore for incremental persistence.
-        work_fn: ``async (chunk_ids: list) -> pd.DataFrame`` — processes a
+        work_fn: ``async (chunk_ids: list) -> pd.DataFrame`` that processes a
             chunk of IDs and returns a DataFrame matching the store schema.
             Must include the store's id and error columns.
         batch_size: Number of IDs per chunk.
@@ -72,7 +72,7 @@ async def run_batched(
         remaining_ids = [i for i in all_ids if i not in done_ids]
         n_skipped = len(all_ids) - len(remaining_ids)
         if n_skipped:
-            print_fn(f"{node_name}: resuming — {n_skipped}/{len(all_ids)} already done, {len(remaining_ids)} remaining")
+            print_fn(f"{node_name}: resuming, {n_skipped}/{len(all_ids)} already done, {len(remaining_ids)} remaining")
     else:
         store.clear()
         remaining_ids = list(all_ids)
@@ -94,7 +94,7 @@ async def run_batched(
             df = await work_fn(chunk_ids)
             n_ok = int((df[store.error_col].isna()).sum())
             n_err = len(df) - n_ok
-            print_fn(f"{node_name}: chunk {chunk_num} done — {n_ok} ok, {n_err} failed")
+            print_fn(f"{node_name}: chunk {chunk_num} done, {n_ok} ok, {n_err} failed")
             return df
 
     for coro in asyncio.as_completed([
@@ -111,7 +111,7 @@ async def run_batched(
             print_fn(f"{node_name}: no failures to retry")
             break
 
-        print_fn(f"{node_name}: retry {retry_num}/{max_retries} — {len(retry_ids)} failed")
+        print_fn(f"{node_name}: retry {retry_num}/{max_retries}, {len(retry_ids)} failed")
         store.delete_ids(retry_ids)
 
         retry_chunks = [
@@ -131,7 +131,7 @@ async def run_batched(
 
         retry_ok = len([i for i in retry_ids if i not in set(store.failed_ids())])
         retry_err = len(retry_ids) - retry_ok
-        print_fn(f"{node_name}: retry {retry_num} done — {retry_ok} recovered, {retry_err} still failed")
+        print_fn(f"{node_name}: retry {retry_num} done, {retry_ok} recovered, {retry_err} still failed")
 
     # Summary scoped to all_ids
     all_ids_set = set(all_ids)

@@ -90,7 +90,7 @@ aspectt_importance = aspectt["importance"]  # (n_occ, n_features) float32
 code_to_idx = {code: i for i, code in enumerate(aspectt_codes)}
 
 n_features = aspectt_levels.shape[1]
-print(f"compute_ad_aspectt: loaded ASPECTT vectors — {len(aspectt_codes)} occupations, {n_features} features")
+print(f"compute_ad_aspectt: loaded ASPECTT vectors, {len(aspectt_codes)} occupations, {n_features} features")
 
 # %% [markdown]
 # ## Prepare connections and store
@@ -199,7 +199,7 @@ for chunk_idx in range(n_chunks):
 _matches_conn.close()
 n_ok, n_err = store.counts()
 store.close()
-print(f"compute_ad_aspectt: done — {n_ok} succeeded, {n_err} failed")
+print(f"compute_ad_aspectt: done, {n_ok} succeeded, {n_err} failed")
 print(f"  output: {const.rel(db_path)}")
 
 ad_ids #|func_return_line

@@ -60,7 +60,7 @@ task1 = asyncio.create_task(arun_remote(
 
 await asyncio.sleep(1)
 
-# Submit job 2 (same params — should attach to running job)
+# Submit job 2 (same params, should attach to running job)
 task2 = asyncio.create_task(arun_remote(
     "embed", {"texts": texts}, embed_config,
     job_name="embed", setup=False, time="00:10:00",
@@ -75,7 +75,7 @@ assert np.array_equal(result1['embeddings'], result2['embeddings']), "Results sh
 print("Results are identical!")
 
 # %%
-# Submit job 3 (same params — should return from cache instantly)
+# Submit job 3 (same params, should return from cache instantly)
 import time
 start = time.time()
 result3 = await arun_remote(

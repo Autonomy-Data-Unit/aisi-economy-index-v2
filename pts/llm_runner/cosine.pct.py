@@ -36,8 +36,8 @@ def run_cosine_topk(A: np.ndarray, B: np.ndarray, k: int = 5, *,
 
     Returns:
         Dict with:
-            - "indices": int array of shape (n, k) — indices into B
-            - "scores": float array of shape (n, k) — cosine similarity scores
+            - "indices": int array of shape (n, k), indices into B
+            - "scores": float array of shape (n, k), cosine similarity scores
     """
     if device == "cpu":
         return _cosine_topk_cpu(A, B, k)

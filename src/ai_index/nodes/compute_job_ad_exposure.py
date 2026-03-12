@@ -45,7 +45,7 @@ def main(ctx, print, ad_ids: list[int], exposure_scores: "pd.DataFrame") -> {
             print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no matches)")
             continue
     
-        # Inner join with exposure scores — drops unrecognized onet_codes
+        # Inner join with exposure scores (drops unrecognized onet_codes)
         merged = chunk_matches.merge(exposure_scores, on="onet_code", how="inner")
     
         if merged.empty:
@@ -80,7 +80,7 @@ def main(ctx, print, ad_ids: list[int], exposure_scores: "pd.DataFrame") -> {
     
     output_path = output_dir / "ad_exposure.parquet"
     results_df.to_parquet(output_path, index=False)
-    print(f"compute_job_ad_exposure: done — {n_ok} succeeded, {n_err} failed")
+    print(f"compute_job_ad_exposure: done, {n_ok} succeeded, {n_err} failed")
     print(f"  output: {const.rel(output_path)}")
     
     return ad_ids

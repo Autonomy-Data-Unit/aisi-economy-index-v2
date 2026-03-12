@@ -92,7 +92,7 @@ def _resolve_node_name(config: NetConfig, bare_name: str) -> str:
     resolved = config.graph.resolve(net_config=config)
     all_names = [n.name for n in resolved.nodes]
 
-    # Exact match — return as-is
+    # Exact match, return as-is
     if bare_name in all_names:
         return bare_name
 
@@ -102,7 +102,7 @@ def _resolve_node_name(config: NetConfig, bare_name: str) -> str:
         return matches[0]
     elif len(matches) > 1:
         raise ValueError(
-            f"Ambiguous node name '{bare_name}' — matches multiple nodes: {matches}"
+            f"Ambiguous node name '{bare_name}': matches multiple nodes: {matches}"
         )
 
     raise ValueError(
@@ -131,14 +131,14 @@ def _get_node_func(config: NetConfig, node_name: str):
 
 # %% nbs/dev_utils/utils.ipynb 10
 async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = True) -> dict[str, list]:
-    """Get input salvo for a node — from cache if available, otherwise by running upstream.
+    """Get input salvo for a node. Uses cache if available, otherwise runs upstream.
 
     Returns:
         dict mapping port_name -> list of packet values.
     """
     net = Net(config)
     try:
-        # Source nodes have no input ports — nothing to retrieve
+        # Source nodes have no input ports, nothing to retrieve
         node_info = net.nodes[node_name]
         if not node_info.in_port_names:
             if verbose:
@@ -176,7 +176,7 @@ def _run_async(coro):
     """Run an async coroutine, handling Jupyter's already-running event loop."""
     try:
         asyncio.get_running_loop()
-        # Inside Jupyter or another async context — patch to allow nested run()
+        # Inside Jupyter or another async context, so patch to allow nested run()
         import nest_asyncio
         nest_asyncio.apply()
     except RuntimeError:
@@ -231,7 +231,7 @@ def set_node_func_args(node_name: str, *, run_name: str | None = None, return_ar
     # Retrieve input salvo (cached or computed)
     salvo = _run_async(_get_input_salvo(config, name, verbose=verbose))
 
-    # Extract port values — each port typically has one packet
+    # Extract port values (each port typically has one packet)
     args = {}
     for port_name, values in salvo.items():
         args[port_name] = values[0] if len(values) == 1 else values

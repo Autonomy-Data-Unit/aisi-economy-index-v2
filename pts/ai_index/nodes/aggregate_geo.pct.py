@@ -14,7 +14,7 @@
 # Joins `ad_exposure.parquet` (from `compute_job_ad_exposure`) with the Adzuna
 # ads table to get each ad's LAD22CD, then computes per-LAD mean scores.
 #
-# The entire join + aggregation runs inside DuckDB's columnar engine — no
+# The entire join + aggregation runs inside DuckDB's columnar engine, so no
 # pandas intermediate is needed for the full dataset. Only the ~373-row
 # result set is materialized in memory.
 #
@@ -69,8 +69,8 @@ ad_exposure_path = const.pipeline_store_path / run_name / "compute_job_ad_exposu
 # %% [markdown]
 # ## Discover score columns and aggregate via DuckDB
 #
-# DuckDB handles the entire join + aggregation in its columnar engine —
-# only the ~373-row GROUP BY result is materialized in memory. The parquet
+# DuckDB handles the entire join + aggregation in its columnar engine.
+# Only the ~373-row GROUP BY result is materialized in memory. The parquet
 # file and adzuna database are streamed through without loading into pandas.
 
 # %%
@@ -87,7 +87,7 @@ print(f"aggregate_geo: {len(score_cols)} score columns: {score_cols}")
 # Attach adzuna database (read-only to avoid lock contention)
 conn.execute(f"ATTACH '{const.adzuna_db_path}' AS adzuna (READ_ONLY)")
 
-# Build aggregation SQL — only averages over ads with actual scores (n_matches > 0).
+# Build aggregation SQL. Only averages over ads with actual scores (n_matches > 0).
 # LAD22NM comes from the ONS lookup table (complete coverage) rather than the ads
 # table (which has gaps).
 agg_parts = []
@@ -123,7 +123,7 @@ ORDER BY agg.LAD22CD
 result_df = conn.execute(sql).fetchdf()
 conn.close()
 
-# Coverage stats (derived from result — no second scan)
+# Coverage stats (derived from result, no second scan)
 n_total = len(ad_ids)
 n_with_lad = int(result_df["n_ads"].sum())
 n_without_lad = n_total - n_with_lad

@@ -415,7 +415,7 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
                               config: IsambardConfig | None = None) -> str:
     """Upload via compressed tar + SSH pipe to a content-hashed directory (async).
 
-    Idempotent — skips if `.complete` marker exists on remote.
+    Idempotent: skips if `.complete` marker exists on remote.
     Retries on transient SSH errors (exit code 255).
 
     Args:

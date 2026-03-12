@@ -23,7 +23,7 @@ def main(ctx, print, ad_ids: list[int]) -> None:
     # Attach adzuna database (read-only to avoid lock contention)
     conn.execute(f"ATTACH '{const.adzuna_db_path}' AS adzuna (READ_ONLY)")
     
-    # Build aggregation SQL — only averages over ads with actual scores (n_matches > 0).
+    # Build aggregation SQL. Only averages over ads with actual scores (n_matches > 0).
     # LAD22NM comes from the ONS lookup table (complete coverage) rather than the ads
     # table (which has gaps).
     agg_parts = []
@@ -59,7 +59,7 @@ def main(ctx, print, ad_ids: list[int]) -> None:
     result_df = conn.execute(sql).fetchdf()
     conn.close()
     
-    # Coverage stats (derived from result — no second scan)
+    # Coverage stats (derived from result, no second scan)
     n_total = len(ad_ids)
     n_with_lad = int(result_df["n_ads"].sum())
     n_without_lad = n_total - n_with_lad

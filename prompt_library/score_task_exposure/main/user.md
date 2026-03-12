@@ -11,7 +11,7 @@ Assign exposure = 0 (NO CHANGE) if:
   - The task's core value depends on human judgment, relationships, or accountability in ways that cannot be delegated.
 
 Assign exposure = 1 (HUMAN + LLM COLLABORATION) if:
-  - A frontier LLM agent (as of November 2025: LLM + web search + document retrieval + spreadsheets + simple code) can substantially assist the task — reducing time by ≥30% or noticeably improving quality.
+  - A frontier LLM agent (as of November 2025: LLM + web search + document retrieval + spreadsheets + simple code) can substantially assist the task, reducing time by ≥30% or noticeably improving quality.
   - BUT the human remains essential for: final judgment, quality assurance, contextual adaptation, stakeholder interaction, or accountability.
   - Examples: drafting that needs human review, analysis that informs human decisions, research that a human must synthesize.
 

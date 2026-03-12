@@ -91,8 +91,8 @@ print(f"embed_ads: loaded {len(rows)} summaries from {summaries_db}")
 # %% [markdown]
 # ## Build text descriptions
 #
-# - **role_text**: `"[{domain}] {short_description}"` — domain-enriched role for embedding
-# - **taskskill_text**: `"{short_description} - {tasks, skills}"` — detailed competencies
+# - **role_text**: `"[{domain}] {short_description}"` (domain-enriched role for embedding)
+# - **taskskill_text**: `"{short_description} - {tasks, skills}"` (detailed competencies)
 
 # %%
 #|export
@@ -159,6 +159,6 @@ for chunk_idx in range(n_chunks):
 
 n_ok, n_err = store.counts()
 store.close()
-print(f"embed_ads: done — {n_ok} succeeded, {n_err} failed")
+print(f"embed_ads: done, {n_ok} succeeded, {n_err} failed")
 
 ad_ids #|func_return_line

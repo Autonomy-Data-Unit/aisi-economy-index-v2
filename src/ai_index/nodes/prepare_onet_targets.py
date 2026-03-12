@@ -77,7 +77,7 @@ def main(ctx, print):
         )
         return top.groupby("Title")[element_col].apply(list).reset_index()
     
-    # Top tasks (ranked by skill importance as cross-reference — matches old pipeline)
+    # Top tasks (ranked by skill importance as cross-reference, matches old pipeline)
     occ_tasks = occupation_data[["O*NET-SOC Code", "Title"]].merge(
         task_statements[["O*NET-SOC Code", "Task"]], on="O*NET-SOC Code", how="left",
     )

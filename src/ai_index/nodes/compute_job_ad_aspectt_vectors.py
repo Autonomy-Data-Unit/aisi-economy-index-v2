@@ -26,7 +26,7 @@ def main(ctx, print, ad_ids: list[int], aspectt_done: bool) -> {
     code_to_idx = {code: i for i, code in enumerate(aspectt_codes)}
     
     n_features = aspectt_levels.shape[1]
-    print(f"compute_ad_aspectt: loaded ASPECTT vectors — {len(aspectt_codes)} occupations, {n_features} features")
+    print(f"compute_ad_aspectt: loaded ASPECTT vectors, {len(aspectt_codes)} occupations, {n_features} features")
     filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
     _matches_conn = duckdb.connect()  # in-memory, queries parquet directly
     
@@ -120,7 +120,7 @@ def main(ctx, print, ad_ids: list[int], aspectt_done: bool) -> {
     _matches_conn.close()
     n_ok, n_err = store.counts()
     store.close()
-    print(f"compute_ad_aspectt: done — {n_ok} succeeded, {n_err} failed")
+    print(f"compute_ad_aspectt: done, {n_ok} succeeded, {n_err} failed")
     print(f"  output: {const.rel(db_path)}")
     
     return ad_ids

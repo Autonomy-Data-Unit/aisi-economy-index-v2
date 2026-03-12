@@ -81,6 +81,6 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
     
     n_ok, n_err = store.counts()
     store.close()
-    print(f"embed_ads: done — {n_ok} succeeded, {n_err} failed")
+    print(f"embed_ads: done, {n_ok} succeeded, {n_err} failed")
     
     return ad_ids

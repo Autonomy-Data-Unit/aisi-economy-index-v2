@@ -10,7 +10,7 @@
 # # Test: Orchestrate (content-addressed jobs)
 #
 # Unit tests for `compute_job_hash` and the idempotency state machine.
-# All tests are mocked — no Isambard connection required.
+# All tests are mocked, no Isambard connection required.
 
 # %%
 #|default_exp isambard_utils.test_orchestrate

@@ -379,7 +379,7 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
         model_name: HuggingFace model ID (or API model name for api backend).
         device: Device to load onto ("cuda", "cpu"). Ignored for api backend.
         dtype: Model precision ("float16", "bfloat16", "float32"). Ignored for api.
-        backend: Inference backend — "transformers" (default), "vllm", or "api".
+        backend: Inference backend, either "transformers" (default), "vllm", or "api".
 
     Returns:
         LLM, VllmLLM, or ApiLLM wrapping the loaded model.

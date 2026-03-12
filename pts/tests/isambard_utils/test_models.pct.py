@@ -9,14 +9,14 @@
 # %% [markdown]
 # # Integration Test: HuggingFace Model Helpers
 #
-# Tests for `isambard_utils.models` — model download orchestration (SSH from
+# Tests for `isambard_utils.models`: model download orchestration (SSH from
 # local) and model loading/inference (SBATCH on compute nodes).
 #
 # Uses small models for speed:
 # - Embedding: `BAAI/bge-small-en-v1.5` (133MB, 384-dim)
 # - LLM: `TinyLlama/TinyLlama-1.1B-Chat-v1.0` (2.2GB)
 #
-# **Run manually** — requires active Clifton cert and Isambard access:
+# **Run manually**: requires active Clifton cert and Isambard access:
 # ```bash
 # python -m isambard_utils_tests.test_models
 # ```
@@ -346,7 +346,7 @@ def test_llm_inference(cfg: IsambardConfig):
 #|export
 def run_all():
     """Run the full model helpers integration test suite."""
-    print("Isambard Utils — Model Helpers Integration Tests")
+    print("Isambard Utils: Model Helpers Integration Tests")
     print(f"{'='*60}")
 
     cfg = IsambardConfig.from_env()

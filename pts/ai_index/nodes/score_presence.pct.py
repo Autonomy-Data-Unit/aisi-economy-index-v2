@@ -179,7 +179,7 @@ def _load_onet_table(name):
 
 # %%
 #|export
-# Skills (also used for Abilities — same column structure)
+# Skills (also used for Abilities, same column structure)
 skills_raw = _load_onet_table("Skills")
 skills_df = skills_raw[skills_raw["O*NET-SOC Code"].isin(valid_codes)].copy()
 skills_df["Data Value"] = pd.to_numeric(skills_df["Data Value"], errors="coerce")

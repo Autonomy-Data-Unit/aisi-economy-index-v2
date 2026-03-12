@@ -30,7 +30,7 @@ class LLMResultStore:
 
     Reusable across any node that calls an LLM and stores JSON results.
     Use the Pydantic model only at call-time (for ``json_schema``) and
-    at read-time (for validation/parsing) — the store itself is schema-free.
+    at read-time (for validation/parsing). The store itself is schema-free.
 
     Usage::
 

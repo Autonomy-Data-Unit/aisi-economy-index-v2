@@ -153,7 +153,7 @@ def _top_items_by_importance(occ_df, detail_df, element_col, top_n):
     )
     return top.groupby("Title")[element_col].apply(list).reset_index()
 
-# Top tasks (ranked by skill importance as cross-reference — matches old pipeline)
+# Top tasks (ranked by skill importance as cross-reference, matches old pipeline)
 occ_tasks = occupation_data[["O*NET-SOC Code", "Title"]].merge(
     task_statements[["O*NET-SOC Code", "Task"]], on="O*NET-SOC Code", how="left",
 )

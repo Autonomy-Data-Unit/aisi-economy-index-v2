@@ -31,7 +31,7 @@ def test_ssh_connection(cfg: IsambardConfig):
     """Verify we can SSH into the Isambard login node."""
     _print_step("1. Testing SSH connection")
 
-    assert check_connection(cfg), "SSH connection failed — is your Clifton cert active?"
+    assert check_connection(cfg), "SSH connection failed. Is your Clifton cert active?"
     _print_ok("SSH connection established")
 
     result = ssh_run("hostname", config=cfg)
@@ -217,7 +217,7 @@ def test_gpu_job(cfg: IsambardConfig):
         if line.startswith("GPU_TEST_RESULT:"):
             gpu_info = json.loads(line.split("GPU_TEST_RESULT:", 1)[1])
             _print_ok(f"GPU info: {json.dumps(gpu_info, indent=2)}")
-            assert gpu_info["gpu_test_passed"], "GPU test failed — CUDA not available on compute node"
+            assert gpu_info["gpu_test_passed"], "GPU test failed, CUDA not available on compute node"
             assert gpu_info["cuda_available"], "torch.cuda.is_available() returned False"
             assert gpu_info["device_count"] >= 1, "No CUDA devices found"
             _print_ok(f"GPU verified: {gpu_info.get('device_name', 'unknown')}, CUDA {gpu_info.get('cuda_version', '?')}")
@@ -345,7 +345,7 @@ def test_llm_inference(cfg: IsambardConfig):
     job = submit(script, config=cfg)
     _print_ok(f"Submitted job: {job.job_id}")
 
-    # Wait for completion (longer timeout — model download may take a while first time)
+    # Wait for completion (longer timeout since model download may take a while first time)
     _print_ok("Waiting for job to complete (polling every 10s, up to 10min)...")
     def _on_poll(s):
         if s:
@@ -398,7 +398,7 @@ def test_llm_inference(cfg: IsambardConfig):
 # %% nbs/tests/isambard_utils/test_integration.ipynb 22
 def run_all():
     """Run the full integration test suite."""
-    print("Isambard Utils — Integration Test Suite")
+    print("Isambard Utils: Integration Test Suite")
     print(f"{'='*60}")
 
     cfg = IsambardConfig.from_env()

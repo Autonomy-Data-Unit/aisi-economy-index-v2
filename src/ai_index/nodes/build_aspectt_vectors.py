@@ -59,7 +59,7 @@ def main(ctx, print) -> bool:
     level_matrix = pd.concat(level_dfs, axis=1)
     importance_matrix = pd.concat(importance_dfs, axis=1)
     
-    # Ensure consistent row ordering — use onet_targets order
+    # Ensure consistent row ordering (use onet_targets order)
     ordered_codes = [c for c in onet_targets["O*NET-SOC Code"] if c in level_matrix.index]
     level_matrix = level_matrix.loc[ordered_codes]
     importance_matrix = importance_matrix.loc[ordered_codes]

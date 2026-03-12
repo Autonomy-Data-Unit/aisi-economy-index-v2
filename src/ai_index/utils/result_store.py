@@ -12,11 +12,11 @@ import pandas as pd
 class ResultStore:
     """DuckDB store for batch processing results with resume/retry support.
 
-    The schema is defined by ``columns`` — a dict mapping column names to
+    The schema is defined by ``columns``, a dict mapping column names to
     DuckDB type strings.  Two columns are required:
 
     - An **id column** (default ``"id"``) used for resume and retry logic.
-    - An **error column** (default ``"error"``) — NULL on success, error
+    - An **error column** (default ``"error"``). NULL on success, error
       message string on failure.
 
     All other columns are user-defined and store the actual results.

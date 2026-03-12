@@ -289,7 +289,7 @@ def test_llm_inference(cfg: IsambardConfig):
 # %% nbs/tests/isambard_utils/test_models.ipynb 20
 def run_all():
     """Run the full model helpers integration test suite."""
-    print("Isambard Utils — Model Helpers Integration Tests")
+    print("Isambard Utils: Model Helpers Integration Tests")
     print(f"{'='*60}")
 
     cfg = IsambardConfig.from_env()

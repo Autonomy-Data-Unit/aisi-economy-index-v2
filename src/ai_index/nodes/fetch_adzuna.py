@@ -83,7 +83,7 @@ def main(ctx, print):
                     print(f"fetch_adzuna: [{i+1}/{n_files}] downloading s3://{bucket_name}/{key}")
                     tmp_json = f"{tmp_dir}/day_{i}.json"
                     s3.download_file(bucket_name, key, tmp_json)
-                    # Use pyarrow's native JSON reader — columnar, parallelized C++
+                    # Use pyarrow's native JSON reader (columnar, parallelized C++)
                     read_opts = paj.ReadOptions(block_size=1 << 26)  # 64 MB blocks
                     table = paj.read_json(tmp_json, read_options=read_opts)
                     tmp_pq = f"{tmp_dir}/day_{i}.parquet"
@@ -120,7 +120,7 @@ def main(ctx, print):
     
         needs_dedup = bool(year_info["new_months"])
         if not needs_dedup:
-            # No new months — check if dedup already ran for this exact set
+            # No new months. Check if dedup already ran for this exact set
             existing_marker = conn.execute(
                 "SELECT value FROM _meta WHERE key = ?", [meta_key]
             ).fetchone()
@@ -174,12 +174,12 @@ def main(ctx, print):
             )
     
             conn.execute("CHECKPOINT")
-            print(f"fetch_adzuna: {year} dedup — {dups_removed} duplicates removed ({before_count} -> {after_count} rows)")
+            print(f"fetch_adzuna: {year} dedup, {dups_removed} duplicates removed ({before_count} -> {after_count} rows)")
     
         del year_info["new_months"]
         adzuna_meta["years"][year] = year_info
         total_rows = sum(year_info["row_counts"].values())
-        print(f"fetch_adzuna: year {year} — {len(year_info['months'])} months, {total_rows} total rows")
+        print(f"fetch_adzuna: year {year}, {len(year_info['months'])} months, {total_rows} total rows")
     
     # --- Global dedup: remove cross-year duplicates ---
     before_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
@@ -195,9 +195,9 @@ def main(ctx, print):
     global_dups = before_total - after_total
     if global_dups > 0:
         conn.execute("CHECKPOINT")
-        print(f"fetch_adzuna: global dedup — {global_dups} cross-year duplicates removed ({before_total} -> {after_total} rows)")
+        print(f"fetch_adzuna: global dedup, {global_dups} cross-year duplicates removed ({before_total} -> {after_total} rows)")
     else:
-        print(f"fetch_adzuna: global dedup — no cross-year duplicates")
+        print(f"fetch_adzuna: global dedup, no cross-year duplicates")
     
     conn.close()
-    print(f"fetch_adzuna: done — {len(adzuna_meta['years'])} year(s)")
+    print(f"fetch_adzuna: done, {len(adzuna_meta['years'])} year(s)")
