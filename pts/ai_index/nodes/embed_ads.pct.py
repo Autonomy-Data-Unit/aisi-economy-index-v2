@@ -51,6 +51,9 @@ show_node_vars('embed_ads', run_name=run_name)
 
 # %%
 #|export
+import json
+import time
+
 import duckdb
 import numpy as np
 import pandas as pd
@@ -67,6 +70,7 @@ from ai_index.utils.result_store import ResultStore
 #|export
 run_name = ctx.vars["run_name"]
 embedding_model = ctx.vars["embedding_model"]
+sbatch_cache = ctx.vars["sbatch_cache"]
 chunk_size = ctx.vars["embed_chunk_size"]
 
 output_dir = const.pipeline_store_path / run_name / "embed_ads"
@@ -136,6 +140,8 @@ print(f"embed_ads: {len(done)} already embedded, {n_remaining} remaining")
 
 n_chunks = (n_remaining + chunk_size - 1) // chunk_size
 
+started_at = time.time()
+
 for chunk_idx in range(n_chunks):
     start = chunk_idx * chunk_size
     end = min(start + chunk_size, n_remaining)
@@ -144,8 +150,8 @@ for chunk_idx in range(n_chunks):
     chunk_role_texts = [role_texts[i] for i in chunk_indices]
     chunk_taskskill_texts = [taskskill_texts[i] for i in chunk_indices]
 
-    role_chunk = await aembed(chunk_role_texts, model=embedding_model)
-    taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model)
+    role_chunk = await aembed(chunk_role_texts, model=embedding_model, cache=sbatch_cache)
+    taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model, cache=sbatch_cache)
 
     df = pd.DataFrame({
         "id": [ad_ids[i] for i in chunk_indices],
@@ -157,8 +163,23 @@ for chunk_idx in range(n_chunks):
 
     print(f"  chunk {chunk_idx + 1}/{n_chunks}: embedded {len(chunk_indices)} ads")
 
+ended_at = time.time()
+
 n_ok, n_err = store.counts()
 store.close()
 print(f"embed_ads: done, {n_ok} succeeded, {n_err} failed")
+
+embed_meta = {
+    "n_total": n_total,
+    "n_embedded": n_remaining,
+    "n_skipped": len(done),
+    "started_at": started_at,
+    "ended_at": ended_at,
+    "elapsed_seconds": ended_at - started_at,
+}
+meta_path = output_dir / "embed_meta.json"
+with open(meta_path, "w") as f:
+    json.dump(embed_meta, f, indent=2)
+print(f"embed_ads: wrote {const.rel(meta_path)}")
 
 ad_ids #|func_return_line

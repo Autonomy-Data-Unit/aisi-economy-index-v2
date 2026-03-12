@@ -21,6 +21,7 @@
 #|export
 import asyncio
 import json
+import time
 from pathlib import Path
 from string import Formatter
 from typing import Any, Callable
@@ -96,6 +97,8 @@ async def run_batched(
     n_total = len(all_ids)
     print_fn(f"{node_name}: {n_total} total, {len(remaining_ids)} to process (batch_size={batch_size}, max_concurrent={max_concurrent})")
 
+    started_at = time.time()
+
     # Process chunks
     sem = asyncio.Semaphore(max_concurrent)
     chunks = [
@@ -162,10 +165,15 @@ async def run_batched(
         if raise_on_failure:
             raise RuntimeError(f"{node_name}: {n_failed} IDs failed after {max_retries} retries")
 
+    ended_at = time.time()
+
     return {
         "db_path": store.db_path,
         "n_total": n_total,
         "n_success": n_success,
         "n_failed": n_failed,
         "failed_ids": failed,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "elapsed_seconds": ended_at - started_at,
     }

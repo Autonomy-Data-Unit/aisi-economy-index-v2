@@ -38,6 +38,9 @@
     },
     "llm_max_concurrent_batches": {
       "type": "int"
+    },
+    "sbatch_cache": {
+      "type": "bool"
     }
   },
   "storage": {
@@ -197,6 +200,9 @@
         "description": "Run LLM to extract structured summaries from job ads.",
         "execution_config": {
           "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
             "summarise_resume": {
               "type": "bool"
             },
@@ -236,6 +242,9 @@
         "description": "Build text descriptions from LLM summaries and embed them.",
         "execution_config": {
           "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
             "embed_chunk_size": {
               "type": "int"
             }
@@ -269,6 +278,11 @@
         "name": "embed_onet",
         "description": "Embed O*NET occupation text descriptions.",
         "execution_config": {
+          "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            }
+          },
           "signals": [
             "epoch_finished"
           ],
@@ -302,6 +316,9 @@
         "description": "Weighted dual cosine similarity matching between ads and O*NET.",
         "execution_config": {
           "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
             "cosine_alpha": {
               "type": "float"
             },
@@ -339,6 +356,9 @@
         "description": "Run LLM negative selection to filter cosine match candidates.",
         "execution_config": {
           "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
             "filter_resume": {
               "type": "bool"
             },
@@ -521,6 +541,9 @@
         "description": "Classify O*NET tasks by AI exposure level via LLM and aggregate to occupations.",
         "execution_config": {
           "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
             "llm_model": {
               "inherit": true
             },

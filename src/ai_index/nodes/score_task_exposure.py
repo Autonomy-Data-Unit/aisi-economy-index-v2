@@ -30,6 +30,7 @@ async def main(ctx, print) -> "pd.DataFrame":
     from ai_index.utils import strict_format, load_prompt, allm_generate
     from ai_index.utils.scoring import OnetScoreSet
     llm_model = ctx.vars["llm_model"]
+    sbatch_cache = ctx.vars["sbatch_cache"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
     
@@ -85,6 +86,7 @@ async def main(ctx, print) -> "pd.DataFrame":
             system_message=SYSTEM_PROMPT,
             max_new_tokens=max_new_tokens,
             json_schema=TaskExposureModel.model_json_schema(),
+            cache=sbatch_cache,
         )
         all_responses.extend(responses)
         print(f"  batch {i // batch_size + 1}: {len(all_responses)}/{len(prompts)} done")

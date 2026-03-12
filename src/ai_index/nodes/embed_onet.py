@@ -2,6 +2,9 @@
 
 async def main(ctx, print) -> bool:
     """Embed O*NET occupation text descriptions."""
+    import json
+    import time
+    
     import numpy as np
     import pandas as pd
     
@@ -9,6 +12,7 @@ async def main(ctx, print) -> bool:
     from ai_index.utils import aembed
     run_name = ctx.vars["run_name"]
     embedding_model = ctx.vars["embedding_model"]
+    sbatch_cache = ctx.vars["sbatch_cache"]
     
     output_dir = const.pipeline_store_path / run_name / "embed_onet"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -30,11 +34,15 @@ async def main(ctx, print) -> bool:
     
     print(f"  role sample: {role_texts[0][:100]}...")
     print(f"  taskskill sample: {taskskill_texts[0][:100]}...")
-    role_embeddings = await aembed(role_texts, model=embedding_model)
+    started_at = time.time()
+    
+    role_embeddings = await aembed(role_texts, model=embedding_model, cache=sbatch_cache)
     print(f"embed_onet: role embeddings shape: {role_embeddings.shape}")
     
-    taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model)
+    taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model, cache=sbatch_cache)
     print(f"embed_onet: taskskill embeddings shape: {taskskill_embeddings.shape}")
+    
+    ended_at = time.time()
     onet_codes = np.array(onet_targets["O*NET-SOC Code"].tolist(), dtype=str)
     onet_titles = np.array(onet_targets["Title"].tolist(), dtype=str)
     np.save(output_dir / "onet_codes.npy", onet_codes)
@@ -46,5 +54,16 @@ async def main(ctx, print) -> bool:
     print(f"  onet_codes: {onet_codes.shape}")
     print(f"  role_embeddings: {role_embeddings.shape}")
     print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")
+    
+    embed_meta = {
+        "n_occupations": len(onet_targets),
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "elapsed_seconds": ended_at - started_at,
+    }
+    meta_path = output_dir / "embed_meta.json"
+    with open(meta_path, "w") as f:
+        json.dump(embed_meta, f, indent=2)
+    print(f"embed_onet: wrote {const.rel(meta_path)}")
     
     return True

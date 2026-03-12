@@ -91,16 +91,27 @@ def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
 
 # %%
 #|export
-async def run_pipeline_async(run_name: str | None = None):
-    """Load and run the full pipeline, returning output queue results."""
+async def run_pipeline_async(
+    run_name: str | None = None,
+    run_defs: dict | None = None,
+):
+    """Load and run the full pipeline, returning output queue results.
+
+    Args:
+        run_name: Name of the run definition to use. Falls back to
+            RUN_NAME env var, then 'baseline'.
+        run_defs: Pre-loaded run definitions dict. When provided, skips
+            loading from the default run_defs.toml file.
+    """
     load_dotenv()
-    from ai_index.const import run_defs_path, netrun_config_path
+    from ai_index.const import run_defs_path as default_run_defs_path, netrun_config_path
 
     config_path = netrun_config_path
 
     # Load and resolve run definitions
     run_name = run_name or os.environ.get("RUN_NAME", "baseline")
-    run_defs = _load_run_defs(run_defs_path)
+    if run_defs is None:
+        run_defs = _load_run_defs(default_run_defs_path)
     global_vars, node_vars = _resolve_run_defs(run_defs, run_name)
 
     config = NetConfig.from_file(

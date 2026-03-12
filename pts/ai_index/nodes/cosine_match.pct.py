@@ -67,6 +67,7 @@ show_node_vars('cosine_match', run_name=run_name)
 #|export
 run_name = ctx.vars["run_name"]
 cosine_mode = ctx.vars["cosine_mode"]
+sbatch_cache = ctx.vars["sbatch_cache"]
 topk = ctx.vars["topk"]
 cosine_alpha = ctx.vars["cosine_alpha"]
 chunk_size = ctx.vars["cosine_chunk_size"]
@@ -188,8 +189,8 @@ for chunk_idx in range(n_chunks):
 
     ad_role_embeds, ad_task_embeds = _load_chunk_embeddings(chunk_ad_ids)
 
-    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode)
-    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode)
+    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache)
+    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache)
 
     chunk_rows = _weighted_merge(chunk_ad_ids, role_results, task_results)
     all_rows.extend(chunk_rows)

@@ -34,6 +34,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             return f"{type(e).__name__}: {e}"
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
+    sbatch_cache = ctx.vars["sbatch_cache"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
     resume = ctx.vars["summarise_resume"]
@@ -77,6 +78,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             system_message=SYSTEM_PROMPT,
             max_new_tokens=max_new_tokens,
             json_schema=json_schema,
+            cache=sbatch_cache,
         )
     
         records = []
