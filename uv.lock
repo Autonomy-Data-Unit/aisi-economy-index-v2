@@ -1863,7 +1863,7 @@ wheels = [
 [[package]]
 name = "netrun"
 version = "0.4.1"
-source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun#ad23bdda6ea9ae2281f84cb09bce008e790ebc6a" }
+source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun#5665ba9b16f3804566ec71307716ad4278eb9ede" }
 dependencies = [
     { name = "beartype" },
     { name = "diskcache" },
@@ -1882,7 +1882,7 @@ cli = [
 [[package]]
 name = "netrun-sim"
 version = "0.1.4"
-source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-sim%2Fpython#ad23bdda6ea9ae2281f84cb09bce008e790ebc6a" }
+source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-sim%2Fpython#5665ba9b16f3804566ec71307716ad4278eb9ede" }
 dependencies = [
     { name = "python-ulid" },
 ]
@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "netrun-ui"
 version = "0.2.0"
-source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-ui#ad23bdda6ea9ae2281f84cb09bce008e790ebc6a" }
+source = { git = "https://github.com/lukastk/netrun?subdirectory=netrun-ui#5665ba9b16f3804566ec71307716ad4278eb9ede" }
 dependencies = [
     { name = "fastapi" },
     { name = "netrun" },
