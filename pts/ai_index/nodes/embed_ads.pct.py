@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # Embed Ads
+# # nodes.embed_ads
 #
 # Build text descriptions from LLM summaries and embed them.
 #

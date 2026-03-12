@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # Sample Ads
+# # nodes.sample_ads
 #
 # Deterministically sample a subset of job ads for development.
 # If `sample_n == 0`, reference the original deduped parquets directly (full run).

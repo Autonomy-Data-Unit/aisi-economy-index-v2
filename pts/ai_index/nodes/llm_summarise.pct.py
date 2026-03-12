@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # LLM Summarise
+# # nodes.llm_summarise
 #
 # Run LLM to extract structured summaries from job ads.
 # Takes raw job ad text and produces structured fields:

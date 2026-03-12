@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # Fetch O*NET
+# # nodes.fetch_onet
 #
 # Load O*NET 30.0 database from the local store (or download if missing).
 # Returns all tables as a dict of DataFrames.

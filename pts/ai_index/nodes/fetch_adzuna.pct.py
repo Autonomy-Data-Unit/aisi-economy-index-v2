@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # Fetch Adzuna
+# # nodes.fetch_adzuna
 #
 # Download raw Adzuna job ad JSONL files from S3, insert into DuckDB,
 # and deduplicate by ID (keeping the row with the earliest `date_created`).

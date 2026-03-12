@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # Prepare O*NET Targets
+# # nodes.prepare_onet_targets
 #
 # Filter O*NET occupations and build text descriptions for embedding.
 #

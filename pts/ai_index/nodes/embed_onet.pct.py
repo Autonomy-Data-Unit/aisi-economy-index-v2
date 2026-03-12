@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # Embed O*NET
+# # nodes.embed_onet
 #
 # Embed O*NET occupation text descriptions for cosine matching against job ads.
 #
