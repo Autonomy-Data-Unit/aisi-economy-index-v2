@@ -19,6 +19,7 @@
 #|export
 import asyncio
 import os
+import sys
 import tomllib
 from pathlib import Path
 
@@ -126,5 +127,14 @@ async def run_pipeline_async(run_name: str | None = None):
 # %%
 #|export
 def main():
-    """Sync entry point for the run-pipeline CLI command."""
-    asyncio.run(run_pipeline_async())
+    """Sync entry point for the run-pipeline CLI command.
+
+    Usage: run-pipeline [RUN_NAME]
+    Falls back to RUN_NAME env var, then 'baseline'.
+    """
+    args = sys.argv[1:]
+    if len(args) > 1:
+        print(f"Usage: run-pipeline [RUN_NAME]", file=sys.stderr)
+        sys.exit(1)
+    run_name = args[0] if args else None
+    asyncio.run(run_pipeline_async(run_name))
