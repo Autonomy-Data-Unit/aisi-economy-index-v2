@@ -56,6 +56,8 @@
     }
   },
   "max_epochs": 1,
+  "retries": 3,
+  "retry_wait": 10.0,
   "project_root_override": "../",
   "graph": {
     "nodes": [
@@ -64,8 +66,6 @@
         "description": "Download and extract O*NET 30.0 database.",
         "execution_config": {
           "run_on_startup": true,
-          "retries": 3,
-          "retry_wait": 10.0,
           "signals": [
             "epoch_finished"
           ]
@@ -95,8 +95,6 @@
         "name": "fetch_adzuna",
         "execution_config": {
           "run_on_startup": true,
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "fetch_years": {}
           },
@@ -130,8 +128,6 @@
         "name": "sample_ads",
         "description": "Sample job ads for processing (or pass through all if sample_n=0).",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "controls": [
             "start_epoch"
           ]
@@ -164,8 +160,6 @@
         "name": "prepare_onet_targets",
         "description": "Filter O*NET occupations and build text descriptions for embedding.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "onet_exclude_public_sector": {
               "type": "bool"
@@ -202,8 +196,6 @@
         "name": "llm_summarise",
         "description": "Run LLM to extract structured summaries from job ads.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "summarise_resume": {
               "type": "bool"
@@ -243,8 +235,6 @@
         "name": "embed_ads",
         "description": "Build text descriptions from LLM summaries and embed them.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "embed_chunk_size": {
               "type": "int"
@@ -279,8 +269,6 @@
         "name": "embed_onet",
         "description": "Embed O*NET occupation text descriptions.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "signals": [
             "epoch_finished"
           ],
@@ -313,8 +301,6 @@
         "name": "cosine_match",
         "description": "Weighted dual cosine similarity matching between ads and O*NET.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "cosine_alpha": {
               "type": "float"
@@ -352,8 +338,6 @@
         "name": "llm_filter_candidates",
         "description": "Run LLM negative selection to filter cosine match candidates.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "filter_resume": {
               "type": "bool"
@@ -416,8 +400,6 @@
         "description": "Build ASPECTT numeric vectors from O*NET database tables.",
         "execution_config": {
           "enabled": false,
-          "retries": 3,
-          "retry_wait": 10.0,
           "signals": [
             "epoch_finished"
           ],
@@ -447,8 +429,6 @@
         "description": "Compute per-ad weighted ASPECTT vectors from filtered occupation matches.",
         "execution_config": {
           "enabled": false,
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "aspectt_chunk_size": {
               "type": "int"
@@ -476,8 +456,6 @@
         "name": "score_presence",
         "description": "Compute humanness/presence scores (physical, emotional, creative) per O*NET occupation.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "controls": [
             "start_epoch"
           ]
@@ -507,8 +485,6 @@
         "name": "score_felten",
         "description": "Compute Felten AIOE ability-application AI exposure scores per O*NET occupation.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "felten_alpha": {
               "type": "float"
@@ -544,8 +520,6 @@
         "name": "score_task_exposure",
         "description": "Classify O*NET tasks by AI exposure level via LLM and aggregate to occupations.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "llm_model": {
               "inherit": true
@@ -612,10 +586,6 @@
       {
         "name": "combine_onet_exposure",
         "description": "Merge all O*NET score DataFrames into a single combined exposure table.",
-        "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0
-        },
         "extra": {
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/combine_onet_exposure.py",
           "ui": {
@@ -667,8 +637,6 @@
         "name": "compute_job_ad_exposure",
         "description": "Map occupation-level exposure scores to individual job ads via weighted averaging.",
         "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0,
           "node_vars": {
             "exposure_chunk_size": {
               "type": "int"
@@ -699,10 +667,6 @@
       {
         "name": "aggregate_geo",
         "description": "Aggregate ad-level AI exposure scores by Local Authority District (LAD22CD).",
-        "execution_config": {
-          "retries": 3,
-          "retry_wait": 10.0
-        },
         "extra": {
           "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/aggregate_geo.py",
           "ui": {
