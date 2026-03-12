@@ -61,7 +61,7 @@ from ai_index import const
 #|export
 run_name = ctx.vars["run_name"]
 
-output_dir = const.pipeline_store_path / run_name / "aggregate_geo"
+output_dir = const.outputs_path / run_name
 output_dir.mkdir(parents=True, exist_ok=True)
 
 ad_exposure_path = const.pipeline_store_path / run_name / "compute_job_ad_exposure" / "ad_exposure.parquet"
@@ -87,7 +87,9 @@ print(f"aggregate_geo: {len(score_cols)} score columns: {score_cols}")
 # Attach adzuna database (read-only to avoid lock contention)
 conn.execute(f"ATTACH '{const.adzuna_db_path}' AS adzuna (READ_ONLY)")
 
-# Build aggregation SQL — only averages over ads with actual scores (n_matches > 0)
+# Build aggregation SQL — only averages over ads with actual scores (n_matches > 0).
+# LAD22NM comes from the ONS lookup table (complete coverage) rather than the ads
+# table (which has gaps).
 agg_parts = []
 for col in score_cols:
     agg_parts.append(
@@ -97,16 +99,25 @@ agg_sql = ",\n    ".join(agg_parts)
 
 sql = f"""
 SELECT
-    a.LAD22CD,
-    ANY_VALUE(a.LAD22NM) AS LAD22NM,
-    COUNT(*) AS n_ads,
-    SUM(CASE WHEN e.n_matches > 0 THEN 1 ELSE 0 END)::INTEGER AS n_ads_with_scores,
-    {agg_sql}
-FROM read_parquet('{ad_exposure_path}') e
-JOIN adzuna.ads a ON e.ad_id = a.id
-WHERE a.LAD22CD IS NOT NULL
-GROUP BY a.LAD22CD
-ORDER BY a.LAD22CD
+    agg.LAD22CD,
+    lad.LAD22NM,
+    agg.n_ads,
+    agg.n_ads_with_scores,
+    {", ".join(f'agg."{col}"' for col in score_cols)}
+FROM (
+    SELECT
+        a.LAD22CD,
+        COUNT(*) AS n_ads,
+        SUM(CASE WHEN e.n_matches > 0 THEN 1 ELSE 0 END)::INTEGER AS n_ads_with_scores,
+        {agg_sql}
+    FROM read_parquet('{ad_exposure_path}') e
+    JOIN adzuna.ads a ON e.ad_id = a.id
+    WHERE a.LAD22CD IS NOT NULL
+    GROUP BY a.LAD22CD
+) agg
+LEFT JOIN read_csv('{const.lad22_lookup_path}', header=true) lad
+    ON agg.LAD22CD = lad.LAD22CD
+ORDER BY agg.LAD22CD
 """
 
 result_df = conn.execute(sql).fetchdf()

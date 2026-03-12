@@ -39,7 +39,9 @@ onet_store_path = inputs_path / "onet"
 onet_targets_path = inputs_path / "onet_targets.parquet"
 adzuna_db_path = inputs_path / "adzuna.duckdb"
 adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
+lad22_lookup_path = inputs_path / "lad22_lookup.csv"
 pipeline_store_path = store_path / "pipeline"
+outputs_path = store_path / "outputs"
 onet_exposure_scores_path = store_path / "onet_exposure_scores"
 aspectt_vectors_path = inputs_path / "aspectt_vectors"
 
