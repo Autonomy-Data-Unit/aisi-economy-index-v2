@@ -1,0 +1,22 @@
+{
+  "model_key": "qwen3-embed-4b-sbatch",
+  "sample_n": 1000,
+  "timestamp": "2026-03-13T18:11:29.337793+00:00",
+  "nodes": {
+    "embed_ads": {
+      "n": 1000,
+      "wall_clock_seconds": 155.9896628856659,
+      "slurm_seconds": 67,
+      "elapsed_seconds": 67,
+      "seconds_per_ad": 0.067,
+      "node_hours": 0.004652777777777778
+    },
+    "embed_onet": {
+      "n_occupations": 861,
+      "wall_clock_seconds": 233.41380620002747,
+      "slurm_seconds": 49,
+      "elapsed_seconds": 49,
+      "node_hours": 0.003402777777777778
+    }
+  }
+}

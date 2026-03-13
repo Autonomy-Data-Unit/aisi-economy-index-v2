@@ -134,7 +134,7 @@ gpus = 2
 
 # MoE (230B total, 10B active, Lightning Attention).
 # Ships as native FP8 (~230 GB); vLLM auto-detects quantization.
-[models.minimax-m2.5-sbatch]
+[models."minimax-m2.5-sbatch"]
 mode = "sbatch"
 model = "MiniMaxAI/MiniMax-M2.5"
 dtype = "bfloat16"

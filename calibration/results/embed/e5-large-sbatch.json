@@ -1,22 +1,22 @@
 {
   "model_key": "e5-large-sbatch",
   "sample_n": 1000,
-  "timestamp": "2026-03-13T10:56:54.130143+00:00",
+  "timestamp": "2026-03-13T19:42:34.008906+00:00",
   "nodes": {
     "embed_ads": {
       "n": 1000,
-      "wall_clock_seconds": 121.80361294746399,
-      "slurm_seconds": 35,
-      "elapsed_seconds": 35,
-      "seconds_per_ad": 0.035,
-      "node_hours": 0.0024305555555555556
+      "wall_clock_seconds": 124.31125903129578,
+      "slurm_seconds": 42,
+      "elapsed_seconds": 42,
+      "seconds_per_ad": 0.042,
+      "node_hours": 0.0029166666666666664
     },
     "embed_onet": {
       "n_occupations": 861,
-      "wall_clock_seconds": 95.5163848400116,
-      "slurm_seconds": 35,
-      "elapsed_seconds": 35,
-      "node_hours": 0.0024305555555555556
+      "wall_clock_seconds": 92.09355688095093,
+      "slurm_seconds": 31,
+      "elapsed_seconds": 31,
+      "node_hours": 0.0021527777777777778
     }
   }
 }

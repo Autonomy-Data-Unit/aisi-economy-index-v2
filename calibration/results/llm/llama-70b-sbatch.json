@@ -1,0 +1,23 @@
+{
+  "model_key": "llama-70b-sbatch",
+  "sample_n": 1000,
+  "timestamp": "2026-03-13T18:11:29.337793+00:00",
+  "nodes": {
+    "llm_summarise": {
+      "n": 1000,
+      "wall_clock_seconds": 835.9066081047058,
+      "slurm_seconds": 216,
+      "elapsed_seconds": 216,
+      "seconds_per_ad": 0.216,
+      "node_hours": 0.015
+    },
+    "llm_filter_candidates": {
+      "n": 1000,
+      "wall_clock_seconds": 231.0419521331787,
+      "slurm_seconds": 147,
+      "elapsed_seconds": 147,
+      "seconds_per_ad": 0.147,
+      "node_hours": 0.010208333333333333
+    }
+  }
+}

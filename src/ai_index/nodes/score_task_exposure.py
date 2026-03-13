@@ -34,6 +34,9 @@ async def main(ctx, print) -> "pd.DataFrame":
     sbatch_time = ctx.vars["sbatch_time"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
+    temperature = ctx.vars["temperature"]
+    top_p = ctx.vars["top_p"]
+    top_k = ctx.vars["top_k"]
     
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
     USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
@@ -88,6 +91,9 @@ async def main(ctx, print) -> "pd.DataFrame":
             model=llm_model,
             system_message=SYSTEM_PROMPT,
             max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
             json_schema=TaskExposureModel.model_json_schema(),
             cache=sbatch_cache,
             time=sbatch_time,

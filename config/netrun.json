@@ -44,6 +44,15 @@
     },
     "duckdb_memory_limit": {
       "type": "str"
+    },
+    "temperature": {
+      "type": "float"
+    },
+    "top_p": {
+      "type": "float"
+    },
+    "top_k": {
+      "type": "int"
     }
   },
   "storage": {
@@ -207,6 +216,15 @@
               "inherit": true
             },
             "sbatch_time": {},
+            "temperature": {
+              "inherit": true
+            },
+            "top_p": {
+              "inherit": true
+            },
+            "top_k": {
+              "inherit": true
+            },
             "summarise_resume": {
               "type": "bool"
             },
@@ -367,6 +385,15 @@
               "inherit": true
             },
             "sbatch_time": {},
+            "temperature": {
+              "inherit": true
+            },
+            "top_p": {
+              "inherit": true
+            },
+            "top_k": {
+              "inherit": true
+            },
             "filter_resume": {
               "type": "bool"
             },
@@ -554,6 +581,15 @@
             },
             "sbatch_time": {},
             "llm_model": {
+              "inherit": true
+            },
+            "temperature": {
+              "inherit": true
+            },
+            "top_p": {
+              "inherit": true
+            },
+            "top_k": {
               "inherit": true
             },
             "system_prompt": {},

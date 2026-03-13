@@ -35,6 +35,9 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     sbatch_time = ctx.vars["sbatch_time"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
+    temperature = ctx.vars["temperature"]
+    top_p = ctx.vars["top_p"]
+    top_k = ctx.vars["top_k"]
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
     resume = ctx.vars["filter_resume"]
     max_retries = ctx.vars["filter_max_retries"]
@@ -139,6 +142,9 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             model=llm_model,
             system_message=SYSTEM_PROMPT,
             max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
             json_schema=FilterResponseModel.model_json_schema(),
             cache=sbatch_cache,
             time=sbatch_time,
