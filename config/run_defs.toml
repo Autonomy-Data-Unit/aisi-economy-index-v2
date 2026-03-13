@@ -6,7 +6,7 @@ cosine_mode = "sbatch"
 topk = 10
 llm_model = "qwen-7b-sbatch"
 llm_batch_size = 5000
-llm_max_new_tokens = 220
+llm_max_new_tokens = 2048
 llm_max_concurrent_batches = 1
 sbatch_cache = true
 
