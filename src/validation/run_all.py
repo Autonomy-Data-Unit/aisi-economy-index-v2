@@ -92,6 +92,7 @@ def main():
         sys.exit(1)
 
     print()
+    failures = []
     for i, (llm, embed) in enumerate(remaining, 1):
         run_name = _make_run_name(llm, embed)
         print(f"{'=' * 70}")
@@ -105,9 +106,14 @@ def main():
         result = subprocess.run(cmd)
         if result.returncode != 0:
             print(f"\nERROR: run-validation failed for {run_name} (exit code {result.returncode})")
-            print("Stopping. Re-run validate-all to continue from where it left off.")
-            sys.exit(result.returncode)
+            failures.append((run_name, result.returncode))
 
         print()
+
+    if failures:
+        print(f"\n{len(failures)}/{len(remaining)} validation runs failed:")
+        for run_name, code in failures:
+            print(f"  - {run_name} (exit code {code})")
+        sys.exit(1)
 
     print(f"All {len(remaining)} validation runs complete.")

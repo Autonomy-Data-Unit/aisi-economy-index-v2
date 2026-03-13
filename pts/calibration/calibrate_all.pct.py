@@ -134,6 +134,7 @@ def main():
         sys.exit(1)
 
     print()
+    failures = []
     for i, (llm, embed) in enumerate(pairs, 1):
         print(f"{'=' * 70}")
         print(f"Run {i}/{len(pairs)}: {llm} + {embed}")
@@ -142,9 +143,14 @@ def main():
         result = subprocess.run([run_calibration_bin, llm, embed])
         if result.returncode != 0:
             print(f"\nERROR: run_calibration failed for {llm} + {embed} (exit code {result.returncode})")
-            print("Stopping. Re-run calibrate-all to continue from where it left off.")
-            sys.exit(result.returncode)
+            failures.append((llm, embed, result.returncode))
 
         print()
+
+    if failures:
+        print(f"\n{len(failures)}/{len(pairs)} calibration runs failed:")
+        for llm, embed, code in failures:
+            print(f"  - {llm} + {embed} (exit code {code})")
+        sys.exit(1)
 
     print(f"All {len(pairs)} calibration runs complete.")
