@@ -7,8 +7,9 @@ Example:
     uv run python calibration/run_calibration.py qwen-7b-sbatch bge-large-sbatch
 
 Runs the pipeline with sample_n=1000 ads (configurable in calibration/run_defs.toml),
-collects timing data from LLM and embedding nodes, and writes results to
-calibration/results/<llm_model>__<embed_model>.json.
+collects timing data from LLM and embedding nodes, and writes separate results to:
+  calibration/results/llm/<llm_model_key>.json
+  calibration/results/embed/<embedding_model_key>.json
 
 Timing data includes both wall-clock times (from Python time.time()) and Slurm
 accounting times (from sacct). The Slurm times reflect actual GPU execution and
@@ -24,6 +25,8 @@ from pathlib import Path
 
 CALIBRATION_DIR = Path(__file__).parent
 RESULTS_DIR = CALIBRATION_DIR / "results"
+LLM_RESULTS_DIR = RESULTS_DIR / "llm"
+EMBED_RESULTS_DIR = RESULTS_DIR / "embed"
 CALIBRATION_RUN_DEFS_PATH = CALIBRATION_DIR / "run_defs.toml"
 RUN_NAME = "calibration"
 
@@ -97,8 +100,8 @@ def _extract_timing(meta: dict, n_key: str) -> dict:
     return result
 
 
-def _extract_embed_onet_timing(meta: dict) -> dict:
-    """Extract timing fields from embed_onet meta dict (fixed-cost node)."""
+def _extract_fixed_timing(meta: dict) -> dict:
+    """Extract timing fields from a fixed-cost node meta dict (e.g. embed_onet)."""
     slurm_total = meta.get("slurm_total_seconds", 0)
     wall_clock = meta.get("elapsed_seconds", 0)
     elapsed = slurm_total if slurm_total > 0 else wall_clock
@@ -118,6 +121,28 @@ def _extract_embed_onet_timing(meta: dict) -> dict:
     return result
 
 
+def _write_result(output_dir: Path, filename: str, data: dict) -> Path:
+    """Write a result JSON file, creating directories as needed."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / filename
+    with open(output_path, "w") as f:
+        json.dump(data, f, indent=2)
+    return output_path
+
+
+def _print_timing(name: str, timing: dict) -> None:
+    """Print a single node timing summary line."""
+    elapsed = timing["elapsed_seconds"]
+    slurm = timing.get("slurm_seconds")
+    source = "slurm" if slurm else "wall-clock"
+    if "seconds_per_ad" in timing:
+        spa = timing["seconds_per_ad"]
+        n = timing["n"]
+        print(f"  {name}: {elapsed:.1f}s total, {spa:.3f}s/ad (n={n}, {source})")
+    else:
+        print(f"  {name}: {elapsed:.1f}s total ({source})")
+
+
 async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
     from ai_index.const import pipeline_store_path
     from ai_index.run_pipeline import run_pipeline_async
@@ -134,52 +159,54 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
     print(f"calibration: llm_model={llm_model_key}, embedding_model={embedding_model_key}, sample_n={sample_n}")
     await run_pipeline_async(RUN_NAME, run_defs=run_defs)
 
-    # Collect timing from meta files
-    nodes = {}
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    # --- LLM results ---
+    llm_nodes = {}
 
     summarise_meta = _read_meta(RUN_NAME, "llm_summarise", "summary_meta.json")
     if summarise_meta is not None:
-        nodes["llm_summarise"] = _extract_timing(summarise_meta, "n_total")
+        llm_nodes["llm_summarise"] = _extract_timing(summarise_meta, "n_total")
 
     filter_meta = _read_meta(RUN_NAME, "llm_filter_candidates", "filter_meta.json")
     if filter_meta is not None:
-        nodes["llm_filter_candidates"] = _extract_timing(filter_meta, "n_total")
+        llm_nodes["llm_filter_candidates"] = _extract_timing(filter_meta, "n_total")
+
+    llm_result = {
+        "model_key": llm_model_key,
+        "sample_n": sample_n,
+        "timestamp": timestamp,
+        "nodes": llm_nodes,
+    }
+    llm_path = _write_result(LLM_RESULTS_DIR, f"{llm_model_key}.json", llm_result)
+
+    # --- Embed results ---
+    embed_nodes = {}
 
     embed_ads_meta = _read_meta(RUN_NAME, "embed_ads", "embed_meta.json")
     if embed_ads_meta is not None:
-        nodes["embed_ads"] = _extract_timing(embed_ads_meta, "n_embedded")
+        embed_nodes["embed_ads"] = _extract_timing(embed_ads_meta, "n_embedded")
 
     embed_onet_meta = _read_meta(RUN_NAME, "embed_onet", "embed_meta.json")
     if embed_onet_meta is not None:
-        nodes["embed_onet"] = _extract_embed_onet_timing(embed_onet_meta)
+        embed_nodes["embed_onet"] = _extract_fixed_timing(embed_onet_meta)
 
-    result = {
-        "llm_model_key": llm_model_key,
-        "embedding_model_key": embedding_model_key,
+    embed_result = {
+        "model_key": embedding_model_key,
         "sample_n": sample_n,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "nodes": nodes,
+        "timestamp": timestamp,
+        "nodes": embed_nodes,
     }
-
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    result_name = f"{llm_model_key}__{embedding_model_key}"
-    output_path = RESULTS_DIR / f"{result_name}.json"
-    with open(output_path, "w") as f:
-        json.dump(result, f, indent=2)
-
-    print(f"\ncalibration: results written to {output_path}")
+    embed_path = _write_result(EMBED_RESULTS_DIR, f"{embedding_model_key}.json", embed_result)
 
     # Print summary
-    for name, timing in nodes.items():
-        elapsed = timing["elapsed_seconds"]
-        slurm = timing.get("slurm_seconds")
-        source = "slurm" if slurm else "wall-clock"
-        if "seconds_per_ad" in timing:
-            spa = timing["seconds_per_ad"]
-            n = timing["n"]
-            print(f"  {name}: {elapsed:.1f}s total, {spa:.3f}s/ad (n={n}, {source})")
-        else:
-            print(f"  {name}: {elapsed:.1f}s total ({source})")
+    print(f"\ncalibration: LLM results written to {llm_path}")
+    for name, timing in llm_nodes.items():
+        _print_timing(name, timing)
+
+    print(f"\ncalibration: embed results written to {embed_path}")
+    for name, timing in embed_nodes.items():
+        _print_timing(name, timing)
 
 
 def main():

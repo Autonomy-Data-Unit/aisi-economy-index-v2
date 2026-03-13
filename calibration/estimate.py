@@ -7,8 +7,8 @@ Arguments:
     N_ADS     Total ads to estimate for (default: actual count from adzuna.duckdb)
     SAMPLE_N  Override calibration sample size for per-ad rate calculation
 
-Reads all calibration result JSONs from calibration/results/ and prints
-estimated GPU-hours per model per node.
+Reads calibration results from calibration/results/llm/ and
+calibration/results/embed/, reporting LLM and embedding models separately.
 
 When Slurm accounting data is available (from sacct), estimates use actual
 GPU execution time. Otherwise falls back to wall-clock time (which includes
@@ -20,6 +20,15 @@ import sys
 from pathlib import Path
 
 RESULTS_DIR = Path(__file__).parent / "results"
+LLM_RESULTS_DIR = RESULTS_DIR / "llm"
+EMBED_RESULTS_DIR = RESULTS_DIR / "embed"
+
+# LLM nodes with per-ad scaling
+LLM_NODES = ["llm_summarise", "llm_filter_candidates"]
+# Embed nodes with per-ad scaling
+EMBED_PER_AD_NODES = ["embed_ads"]
+# Embed nodes with fixed cost
+EMBED_FIXED_NODES = ["embed_onet"]
 
 
 def _count_ads() -> int:
@@ -31,75 +40,60 @@ def _count_ads() -> int:
     con.close()
     return count
 
-# Nodes with per-ad scaling (seconds_per_ad field)
-PER_AD_NODES = ["llm_summarise", "llm_filter_candidates", "embed_ads"]
-# Nodes with fixed cost (no per-ad scaling)
-FIXED_NODES = ["embed_onet"]
 
-
-def load_results() -> list[dict]:
+def _load_results(results_dir: Path) -> list[dict]:
     results = []
-    for path in sorted(RESULTS_DIR.glob("*.json")):
-        with open(path) as f:
-            results.append(json.load(f))
+    if results_dir.exists():
+        for path in sorted(results_dir.glob("*.json")):
+            with open(path) as f:
+                results.append(json.load(f))
     return results
 
 
-def estimate_hours(seconds_per_ad: float, n_ads: int) -> float:
+def _estimate_hours(seconds_per_ad: float, n_ads: int) -> float:
     return seconds_per_ad * n_ads / 3600
 
 
-def main():
-    n_ads = int(sys.argv[1]) if len(sys.argv) > 1 else _count_ads()
-    sample_n_override = int(sys.argv[2]) if len(sys.argv) > 2 else None
-
-    results = load_results()
+def _print_table(title: str, results: list[dict], per_ad_nodes: list[str],
+                 fixed_nodes: list[str], n_ads: int, sample_n_override: int | None) -> None:
     if not results:
-        print(f"No calibration results found in {RESULTS_DIR}/")
-        print("Run: uv run python calibration/run_calibration.py <llm_model> <embed_model>")
-        sys.exit(1)
+        print(f"\n{title}: no results found")
+        return
 
-    # Header
-    print(f"\nGPU-hour estimates for {n_ads:,} ads")
-    print("=" * 100)
+    model_w = max(len(r["model_key"]) for r in results) + 2
+    node_w = max(len(n) for n in per_ad_nodes + fixed_nodes) + 2
 
-    # Column widths
-    model_w = max(
-        len(f"{r['llm_model_key']} / {r['embedding_model_key']}") for r in results
-    ) + 2
-    node_w = max(len(n) for n in PER_AD_NODES + FIXED_NODES) + 2
-
-    # Table header
-    header = f"{'Models':<{model_w}} {'Node':<{node_w}} {'s/ad':>8} {'Est. hours':>12} {'NHR':>8} {'Cal. N':>8} {'Source':>8}"
+    print(f"\n{title}")
+    print("=" * 90)
+    header = f"{'Model':<{model_w}} {'Node':<{node_w}} {'s/ad':>8} {'Est. hours':>12} {'NHR':>8} {'Cal. N':>8} {'Source':>8}"
     print(header)
     print("-" * len(header))
 
     for r in results:
-        model_label = f"{r['llm_model_key']} / {r['embedding_model_key']}"
+        model_label = r["model_key"]
         nodes = r["nodes"]
         total_hours = 0.0
         total_nhr = 0.0
 
-        for node_name in PER_AD_NODES:
+        for node_name in per_ad_nodes:
             if node_name not in nodes:
                 print(f"{model_label:<{model_w}} {node_name:<{node_w}} {'n/a':>8}")
+                model_label = ""
                 continue
 
             timing = nodes[node_name]
             n_cal = sample_n_override if sample_n_override else timing["n"]
             spa = timing["elapsed_seconds"] / n_cal
-            hours = estimate_hours(spa, n_ads)
+            hours = _estimate_hours(spa, n_ads)
             total_hours += hours
             source = "slurm" if timing.get("slurm_seconds") else "clock"
-
-            # Estimate node-hours (0.25 NHR per GPU-hour for 1-GPU jobs)
             nhr = hours * 0.25
+
             total_nhr += nhr
-
             print(f"{model_label:<{model_w}} {node_name:<{node_w}} {spa:>8.4f} {hours:>12.1f} {nhr:>8.1f} {n_cal:>8,} {source:>8}")
-            model_label = ""  # only print model on first row
+            model_label = ""
 
-        for node_name in FIXED_NODES:
+        for node_name in fixed_nodes:
             if node_name not in nodes:
                 continue
 
@@ -115,6 +109,24 @@ def main():
 
         print(f"{'':>{model_w}} {'TOTAL':<{node_w}} {'':>8} {total_hours:>12.1f} {total_nhr:>8.1f}")
         print()
+
+
+def main():
+    n_ads = int(sys.argv[1]) if len(sys.argv) > 1 else _count_ads()
+    sample_n_override = int(sys.argv[2]) if len(sys.argv) > 2 else None
+
+    llm_results = _load_results(LLM_RESULTS_DIR)
+    embed_results = _load_results(EMBED_RESULTS_DIR)
+
+    if not llm_results and not embed_results:
+        print(f"No calibration results found in {RESULTS_DIR}/")
+        print("Run: uv run python calibration/run_calibration.py <llm_model> <embed_model>")
+        sys.exit(1)
+
+    print(f"\nGPU-hour estimates for {n_ads:,} ads")
+
+    _print_table("LLM Models", llm_results, LLM_NODES, [], n_ads, sample_n_override)
+    _print_table("Embedding Models", embed_results, EMBED_PER_AD_NODES, EMBED_FIXED_NODES, n_ads, sample_n_override)
 
 
 if __name__ == "__main__":
