@@ -74,6 +74,8 @@ Three storage tiers: `store/inputs/` (run-independent source data), `store/pipel
 - **isambard_utils** - Isambard HPC interaction (SSH, rsync, Slurm, env setup)
 - **llm_runner** - Local/remote GPU model execution (embeddings, LLM generate, cosine similarity)
 - **adulib[llm]** - LLM API abstraction (used in api execution mode)
+- **pyinfra** - Remote server configuration (used by deploy module)
+- **hcloud** CLI - Hetzner Cloud server provisioning (external, not a Python dep)
 
 ## Running the Pipeline
 
@@ -104,6 +106,10 @@ Defines named pipeline configurations. `[defaults]` provides base values; `[runs
 ### `embed_models.toml` / `llm_models.toml` — Model configs
 
 Model-key-based lookup. Each model entry has a `mode` (api/local/sbatch) and model-specific params. Resolution: `_load_model_config(config_path, model_key)` looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with the model entry, returns `(mode, merged_dict)`.
+
+### `deploy.toml` — Remote deployment config
+
+Settings for provisioning and managing a Hetzner Cloud server. Sections: `[server]` (name, type, location, image, SSH key), `[repo]` (remote path), `[storage_box]` (username, mount point, store symlink path). Storage box password comes from `STORAGE_BOX_PASSWORD` env var.
 
 ### `netrun.json` — Pipeline graph
 
@@ -222,7 +228,8 @@ Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton c
 │   ├── netrun.json           # Pipeline graph with node_var placeholders
 │   ├── run_defs.toml         # Run definitions (defaults + named runs)
 │   ├── embed_models.toml     # Embedding model configs
-│   └── llm_models.toml       # LLM model configs
+│   ├── llm_models.toml       # LLM model configs
+│   └── deploy.toml           # Remote deployment config (Hetzner server, storage box)
 ├── prompt_library/           # Prompt templates (Markdown files: llm_summarise, llm_filter, score_task_exposure)
 ├── agent-context/            # Reference docs for netrun & nblite
 ├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
@@ -246,6 +253,10 @@ Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton c
 ├── pts/calibration/          # GPU-hours calibration tools (.pct.py) - EDIT THESE
 ├── nbs/calibration/          # Calibration notebooks (auto-generated)
 ├── src/calibration/          # Calibration Python modules (auto-generated)
+├── pts/deploy/               # Remote deployment tools (.pct.py) - EDIT THESE
+├── nbs/deploy/               # Deploy notebooks (auto-generated)
+├── src/deploy/               # Deploy Python modules (auto-generated)
+├── scripts/deploy_setup.py   # Standalone pyinfra deploy script (server setup)
 ├── pts/examples/             # Example notebooks
 ├── nbs/examples/             # Example notebooks (.ipynb, auto-generated)
 ├── pts/tests/                # Test notebooks (.pct.py) - EDIT THESE
@@ -287,6 +298,8 @@ nbs_dev -> pts_dev
 nbs_examples -> pts_examples    (nbs/examples/ -> pts/examples/, no lib)
 nbs_runner -> lib_runner        (nbs/llm_runner/ -> src/llm_runner/)
 nbs_runner -> pts_runner
+nbs_deploy -> lib_deploy        (nbs/deploy/ -> src/deploy/)
+nbs_deploy -> pts_deploy
 ```
 
 ### Testing
@@ -486,6 +499,40 @@ Nodes pass `time=sbatch_time` as a kwarg to `embed()`/`llm_generate()`/`cosine_t
 - `pts/calibration/calibrate_all.pct.py` — CLI (`calibrate-all`): run all uncalibrated sbatch models
 - `pts/calibration/estimate.pct.py` — CLI (`estimate-calibration`): read results, print GPU-hour estimates
 - `store/calibration/results/{llm,embed}/*.json` — Per-model timing results (gitignored)
+
+## Remote Deployment (Hetzner)
+
+The `pts/deploy/` module provisions a Hetzner Cloud server and deploys the pipeline for remote execution. The `store/` folder is symlinked to a pre-existing Hetzner storage box. Configuration lives in `config/deploy.toml`. Requires `hcloud` CLI to be installed and authenticated.
+
+### CLI commands
+```bash
+uv run remote-deploy-pipeline                          # Provision + deploy (idempotent)
+uv run remote-destroy                                  # Delete server (storage box untouched)
+uv run remote-run-cmd <command...>                     # Run command on remote (streams output)
+uv run remote-download-store <rel_path> <local_path>   # rsync store files to local
+uv run remote-ip                                       # Print server IP
+```
+
+### Deploy flow (`remote-deploy-pipeline`)
+1. Ensure SSH key registered in hcloud
+2. Create server if not exists (hcloud)
+3. Wait for SSH
+4. Run pyinfra setup (`scripts/deploy_setup.py`): install system packages, uv, mount storage box via CIFS
+5. rsync code to remote (excludes `store/`, `.venv/`, `.env`)
+6. Create `store` symlink pointing to storage box path
+7. Run `uv sync` on remote
+
+Re-running is idempotent. If the server already exists, it skips provisioning and re-syncs code.
+
+### Required env var
+- `STORAGE_BOX_PASSWORD` -- needed by `remote-deploy-pipeline` for CIFS mount credentials (can be set in `.env`)
+
+### Key files
+- `config/deploy.toml` -- server, repo, and storage box settings
+- `scripts/deploy_setup.py` -- standalone pyinfra deploy script (not managed by nblite)
+- `pts/deploy/config.pct.py` -- config loading, hcloud helpers, SSH utilities
+- `pts/deploy/deploy_pipeline.pct.py` -- main deploy orchestration
+- `pts/deploy/destroy.pct.py`, `run_cmd.pct.py`, `download_store.pct.py`, `get_ip.pct.py` -- other CLI commands
 
 ## Old Repository Reference
 
