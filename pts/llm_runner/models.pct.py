@@ -197,12 +197,23 @@ class LLM:
 
         input_len = inputs["input_ids"].shape[1]
 
+        temperature = kwargs.pop("temperature", 0.0)
+        top_p = kwargs.pop("top_p", 1.0)
+        top_k_val = kwargs.pop("top_k", -1)
+        do_sample = kwargs.pop("do_sample", temperature > 0)
+
+        generate_kwargs = dict(max_new_tokens=max_new_tokens, do_sample=do_sample, **kwargs)
+        if do_sample:
+            generate_kwargs["temperature"] = temperature
+            if top_p < 1.0:
+                generate_kwargs["top_p"] = top_p
+            if top_k_val > 0:
+                generate_kwargs["top_k"] = top_k_val
+
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=kwargs.pop("do_sample", False),
-                **kwargs,
+                **generate_kwargs,
             )
 
         # Decode only new tokens
@@ -256,6 +267,8 @@ class VllmLLM:
 
         sampling_params = SamplingParams(
             temperature=kwargs.pop("temperature", 0.0),
+            top_p=kwargs.pop("top_p", 1.0),
+            top_k=kwargs.pop("top_k", -1),
             max_tokens=max_new_tokens,
             **structured_kwargs,
         )
@@ -310,6 +323,9 @@ class ApiLLM:
             prompts = [prompts]
 
         extra_kwargs = dict(kwargs)
+        # top_k is not standard in the OpenAI API; drop if disabled (-1).
+        if extra_kwargs.get("top_k", -1) == -1:
+            extra_kwargs.pop("top_k", None)
         if json_schema is not None:
             extra_kwargs["response_format"] = {
                 "type": "json_schema",

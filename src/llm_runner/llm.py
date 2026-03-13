@@ -13,7 +13,10 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
                      system_message: str | None = None,
                      json_schema: dict | None = None,
                      tensor_parallel_size: int = 1,
-                     vllm_kwargs: dict | None = None) -> list[str]:
+                     vllm_kwargs: dict | None = None,
+                     temperature: float = 0.0,
+                     top_p: float = 1.0,
+                     top_k: int = -1) -> list[str]:
     """Generate text completions for a list of prompts.
 
     Args:
@@ -28,6 +31,9 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
         json_schema: Optional JSON schema dict to constrain output to valid JSON.
         tensor_parallel_size: Number of GPUs for tensor parallelism (vllm only, default 1).
         vllm_kwargs: Extra kwargs passed to vLLM's LLM constructor (vllm only).
+        temperature: Sampling temperature (0.0 = greedy).
+        top_p: Nucleus sampling threshold (1.0 = disabled).
+        top_k: Top-k sampling (-1 = disabled).
 
     Returns:
         List of generated response strings, one per prompt.
@@ -36,6 +42,8 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
                    tensor_parallel_size=tensor_parallel_size,
                    vllm_kwargs=vllm_kwargs)
 
+    sampling_kwargs = dict(temperature=temperature, top_p=top_p, top_k=top_k)
+
     # For api and vllm backends, send all prompts at once (they handle batching internally)
     if backend in ("api", "vllm"):
         return llm.generate(
@@ -43,6 +51,7 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
             max_new_tokens=max_new_tokens,
             system_message=system_message,
             json_schema=json_schema,
+            **sampling_kwargs,
         )
 
     # For transformers backend, batch manually
@@ -54,6 +63,7 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
             max_new_tokens=max_new_tokens,
             system_message=system_message,
             json_schema=json_schema,
+            **sampling_kwargs,
         )
         all_responses.extend(responses)
 
