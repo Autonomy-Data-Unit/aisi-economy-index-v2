@@ -57,37 +57,16 @@ felten_scenario = "baseline_2025"
 
 [defaults.score_task_exposure]
 sbatch_time = "02:00:00"
-llm_model = "qwen-7b-sbatch"
+llm_model = "gpt-5.2"
 system_prompt = "score_task_exposure/main/system"
 user_prompt = "score_task_exposure/main/user"
 
-# --------
-#   Runs
-# --------
+# ---------------
+#   Calibration
+# ---------------
 
-[runs.baseline]
-# inherits all defaults
-
-[runs.test]
-sample_n = 10
-
-[runs.test_api]
-sample_n = 10
-embedding_model = "text-embedding-3-large"
-cosine_mode = "api"
-llm_model = "gpt-5.2"
-
-[runs.test_local]
-sample_n = 10
-embedding_model = "bge-large-mac"
-cosine_mode = "api"
-llm_model = "qwen-0.5b-mac"
-
-[runs.test_sbatch]
-sample_n = 10
-
-# llm_model and embedding_model are injected dynamically by the calibration script.
 [runs.calibration]
+# llm_model and embedding_model are injected dynamically by the calibration script.
 sample_n = 1000
 
 [runs.calibration.llm_summarise]
@@ -109,3 +88,23 @@ sbatch_time = "00:30:00"
 
 [runs.calibration.score_task_exposure]
 sbatch_time = "00:30:00"
+
+
+# --------
+#   Runs
+# --------
+
+[runs.test_api]
+sample_n = 10
+embedding_model = "text-embedding-3-large"
+cosine_mode = "api"
+llm_model = "gpt-5.2"
+
+[runs.test_local]
+sample_n = 10
+embedding_model = "bge-large-mac"
+cosine_mode = "api"
+llm_model = "qwen-0.5b-mac"
+
+[runs.test_sbatch]
+sample_n = 10
