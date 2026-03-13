@@ -22,6 +22,9 @@ nbs_calibration -> pts_calibration
 
 nbs_validation -> lib_validation
 nbs_validation -> pts_validation
+
+nbs_deploy -> lib_deploy
+nbs_deploy -> pts_deploy
 """
 
 [cl.nbs]
@@ -122,4 +125,17 @@ format = "percent"
 
 [cl.lib_validation]
 path = "src/validation"
+format = "module"
+
+
+[cl.nbs_deploy]
+path = "nbs/deploy"
+format = "ipynb"
+
+[cl.pts_deploy]
+path = "pts/deploy"
+format = "percent"
+
+[cl.lib_deploy]
+path = "src/deploy"
 format = "module"

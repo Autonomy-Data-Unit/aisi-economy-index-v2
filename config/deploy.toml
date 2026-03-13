@@ -1,0 +1,15 @@
+[server]
+name = "aisi-economy-index"
+type = "cpx31"
+location = "fsn1"
+image = "ubuntu-24.04"
+ssh_key_name = "default"
+ssh_pubkey_path = "~/.ssh/id_ed25519.pub"
+
+[repo]
+path = "/root/aisi-economy-index"
+
+[storage_box]
+username = ""           # Hetzner storage box username (e.g. u508472)
+mount_point = "/mnt/storage-box"
+store_path = "aisi-economy-index-store"   # Path within storage box to symlink store to
