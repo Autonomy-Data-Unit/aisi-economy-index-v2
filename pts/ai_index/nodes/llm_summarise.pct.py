@@ -194,6 +194,7 @@ summary_meta = await run_batched(
     raise_on_failure=raise_on_failure,
 )
 store.close()
+del store
 
 # %% [markdown]
 # ## Write result metadata

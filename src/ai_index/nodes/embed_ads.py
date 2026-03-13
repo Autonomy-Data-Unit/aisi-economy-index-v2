@@ -95,6 +95,7 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
     
     n_ok, n_err = store.counts()
     store.close()
+    del store
     print(f"embed_ads: done, {n_ok} succeeded, {n_err} failed")
     
     embed_meta = {

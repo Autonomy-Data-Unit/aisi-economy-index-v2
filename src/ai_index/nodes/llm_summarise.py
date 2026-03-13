@@ -112,6 +112,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
         raise_on_failure=raise_on_failure,
     )
     store.close()
+    del store
     summary_meta["slurm_jobs"] = _slurm_jobs
     summary_meta["slurm_total_seconds"] = sum(j.get("elapsed_seconds", 0) for j in _slurm_jobs)
     print(f"llm_summarise: wrote {const.rel(db_path)}")

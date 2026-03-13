@@ -114,8 +114,9 @@ class ResultStore:
         self.conn.execute(f"DELETE FROM {self.table}")
 
     def close(self):
-        """Close the DuckDB connection."""
+        """Close the DuckDB connection and release the reference."""
         self.conn.close()
+        self.conn = None
 
     def __enter__(self):
         return self
