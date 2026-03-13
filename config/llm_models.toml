@@ -93,6 +93,11 @@ vllm_kwargs = { trust_remote_code = true }
 mode = "sbatch"
 model = "LGAI-EXAONE/EXAONE-4.0-32B"
 
+# Reasoning model (distilled from DeepSeek-R1). Emits <think>...</think> before answer.
+[models.deepseek-r1-qwen-32b-sbatch]
+mode = "sbatch"
+model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+
 # ──── 1-GPU large models ────
 
 # MoE (117B total, 5.1B active, 128 experts, top-4 routing).
