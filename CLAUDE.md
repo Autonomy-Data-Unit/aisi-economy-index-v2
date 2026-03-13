@@ -254,6 +254,7 @@ batch_size = 64
 [defaults.sbatch]        # Defaults for mode="sbatch"
 dtype = "float16"
 batch_size = 64
+gpus = 1
 job_name = "embed"
 time = "01:00:00"
 setup = true
@@ -299,8 +300,9 @@ backend = "transformers"
 batch_size = 128
 [defaults.sbatch]
 max_new_tokens = 60
-dtype = "float16"
+dtype = "fp8"
 backend = "vllm"
+gpus = 1
 job_name = "llm_generate"
 time = "02:00:00"
 setup = true
@@ -408,7 +410,25 @@ Execution mode is determined per-model via the `mode` field in `embed_models.tom
 |------|-------------|
 | `api` | No GPU needed: embeddings via OpenAI/Gemini API, cosine sim via numpy, LLM via `adulib.llm` (litellm) |
 | `local` | Direct CUDA on current machine (sentence-transformers, torch). Mac variants use CPU/float32. |
-| `sbatch` | Orchestrate from local: serialize inputs, submit SBATCH job to Isambard, wait, download results |
+| `sbatch` | Orchestrate from local: serialize inputs, submit SBATCH job to Isambard, wait, download results. Configurable `gpus` (default 1) for multi-GPU tensor parallelism. |
+
+### Multi-GPU and FP8 support
+
+Model TOML configs support `gpus` (number of GPUs) and `dtype = "fp8"` for sbatch mode:
+- `gpus` controls both the SBATCH `--gpus=N` allocation and (for LLM) vLLM's `tensor_parallel_size`
+- FP8 is the default dtype for sbatch LLM inference (native H100 tensor core support, ~2x memory savings)
+- For embeddings/cosine, `gpus` only controls the SBATCH allocation (single-device models)
+- `gpus` flows through: model TOML -> `_split_remote_kwargs` -> `arun_remote(gpus=N)` -> `SbatchConfig(gpus=N)`
+- `tensor_parallel_size` flows through: `cfg["tensor_parallel_size"]` -> CLI `config_dict` -> `run_llm_generate` -> `load_llm` -> `_load_vllm`
+
+Per-model GPU override example in `llm_models.toml`:
+```toml
+[models.llama-70b-sbatch]
+mode = "sbatch"
+model = "meta-llama/Llama-3-70B-Instruct"
+gpus = 4
+time = "04:00:00"
+```
 
 ### Key files
 - `pts/ai_index/utils/` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`

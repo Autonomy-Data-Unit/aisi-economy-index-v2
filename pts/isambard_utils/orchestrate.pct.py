@@ -52,6 +52,7 @@ class TransferMode(str, Enum):
 _ORCHESTRATION_ONLY_KEYS = frozenset({
     "transfer_modes", "output_transfer", "setup", "time", "job_name",
     "required_models", "isambard_config", "print_fn", "cache", "upload_timeout",
+    "gpus",
 })
 
 def compute_job_hash(operation: str, inputs: dict[str, Any], config_dict: dict) -> str:
@@ -229,6 +230,7 @@ async def _submit_job(
     *,
     slurm_job_name: str,
     time: str,
+    gpus: int = 1,
     config: IsambardConfig,
     print_fn=print,
 ) -> "SlurmJob":
@@ -259,6 +261,7 @@ async def _submit_job(
     sbatch_cfg = SbatchConfig(
         job_name=slurm_job_name,
         time=time,
+        gpus=gpus,
         env_vars={"PYTHONPATH": f"{config.project_dir}/src"},
         command=(
             f"python -m llm_runner {operation} "
@@ -487,6 +490,7 @@ async def arun_remote(
     output_transfer: TransferMode = TransferMode.DIRECT,
     job_name: str,
     time: str = "02:00:00",
+    gpus: int = 1,
     required_models: list[str] | None = None,
     isambard_config: IsambardConfig | None = None,
     print_fn=print,
@@ -509,6 +513,7 @@ async def arun_remote(
         output_transfer: Transfer mode for downloading outputs.
         job_name: Base Slurm job name.
         time: Slurm time limit (e.g. "02:00:00").
+        gpus: Number of GPUs to request (default 1).
         required_models: HuggingFace model names to pre-cache.
         isambard_config: Isambard configuration.
         print_fn: Print function for progress logging.
@@ -543,7 +548,7 @@ async def arun_remote(
             operation, inputs, config_dict,
             transfer_modes=transfer_modes,
             output_transfer=output_transfer,
-            job_name=job_name, time=time,
+            job_name=job_name, time=time, gpus=gpus,
             config=ic, print_fn=print_fn,
         )
 
@@ -562,7 +567,7 @@ async def arun_remote(
             slurm_job_name=slurm_job_name,
             transfer_modes=transfer_modes,
             output_transfer=output_transfer,
-            time=time, upload_timeout=upload_timeout,
+            time=time, gpus=gpus, upload_timeout=upload_timeout,
             config=ic, print_fn=print_fn,
         )
 
@@ -579,6 +584,7 @@ async def _run_remote_cached(
     transfer_modes: dict[str, TransferMode],
     output_transfer: TransferMode,
     time: str,
+    gpus: int = 1,
     upload_timeout: int,
     config: IsambardConfig,
     print_fn=print,
@@ -599,7 +605,7 @@ async def _run_remote_cached(
         )
         job = await _submit_job(
             cache_path, operation, config_dict, manifest,
-            slurm_job_name=slurm_job_name, time=time,
+            slurm_job_name=slurm_job_name, time=time, gpus=gpus,
             config=config, print_fn=print_fn,
         )
         await _write_remote_status(cache_path, {
@@ -685,7 +691,7 @@ async def _run_remote_cached(
             slurm_job_name=slurm_job_name,
             transfer_modes=transfer_modes,
             output_transfer=output_transfer,
-            time=time, upload_timeout=upload_timeout,
+            time=time, gpus=gpus, upload_timeout=upload_timeout,
             config=config, print_fn=print_fn,
         )
 
@@ -719,7 +725,7 @@ async def _run_remote_cached(
 
         job = await _submit_job(
             cache_path, operation, config_dict, manifest,
-            slurm_job_name=slurm_job_name, time=time,
+            slurm_job_name=slurm_job_name, time=time, gpus=gpus,
             config=config, print_fn=print_fn,
         )
         await _write_remote_status(cache_path, {
@@ -751,6 +757,7 @@ async def _run_remote_uncached(
     output_transfer: TransferMode,
     job_name: str,
     time: str,
+    gpus: int = 1,
     config: IsambardConfig,
     print_fn=print,
 ) -> dict[str, Any]:
@@ -806,6 +813,7 @@ async def _run_remote_uncached(
     sbatch_cfg = SbatchConfig(
         job_name=job_name,
         time=time,
+        gpus=gpus,
         env_vars={"PYTHONPATH": f"{config.project_dir}/src"},
         command=(
             f"python -m llm_runner {operation} "
@@ -863,6 +871,7 @@ def run_remote(
     output_transfer: TransferMode = TransferMode.DIRECT,
     job_name: str,
     time: str = "02:00:00",
+    gpus: int = 1,
     required_models: list[str] | None = None,
     isambard_config: IsambardConfig | None = None,
     print_fn=print,
@@ -878,7 +887,7 @@ def run_remote(
         setup=setup,
         transfer_modes=transfer_modes,
         output_transfer=output_transfer,
-        job_name=job_name, time=time,
+        job_name=job_name, time=time, gpus=gpus,
         required_models=required_models,
         isambard_config=isambard_config,
         print_fn=print_fn,

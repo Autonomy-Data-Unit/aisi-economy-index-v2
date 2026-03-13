@@ -11,8 +11,9 @@ batch_size = 128
 
 [defaults.sbatch]
 max_new_tokens = 60
-dtype = "float16"
+dtype = "fp8"
 backend = "vllm"
+gpus = 1
 job_name = "llm_generate"
 time = "02:00:00"
 setup = true

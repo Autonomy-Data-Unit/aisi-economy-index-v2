@@ -388,13 +388,15 @@ class VllmLLM:
 
 # %%
 #|export
-def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16") -> VllmLLM:
+def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
+               tensor_parallel_size: int = 1) -> VllmLLM:
     """Load a causal LM via vLLM's offline engine.
 
     Args:
         model_name: HuggingFace model ID.
         device: Device (only "cuda" supported by vLLM).
-        dtype: Model precision ("float16", "bfloat16", "float32").
+        dtype: Model precision ("float16", "bfloat16", "float32", "fp8").
+        tensor_parallel_size: Number of GPUs for tensor parallelism (default 1).
 
     Returns:
         VllmLLM wrapping the vLLM engine.
@@ -406,7 +408,7 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16")
         model=model_name,
         dtype=dtype if dtype != "float16" else "half",
         gpu_memory_utilization=0.9,
-        tensor_parallel_size=1,
+        tensor_parallel_size=tensor_parallel_size,
         enforce_eager=True,   # safer on aarch64/GH200
         max_model_len=4096,   # our prompts are short, saves memory
     )
@@ -417,20 +419,23 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16")
 def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
              device: str = "cuda",
              dtype: str = "float16",
-             backend: str = "transformers") -> LLM | VllmLLM:
+             backend: str = "transformers",
+             tensor_parallel_size: int = 1) -> LLM | VllmLLM:
     """Load a causal language model with tokenizer.
 
     Args:
         model_name: HuggingFace model ID.
         device: Device to load onto ("cuda", "cpu").
-        dtype: Model precision ("float16", "bfloat16", "float32").
+        dtype: Model precision ("float16", "bfloat16", "float32", "fp8").
         backend: Inference backend, either "transformers" (default) or "vllm".
+        tensor_parallel_size: Number of GPUs for tensor parallelism (vllm only, default 1).
 
     Returns:
         LLM or VllmLLM wrapping the loaded model.
     """
     if backend == "vllm":
-        return _load_vllm(model_name, device=device, dtype=dtype)
+        return _load_vllm(model_name, device=device, dtype=dtype,
+                          tensor_parallel_size=tensor_parallel_size)
 
     set_model_env()
     import torch

@@ -42,6 +42,7 @@ def llm_generate(
         from isambard_utils.orchestrate import run_remote
         remote_kw = _split_remote_kwargs(cfg)
         cfg["model_name"] = model_name
+        cfg["tensor_parallel_size"] = remote_kw.get("gpus", 1)
         return run_remote(
             "llm_generate",
             inputs={"prompts": prompts},
@@ -78,6 +79,7 @@ async def allm_generate(
         from isambard_utils.orchestrate import arun_remote
         remote_kw = _split_remote_kwargs(cfg)
         cfg["model_name"] = model_name
+        cfg["tensor_parallel_size"] = remote_kw.get("gpus", 1)
         return (await arun_remote(
             "llm_generate",
             inputs={"prompts": prompts},
