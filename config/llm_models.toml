@@ -115,17 +115,6 @@ model = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
 
 # ──── 2-GPU models ────
 
-# MoE + DeltaNet hybrid (122B total, 10B active, 256 experts, 32 attn heads).
-# Uses pre-quantized FP8 checkpoint to avoid OOM from dynamic bf16→fp8 conversion
-# during weight loading (256 experts' temporary bf16 buffers exceed 95 GB on 2 GPUs).
-# FP8 KV cache produces corrupt output; kv_cache_dtype="auto" forces bf16 KV.
-[models."qwen3.5-122b-sbatch"]
-mode = "sbatch"
-model = "Qwen/Qwen3.5-122B-A10B-FP8"
-dtype = "bfloat16"
-gpus = 2
-vllm_kwargs = { trust_remote_code = true, kv_cache_dtype = "auto" }
-
 # Hybrid Mamba-2 + MoE + Attention (120B total, 12B active).
 [models.nemotron-super-120b-sbatch]
 mode = "sbatch"

@@ -40,7 +40,7 @@ class JobInfoModel(BaseModel):
 
 json_schema = JobInfoModel.model_json_schema()
 
-SYSTEM_PROMPT = """You are a precise data extraction system for job advertisements. Extract structured information from each job ad exactly as specified.
+SYSTEM_PROMPT = """You are a precise data extraction system for job advertisements. Extract structured information from each job ad exactly as specified. Respond with a single JSON object and nothing else.
 
 Rules:
 - short_description: A single sentence summarising the role (max 30 words).
@@ -167,7 +167,6 @@ print("All extract_json tests passed")
 REASONING_MODELS = [
     "gpt-oss-120b-sbatch",
     "deepseek-r1-qwen-32b-sbatch",
-    "qwen3.5-122b-sbatch",
     "qwen3-235b-sbatch",
 ]
 
@@ -217,8 +216,8 @@ for model_key, raw_or_err in raw_results:
 
     # Show raw output
     print(f"\nRaw length: {len(raw)} chars")
-    print(f"\n--- RAW (first 500 chars) ---")
-    print(raw[:500])
+    print(f"\n--- RAW ---")
+    print(raw)
     print(f"--- END ---")
 
     # Try direct parse
