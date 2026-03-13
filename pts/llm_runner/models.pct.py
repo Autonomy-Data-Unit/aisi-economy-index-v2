@@ -359,14 +359,22 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
     set_model_env()
     from vllm import LLM as _VllmEngine
 
-    engine = _VllmEngine(
+    vllm_kwargs = dict(
         model=model_name,
-        dtype=dtype if dtype != "float16" else "half",
         gpu_memory_utilization=0.9,
         tensor_parallel_size=tensor_parallel_size,
         enforce_eager=True,   # safer on aarch64/GH200
         max_model_len=4096,   # our prompts are short, saves memory
     )
+
+    if dtype == "fp8":
+        # FP8 quantization: use bfloat16 compute dtype with FP8 weight quantization
+        vllm_kwargs["dtype"] = "bfloat16"
+        vllm_kwargs["quantization"] = "fp8"
+    else:
+        vllm_kwargs["dtype"] = "half" if dtype == "float16" else dtype
+
+    engine = _VllmEngine(**vllm_kwargs)
     return VllmLLM(engine=engine, model_name=model_name, device=device, dtype=dtype)
 
 # %%

@@ -48,11 +48,22 @@ _RUN_REMOTE_KEYS = {
     "cache", "upload_timeout", "gpus",
 }
 
+def _strip_remote_kwargs(cfg):
+    """Remove run_remote-only keys from cfg in-place (for api/local modes)."""
+    for k in _RUN_REMOTE_KEYS:
+        cfg.pop(k, None)
+
 def _resolve_model_args(config_path, model_key, kwargs):
-    """Resolve config + kwargs into (mode, model_name, cfg) tuple."""
+    """Resolve config + kwargs into (mode, model_name, cfg) tuple.
+
+    For non-sbatch modes, strips run_remote-only keys so the cfg can be
+    passed directly to llm_runner / adulib without unexpected kwargs.
+    """
     mode, cfg = _load_model_config(config_path, model_key)
     cfg.update(kwargs)
     model_name = cfg.pop("model")
+    if mode != "sbatch":
+        _strip_remote_kwargs(cfg)
     return mode, model_name, cfg
 
 def _split_remote_kwargs(cfg):

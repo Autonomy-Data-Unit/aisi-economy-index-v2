@@ -7,7 +7,7 @@ import asyncio
 
 import numpy as np
 
-from ..utils._model_config import _split_remote_kwargs
+from ..utils._model_config import _split_remote_kwargs, _strip_remote_kwargs
 
 def cosine_topk(
     A: np.ndarray,
@@ -31,6 +31,7 @@ def cosine_topk(
         from llm_runner.cosine import run_cosine_topk
         if mode == "api":
             kwargs.setdefault("device", "cpu")
+        _strip_remote_kwargs(kwargs)
         return run_cosine_topk(A, B, k, **kwargs)
 
     elif mode == "sbatch":
@@ -76,6 +77,7 @@ async def acosine_topk(
         from llm_runner.cosine import run_cosine_topk
         if mode == "api":
             kwargs.setdefault("device", "cpu")
+        _strip_remote_kwargs(kwargs)
         return await asyncio.to_thread(run_cosine_topk, A, B, k, **kwargs)
 
     elif mode == "sbatch":
