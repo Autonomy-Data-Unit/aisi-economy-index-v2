@@ -48,12 +48,14 @@ from ai_index import const
 from pathlib import Path
 from ai_index.utils import get_adzuna_conn
 
+duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
+
 # %% [markdown]
 # Get all ad IDs
 
 # %%
 #|export
-conn = get_adzuna_conn(read_only=True)
+conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
 res = conn.execute("""
     SELECT id as ad_id FROM ads
 """).fetchdf()

@@ -58,12 +58,15 @@ class ResultStore:
     """
 
     def __init__(self, db_path: str | Path, columns: dict[str, str],
-                 table: str = "results", id_col: str = "id", error_col: str = "error"):
+                 table: str = "results", id_col: str = "id", error_col: str = "error",
+                 memory_limit: str | None = None):
         self.db_path = str(db_path)
         self.table = table
         self.id_col = id_col
         self.error_col = error_col
         self.conn = duckdb.connect(self.db_path)
+        if memory_limit is not None:
+            self.conn.execute(f"SET memory_limit = '{memory_limit}'")
         col_defs = ", ".join(f"{name} {typ}" for name, typ in columns.items())
         self.conn.execute(f"CREATE TABLE IF NOT EXISTS {table} ({col_defs})")
 

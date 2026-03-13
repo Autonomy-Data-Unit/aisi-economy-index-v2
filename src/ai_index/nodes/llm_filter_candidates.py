@@ -27,7 +27,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     from ai_index.nodes.llm_summarise import JobInfoModel
     from ai_index.utils import (
         ResultStore, run_batched, strict_format, load_prompt, allm_generate,
-        get_adzuna_conn,
+        get_adzuna_conn, duckdb_connect_retry,
     )
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
@@ -39,6 +39,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     resume = ctx.vars["filter_resume"]
     max_retries = ctx.vars["filter_max_retries"]
     raise_on_failure = ctx.vars["filter_raise_on_failure"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
     USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
@@ -50,8 +51,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
     
     _matches_conn = duckdb.connect()  # in-memory, queries parquet directly
-    _summaries_conn = duckdb.connect(str(summaries_db), read_only=True)
-    _ads_conn = get_adzuna_conn(read_only=True)
+    _summaries_conn = duckdb_connect_retry(summaries_db, read_only=True, memory_limit=duckdb_memory_limit)
+    _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
     
     print(f"llm_filter: {len(ad_ids)} ads to process")
     
@@ -154,7 +155,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         "id": "BIGINT NOT NULL",
         "data": "VARCHAR NOT NULL",
         "error": "VARCHAR",
-    })
+    }, memory_limit=duckdb_memory_limit)
     
     filter_meta = await run_batched(
         ad_ids, store, _work_fn,

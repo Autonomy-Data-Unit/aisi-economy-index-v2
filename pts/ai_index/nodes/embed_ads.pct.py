@@ -73,6 +73,7 @@ embedding_model = ctx.vars["embedding_model"]
 sbatch_cache = ctx.vars["sbatch_cache"]
 sbatch_time = ctx.vars["sbatch_time"]
 chunk_size = ctx.vars["embed_chunk_size"]
+duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
 
 output_dir = const.pipeline_store_path / run_name / "embed_ads"
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -83,7 +84,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 # %%
 #|export
 summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
-conn = duckdb_connect_retry(summaries_db, read_only=True)
+conn = duckdb_connect_retry(summaries_db, read_only=True, memory_limit=duckdb_memory_limit)
 rows = conn.execute(
     "SELECT id, data FROM results WHERE error IS NULL ORDER BY id"
 ).fetchall()
@@ -132,7 +133,7 @@ store = ResultStore(db_path, {
     "role": "BLOB NOT NULL",
     "taskskill": "BLOB NOT NULL",
     "error": "VARCHAR",
-})
+}, memory_limit=duckdb_memory_limit)
 
 done = store.done_ids()
 remaining_indices = [i for i in range(n_total) if ad_ids[i] not in done]

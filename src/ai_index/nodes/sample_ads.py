@@ -9,7 +9,9 @@ def main(ctx, print) -> {
     from ai_index import const
     from pathlib import Path
     from ai_index.utils import get_adzuna_conn
-    conn = get_adzuna_conn(read_only=True)
+    
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
+    conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
     res = conn.execute("""
         SELECT id as ad_id FROM ads
     """).fetchdf()

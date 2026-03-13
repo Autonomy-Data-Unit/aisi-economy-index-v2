@@ -38,6 +38,8 @@ device = "cpu"
 dtype = "float32"
 batch_size = 16
 
+# Sbatch models
+
 [models.qwen-7b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"

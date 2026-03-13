@@ -42,8 +42,11 @@ class LLMResultStore:
             n_ok, n_err = store.counts()
     """
 
-    def __init__(self, db_path: str | Path, table: str = "results"):
+    def __init__(self, db_path: str | Path, table: str = "results",
+                 memory_limit: str | None = None):
         self.conn = duckdb.connect(str(db_path))
+        if memory_limit is not None:
+            self.conn.execute(f"SET memory_limit = '{memory_limit}'")
         self.table = table
         self.conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {table} (

@@ -41,6 +41,9 @@
     },
     "sbatch_cache": {
       "type": "bool"
+    },
+    "duckdb_memory_limit": {
+      "type": "str"
     }
   },
   "storage": {

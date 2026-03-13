@@ -62,6 +62,7 @@ def duckdb_connect_retry(
     db_path: str | Path,
     *,
     read_only: bool = False,
+    memory_limit: str | None = None,
     timeout: float = 300,
     poll_interval: float = 2,
 ) -> duckdb.DuckDBPyConnection:
@@ -74,7 +75,10 @@ def duckdb_connect_retry(
     deadline = time.monotonic() + timeout
     while True:
         try:
-            return duckdb.connect(str(db_path), read_only=read_only)
+            conn = duckdb.connect(str(db_path), read_only=read_only)
+            if memory_limit is not None:
+                conn.execute(f"SET memory_limit = '{memory_limit}'")
+            return conn
         except (duckdb.IOException, duckdb.ConnectionException) as e:
             if time.monotonic() >= deadline:
                 raise
@@ -82,12 +86,12 @@ def duckdb_connect_retry(
             time.sleep(poll_interval)
 
 
-def get_adzuna_conn(read_only: bool = False, *, timeout: float = 300, poll_interval: float = 2) -> duckdb.DuckDBPyConnection:
+def get_adzuna_conn(read_only: bool = False, *, memory_limit: str | None = None, timeout: float = 300, poll_interval: float = 2) -> duckdb.DuckDBPyConnection:
     """Open a DuckDB connection to the Adzuna database.
 
     If the database is locked or has a configuration conflict, retries until timeout.
     """
-    return duckdb_connect_retry(adzuna_db_path, read_only=read_only, timeout=timeout, poll_interval=poll_interval)
+    return duckdb_connect_retry(adzuna_db_path, read_only=read_only, memory_limit=memory_limit, timeout=timeout, poll_interval=poll_interval)
 
 
 def ensure_ads_table(conn: duckdb.DuckDBPyConnection) -> None:
@@ -157,6 +161,7 @@ def build_insert_from_parquet(
 def get_ads_by_id(
     ids: list[int],
     columns: list[str] | None = None,
+    memory_limit: str | None = None,
 ) -> pa.Table:
     """Retrieve job ad rows by ID from the Adzuna DuckDB store.
 
@@ -174,7 +179,7 @@ def get_ads_by_id(
     col_clause = ", ".join(columns) if columns else "*"
     placeholders = ", ".join(["?"] * len(ids))
 
-    conn = get_adzuna_conn(read_only=True)
+    conn = get_adzuna_conn(read_only=True, memory_limit=memory_limit)
     try:
         result = conn.execute(
             f"SELECT {col_clause} FROM ads WHERE id IN ({placeholders})", ids
@@ -215,8 +220,8 @@ def print_ads(*ids: int, width: int = 80) -> None:
         print()
 
 
-def get_all_ad_ids():
-    conn = get_adzuna_conn(read_only=True)
+def get_all_ad_ids(memory_limit: str | None = None):
+    conn = get_adzuna_conn(read_only=True, memory_limit=memory_limit)
     all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()
     conn.close()
     return all_ids

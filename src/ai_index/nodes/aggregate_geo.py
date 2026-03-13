@@ -6,12 +6,15 @@ def main(ctx, print, ad_ids: list[int]) -> None:
     
     from ai_index import const
     run_name = ctx.vars["run_name"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     output_dir = const.outputs_path / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
     
     ad_exposure_path = const.pipeline_store_path / run_name / "compute_job_ad_exposure" / "ad_exposure.parquet"
     conn = duckdb.connect()
+    if duckdb_memory_limit is not None:
+        conn.execute(f"SET memory_limit = '{duckdb_memory_limit}'")
     
     # Discover score columns from parquet schema
     all_cols = [row[0] for row in conn.execute(

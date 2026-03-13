@@ -15,6 +15,7 @@ def main(ctx, print):
     
     s3_prefix = ctx.vars["adzuna_s3_prefix"]
     years_filter = ctx.vars["fetch_years"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     # Parse bucket and key prefix from s3_prefix (format: "bucket/key/prefix")
     bucket_name, _, key_prefix = s3_prefix.partition("/")
@@ -38,7 +39,7 @@ def main(ctx, print):
         years = [y for y in years if y in requested]
         print(f"fetch_adzuna: filtered to {len(years)} year(s): {years}")
     
-    conn = get_adzuna_conn()
+    conn = get_adzuna_conn(memory_limit=duckdb_memory_limit)
     ensure_ads_table(conn)
     
     adzuna_meta = {"years": {}}

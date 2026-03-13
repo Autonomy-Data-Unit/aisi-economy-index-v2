@@ -42,6 +42,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     max_retries = ctx.vars["summarise_max_retries"]
     raise_on_failure = ctx.vars["summarise_raise_on_failure"]
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
     USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
@@ -54,7 +55,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     
     async def _work_fn(chunk_ids):
         """Fetch ads, build prompts, call LLM, validate, return DataFrame."""
-        ads_conn = get_adzuna_conn(read_only=True)
+        ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
         try:
             ads_conn.execute("CREATE OR REPLACE TEMP TABLE _chunk_ids (id BIGINT)")
             ads_conn.executemany("INSERT INTO _chunk_ids VALUES (?)", [(i,) for i in chunk_ids])
@@ -99,7 +100,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
         "id": "BIGINT NOT NULL",
         "data": "VARCHAR NOT NULL",
         "error": "VARCHAR",
-    })
+    }, memory_limit=duckdb_memory_limit)
     
     summary_meta = await run_batched(
         all_ids, store, _work_fn,

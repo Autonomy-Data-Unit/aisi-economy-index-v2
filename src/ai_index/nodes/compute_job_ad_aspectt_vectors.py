@@ -12,6 +12,7 @@ def main(ctx, print, ad_ids: list[int], aspectt_done: bool) -> {
     from ai_index.utils.result_store import ResultStore
     run_name = ctx.vars["run_name"]
     chunk_size = ctx.vars["aspectt_chunk_size"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     output_dir = const.pipeline_store_path / run_name / "compute_job_ad_aspectt_vectors"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -37,7 +38,7 @@ def main(ctx, print, ad_ids: list[int], aspectt_done: bool) -> {
         "importance": "BLOB NOT NULL",
         "n_matches": "INTEGER NOT NULL",
         "error": "VARCHAR",
-    })
+    }, memory_limit=duckdb_memory_limit)
     
     done = store.done_ids()
     remaining = [i for i in ad_ids if i not in done]
