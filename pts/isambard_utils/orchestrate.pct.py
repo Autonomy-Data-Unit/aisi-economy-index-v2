@@ -541,7 +541,7 @@ async def arun_remote(
     # 2. Pre-cache models
     for model_name in (required_models or []):
         print_fn(f"run_remote [{job_name}]: ensuring model {model_name}...")
-        await aensure_model(model_name, config=ic)
+        await aensure_model(model_name, config=ic, print_fn=print_fn)
 
     if not cache:
         return await _run_remote_uncached(

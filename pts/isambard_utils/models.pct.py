@@ -109,7 +109,8 @@ def check_model(model_name: str, *, config: IsambardConfig | None = None) -> boo
 # %%
 #|export
 async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
-                                     config: IsambardConfig) -> None:
+                                     config: IsambardConfig,
+                                     print_fn=print) -> None:
     """Pre-cache transformers dynamic modules for trust_remote_code models.
 
     Models with ``auto_map`` in their config.json use custom Python files that
@@ -131,18 +132,21 @@ async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
         f"        os.environ['HF_HUB_CACHE'] = {cache_dir!r}",
         "        from transformers import AutoConfig",
         f"        AutoConfig.from_pretrained({model_name!r}, trust_remote_code=True, cache_dir={cache_dir!r})",
-        f"        print('aensure_model: pre-cached dynamic modules for ' + {model_name!r})",
+        "        print('pre-cached dynamic modules')",
         "    else:",
-        "        print('aensure_model: no auto_map, skipping dynamic module cache')",
+        "        print('no auto_map')",
         "else:",
-        "    print('aensure_model: no config.json found, skipping dynamic module cache')",
+        "    print('no config.json found')",
     ])
-    await _aremote_python(script, config=config, timeout=120)
+    stdout = await _aremote_python(script, config=config, timeout=120)
+    result = stdout.strip().split("\n")[-1]
+    print_fn(f"aensure_model: {model_name}: {result}")
 
 # %%
 #|export
 async def aensure_model(model_name: str, *, config: IsambardConfig | None = None,
-                        token: str | None = None, timeout: int = 1800) -> str:
+                        token: str | None = None, timeout: int = 1800,
+                        print_fn=print) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node (async).
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
@@ -157,6 +161,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
         config: Isambard configuration.
         token: Optional HuggingFace token for gated models.
         timeout: SSH timeout in seconds (default 30 minutes for large models).
+        print_fn: Callable for progress logging (default: print).
     """
     config = _get_config(config)
     cache_dir = _hf_cache_dir(config)
@@ -165,6 +170,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
 
     # Skip download if already cached (avoids 401 for gated models)
     if await acheck_model(model_name, config=config):
+        print_fn(f"aensure_model: {model_name}: already cached")
         model_dir = model_name.replace("/", "--")
         # Return the snapshot path by reading the refs/main pointer
         script = (
@@ -177,6 +183,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
         stdout = await _aremote_python(script, config=config, timeout=30)
         snapshot_path = stdout.strip().split("\n")[-1]
     else:
+        print_fn(f"aensure_model: {model_name}: downloading...")
         token_arg = f", token={token!r}" if token else ""
         script = (
             f"from huggingface_hub import snapshot_download; "
@@ -185,16 +192,18 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
         )
         stdout = await _aremote_python(script, config=config, timeout=timeout)
         snapshot_path = stdout.strip().split("\n")[-1]
+        print_fn(f"aensure_model: {model_name}: downloaded to {snapshot_path}")
 
     # Pre-cache transformers dynamic modules for trust_remote_code models
-    await _aprecache_dynamic_modules(model_name, cache_dir=cache_dir, config=config)
+    await _aprecache_dynamic_modules(model_name, cache_dir=cache_dir, config=config, print_fn=print_fn)
 
     return snapshot_path
 
 # %%
 #|export
 def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
-                 token: str | None = None, timeout: int = 1800) -> str:
+                 token: str | None = None, timeout: int = 1800,
+                 print_fn=print) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node.
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
@@ -209,8 +218,9 @@ def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
         config: Isambard configuration.
         token: Optional HuggingFace token for gated models.
         timeout: SSH timeout in seconds (default 30 minutes for large models).
+        print_fn: Callable for progress logging (default: print).
     """
-    return _run_sync(aensure_model(model_name, config=config, token=token, timeout=timeout))
+    return _run_sync(aensure_model(model_name, config=config, token=token, timeout=timeout, print_fn=print_fn))
 
 # %% [markdown]
 # ## Compute-node functions (run on Isambard in SBATCH jobs)
