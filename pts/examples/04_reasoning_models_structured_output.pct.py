@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: .venv
+#     display_name: ai-index (3.12.12)
 #     language: python
 #     name: python3
 # ---
@@ -74,15 +74,10 @@ REASONING_MODELS = [
 
 # %%
 #|eval: false
-results = {}
-
-for model_key in REASONING_MODELS:
-    print(f"\n{'=' * 80}")
-    print(f"Model: {model_key}")
-    print(f"{'=' * 80}")
-
+async def _call_model(model_key):
+    """Call a single model and return (model_key, raw_response) or (model_key, error)."""
     try:
-        responses = asyncio.run(allm_generate(
+        responses = await allm_generate(
             [USER_PROMPT],
             model=model_key,
             system_message=SYSTEM_PROMPT,
@@ -93,13 +88,29 @@ for model_key in REASONING_MODELS:
             json_schema=json_schema,
             cache=False,
             time="00:30:00",
-        ))
-        raw = responses[0]
+        )
+        return model_key, responses[0]
     except Exception as e:
-        print(f"ERROR: {e}")
-        results[model_key] = {"error": str(e)}
+        return model_key, e
+
+# Launch all models in parallel
+raw_results = await asyncio.gather(*[_call_model(m) for m in REASONING_MODELS])
+
+# %%
+#|eval: false
+results = {}
+
+for model_key, raw_or_err in raw_results:
+    print(f"\n{'=' * 80}")
+    print(f"Model: {model_key}")
+    print(f"{'=' * 80}")
+
+    if isinstance(raw_or_err, Exception):
+        print(f"ERROR: {raw_or_err}")
+        results[model_key] = {"error": str(raw_or_err)}
         continue
 
+    raw = raw_or_err
     results[model_key] = {"raw": raw}
 
     # Show raw output
@@ -138,7 +149,6 @@ for model_key in REASONING_MODELS:
             # Try finding the last complete JSON object
             # Some models may have JSON embedded in the middle
             try:
-                # Find all { positions and try parsing from each
                 for i in range(len(raw)):
                     if raw[i] == "{":
                         try:
