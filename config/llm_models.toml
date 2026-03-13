@@ -43,3 +43,65 @@ batch_size = 16
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"
 time = "00:30:00"
+
+[models.qwen-14b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen2.5-14B-Instruct"
+time = "00:45:00"
+
+[models.qwen-32b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen2.5-32B-Instruct"
+time = "01:00:00"
+
+[models.qwen-72b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen2.5-72B-Instruct"
+time = "02:00:00"
+
+[models.mistral-7b-sbatch]
+mode = "sbatch"
+model = "mistralai/Mistral-7B-Instruct-v0.3"
+time = "00:30:00"
+
+# NOTE: Ministral uses Mistral's native format, not HuggingFace format.
+# Requires tokenizer_mode="mistral", config_format="mistral", load_format="mistral"
+# in vLLM. These are not yet supported by our _load_vllm code.
+[models.ministral-8b-sbatch]
+mode = "sbatch"
+model = "mistralai/Ministral-8B-Instruct-2410"
+time = "00:30:00"
+
+# NOTE: Gated model — requires accepting Meta's license on HuggingFace
+# and HF_TOKEN available on Isambard.
+[models.llama-8b-sbatch]
+mode = "sbatch"
+model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+time = "00:30:00"
+
+# NOTE: Gated model — requires HF_TOKEN on Isambard.
+[models.llama-70b-sbatch]
+mode = "sbatch"
+model = "meta-llama/Meta-Llama-3.1-70B-Instruct"
+time = "02:00:00"
+
+# NOTE: Requires trust_remote_code=True in vLLM (not yet supported by
+# our _load_vllm code).
+[models.phi-4-sbatch]
+mode = "sbatch"
+model = "microsoft/phi-4"
+time = "00:45:00"
+
+# NOTE: Requires trust_remote_code=True in vLLM. Use bfloat16 (Gemma's
+# native dtype); FP8 dynamic quantization may work but is less tested.
+[models.gemma-27b-sbatch]
+mode = "sbatch"
+model = "google/gemma-3-27b-it"
+dtype = "bfloat16"
+time = "01:00:00"
+
+# NOTE: Requires vLLM >= 0.10.0 for native EXAONE 4.0 support.
+[models.exaone-32b-sbatch]
+mode = "sbatch"
+model = "LGAI-EXAONE/EXAONE-4.0-32B"
+time = "01:00:00"
