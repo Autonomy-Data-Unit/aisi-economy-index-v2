@@ -422,7 +422,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprin
         return
     import subprocess
     config = _get_config(config)
-    from isambard_utils.env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
+    from isambard_utils.env import _aensure_uv, _aensure_venv, _afix_lustre_hardlinks
     from isambard_utils.transfer import aupload as async_rsync_upload, aupload_bytes
     import llm_runner
 
@@ -449,15 +449,12 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprin
             config=config, exclude=["__pycache__", "*.pyc"],
         )
 
-        # 5. Install deps
+        # 5. Install deps (CUDA torch comes from the pytorch-cu126 index
+        #    configured in remote_pyproject.toml, no separate step needed)
         print_fn("runner setup: installing dependencies...")
         await _aensure_venv(config=config)
 
-        # 6. Ensure CUDA torch
-        print_fn("runner setup: ensuring CUDA torch...")
-        await _aensure_cuda_torch(config=config)
-
-        # 7. Fix Lustre hardlinks (one-time migration to copy mode)
+        # 6. Fix Lustre hardlinks (one-time migration to copy mode)
         await _afix_lustre_hardlinks(config=config)
         print_fn("runner setup: done")
         _setup_done = True
