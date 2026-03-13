@@ -71,6 +71,7 @@ from ai_index.utils.result_store import ResultStore
 run_name = ctx.vars["run_name"]
 embedding_model = ctx.vars["embedding_model"]
 sbatch_cache = ctx.vars["sbatch_cache"]
+sbatch_time = ctx.vars["sbatch_time"]
 chunk_size = ctx.vars["embed_chunk_size"]
 
 output_dir = const.pipeline_store_path / run_name / "embed_ads"
@@ -152,10 +153,10 @@ for chunk_idx in range(n_chunks):
     chunk_taskskill_texts = [taskskill_texts[i] for i in chunk_indices]
 
     _sa1 = {}
-    role_chunk = await aembed(chunk_role_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa1)
+    role_chunk = await aembed(chunk_role_texts, model=embedding_model, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa1)
     if _sa1: slurm_jobs.append(_sa1)
     _sa2 = {}
-    taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa2)
+    taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa2)
     if _sa2: slurm_jobs.append(_sa2)
 
     df = pd.DataFrame({

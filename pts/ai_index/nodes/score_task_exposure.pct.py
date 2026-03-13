@@ -87,6 +87,7 @@ from ai_index.utils.scoring import OnetScoreSet
 #|export
 llm_model = ctx.vars["llm_model"]
 sbatch_cache = ctx.vars["sbatch_cache"]
+sbatch_time = ctx.vars["sbatch_time"]
 batch_size = ctx.vars["llm_batch_size"]
 max_new_tokens = ctx.vars["llm_max_new_tokens"]
 
@@ -166,6 +167,7 @@ for i in range(0, len(prompts), batch_size):
         max_new_tokens=max_new_tokens,
         json_schema=TaskExposureModel.model_json_schema(),
         cache=sbatch_cache,
+        time=sbatch_time,
         slurm_accounting=_sa,
     )
     if _sa: slurm_jobs.append(_sa)

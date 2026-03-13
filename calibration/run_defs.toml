@@ -7,7 +7,21 @@ sample_n = 1000
 sbatch_cache = true
 
 [defaults.llm_summarise]
+sbatch_time = "01:00:00"
 summarise_resume = false
 
 [defaults.llm_filter_candidates]
+sbatch_time = "01:00:00"
 filter_resume = false
+
+[defaults.embed_onet]
+sbatch_time = "00:30:00"
+
+[defaults.embed_ads]
+sbatch_time = "00:30:00"
+
+[defaults.cosine_match]
+sbatch_time = "00:30:00"
+
+[defaults.score_task_exposure]
+sbatch_time = "00:30:00"

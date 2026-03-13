@@ -13,7 +13,6 @@ dtype = "float16"
 batch_size = 64
 gpus = 1
 job_name = "embed"
-time = "01:00:00"
 setup = true
 
 # Models

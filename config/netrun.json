@@ -203,6 +203,9 @@
             "sbatch_cache": {
               "inherit": true
             },
+            "sbatch_time": {
+              "type": "str"
+            },
             "summarise_resume": {
               "type": "bool"
             },
@@ -245,6 +248,9 @@
             "sbatch_cache": {
               "inherit": true
             },
+            "sbatch_time": {
+              "type": "str"
+            },
             "embed_chunk_size": {
               "type": "int"
             }
@@ -281,6 +287,9 @@
           "node_vars": {
             "sbatch_cache": {
               "inherit": true
+            },
+            "sbatch_time": {
+              "type": "str"
             }
           },
           "signals": [
@@ -318,6 +327,9 @@
           "node_vars": {
             "sbatch_cache": {
               "inherit": true
+            },
+            "sbatch_time": {
+              "type": "str"
             },
             "cosine_alpha": {
               "type": "float"
@@ -358,6 +370,9 @@
           "node_vars": {
             "sbatch_cache": {
               "inherit": true
+            },
+            "sbatch_time": {
+              "type": "str"
             },
             "filter_resume": {
               "type": "bool"
@@ -543,6 +558,9 @@
           "node_vars": {
             "sbatch_cache": {
               "inherit": true
+            },
+            "sbatch_time": {
+              "type": "str"
             },
             "llm_model": {
               "inherit": true

@@ -35,6 +35,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
     sbatch_cache = ctx.vars["sbatch_cache"]
+    sbatch_time = ctx.vars["sbatch_time"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
     resume = ctx.vars["summarise_resume"]
@@ -81,6 +82,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             max_new_tokens=max_new_tokens,
             json_schema=json_schema,
             cache=sbatch_cache,
+            time=sbatch_time,
             slurm_accounting=_sa,
         )
         if _sa: _slurm_jobs.append(_sa)

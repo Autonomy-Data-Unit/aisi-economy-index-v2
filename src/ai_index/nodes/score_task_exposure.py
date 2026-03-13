@@ -31,6 +31,7 @@ async def main(ctx, print) -> "pd.DataFrame":
     from ai_index.utils.scoring import OnetScoreSet
     llm_model = ctx.vars["llm_model"]
     sbatch_cache = ctx.vars["sbatch_cache"]
+    sbatch_time = ctx.vars["sbatch_time"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
     
@@ -89,6 +90,7 @@ async def main(ctx, print) -> "pd.DataFrame":
             max_new_tokens=max_new_tokens,
             json_schema=TaskExposureModel.model_json_schema(),
             cache=sbatch_cache,
+            time=sbatch_time,
             slurm_accounting=_sa,
         )
         if _sa: slurm_jobs.append(_sa)

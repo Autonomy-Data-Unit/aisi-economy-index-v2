@@ -32,6 +32,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
     sbatch_cache = ctx.vars["sbatch_cache"]
+    sbatch_time = ctx.vars["sbatch_time"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
@@ -139,6 +140,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             max_new_tokens=max_new_tokens,
             json_schema=FilterResponseModel.model_json_schema(),
             cache=sbatch_cache,
+            time=sbatch_time,
             slurm_accounting=_sa,
         )
         if _sa: _slurm_jobs.append(_sa)

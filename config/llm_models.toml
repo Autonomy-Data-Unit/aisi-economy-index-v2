@@ -15,7 +15,6 @@ dtype = "fp8"
 backend = "vllm"
 gpus = 1
 job_name = "llm_generate"
-time = "02:00:00"
 setup = true
 
 # Models
@@ -42,33 +41,27 @@ batch_size = 16
 [models.qwen-7b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"
-time = "00:30:00"
 
 [models.qwen-14b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-14B-Instruct"
-time = "00:45:00"
 
 [models.qwen-32b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-32B-Instruct"
-time = "01:00:00"
 
 [models.qwen-72b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-72B-Instruct"
-time = "02:00:00"
 
 [models.mistral-7b-sbatch]
 mode = "sbatch"
 model = "mistralai/Mistral-7B-Instruct-v0.3"
-time = "00:30:00"
 
 # Ministral uses Mistral's native format, not HuggingFace format.
 [models.ministral-8b-sbatch]
 mode = "sbatch"
 model = "mistralai/Ministral-8B-Instruct-2410"
-time = "00:30:00"
 vllm_kwargs = { tokenizer_mode = "mistral", config_format = "mistral", load_format = "mistral" }
 
 # Gated model — requires accepting Meta's license on HuggingFace
@@ -76,18 +69,15 @@ vllm_kwargs = { tokenizer_mode = "mistral", config_format = "mistral", load_form
 [models.llama-8b-sbatch]
 mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-time = "00:30:00"
 
 # Gated model — requires HF_TOKEN on Isambard (already in .env).
 [models.llama-70b-sbatch]
 mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-70B-Instruct"
-time = "02:00:00"
 
 [models.phi-4-sbatch]
 mode = "sbatch"
 model = "microsoft/phi-4"
-time = "00:45:00"
 vllm_kwargs = { trust_remote_code = true }
 
 # Gemma's native dtype is bfloat16; FP8 less tested for this arch.
@@ -95,10 +85,8 @@ vllm_kwargs = { trust_remote_code = true }
 mode = "sbatch"
 model = "google/gemma-3-27b-it"
 dtype = "bfloat16"
-time = "01:00:00"
 vllm_kwargs = { trust_remote_code = true }
 
 [models.exaone-32b-sbatch]
 mode = "sbatch"
 model = "LGAI-EXAONE/EXAONE-4.0-32B"
-time = "01:00:00"

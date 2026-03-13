@@ -63,6 +63,7 @@ from ai_index.utils import aembed
 run_name = ctx.vars["run_name"]
 embedding_model = ctx.vars["embedding_model"]
 sbatch_cache = ctx.vars["sbatch_cache"]
+sbatch_time = ctx.vars["sbatch_time"]
 
 output_dir = const.pipeline_store_path / run_name / "embed_onet"
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -106,12 +107,12 @@ started_at = time.time()
 slurm_jobs = []
 
 _sa1 = {}
-role_embeddings = await aembed(role_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa1)
+role_embeddings = await aembed(role_texts, model=embedding_model, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa1)
 if _sa1: slurm_jobs.append(_sa1)
 print(f"embed_onet: role embeddings shape: {role_embeddings.shape}")
 
 _sa2 = {}
-taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa2)
+taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa2)
 if _sa2: slurm_jobs.append(_sa2)
 print(f"embed_onet: taskskill embeddings shape: {taskskill_embeddings.shape}")
 

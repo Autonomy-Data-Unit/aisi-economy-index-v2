@@ -70,6 +70,7 @@ show_node_vars('cosine_match', run_name=run_name)
 run_name = ctx.vars["run_name"]
 cosine_mode = ctx.vars["cosine_mode"]
 sbatch_cache = ctx.vars["sbatch_cache"]
+sbatch_time = ctx.vars["sbatch_time"]
 topk = ctx.vars["topk"]
 cosine_alpha = ctx.vars["cosine_alpha"]
 chunk_size = ctx.vars["cosine_chunk_size"]
@@ -193,10 +194,10 @@ for chunk_idx in range(n_chunks):
     ad_role_embeds, ad_task_embeds = _load_chunk_embeddings(chunk_ad_ids)
 
     _sa1 = {}
-    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache, slurm_accounting=_sa1)
+    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa1)
     if _sa1: slurm_jobs.append(_sa1)
     _sa2 = {}
-    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache, slurm_accounting=_sa2)
+    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa2)
     if _sa2: slurm_jobs.append(_sa2)
 
     chunk_rows = _weighted_merge(chunk_ad_ids, role_results, task_results)
