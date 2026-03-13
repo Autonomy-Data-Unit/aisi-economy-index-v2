@@ -22,16 +22,50 @@ async def _aensure_uv(*, config: IsambardConfig) -> None:
                         timeout=120)
 
 # %% nbs/isambard_utils/env.ipynb 5
-async def _aensure_venv(*, config: IsambardConfig) -> None:
-    """Create venv and sync dependencies if needed (async)."""
-    script = f"""
+async def _aensure_venv(*, config: IsambardConfig, print_fn=print) -> None:
+    """Create venv and sync dependencies if needed (async).
+
+    Skips ``uv sync`` when the pyproject.toml hash matches the last
+    successful sync (stored in ``.venv/.pyproject_hash``).  This avoids
+    the very slow Lustre I/O on repeated runs with unchanged deps.
+    On failure, retries once (Lustre rename failures are transient).
+    """
+    import subprocess
+
+    # Fast path: skip sync if pyproject.toml hasn't changed since last success
+    check_script = f"""
+cd {config.project_dir}
+[ -f .venv/bin/python ] && [ -f .venv/.pyproject_hash ] && \
+  [ "$(sha256sum pyproject.toml | cut -d' ' -f1)" = "$(cat .venv/.pyproject_hash)" ] && \
+  echo DEPS_CURRENT || echo DEPS_STALE
+""".strip()
+    result = await async_ssh_run(
+        f"bash -lc {_shlex_quote(check_script)}", config=config, check=False,
+    )
+    if result.returncode == 0 and "DEPS_CURRENT" in result.stdout:
+        print_fn("runner setup: dependencies up to date")
+        return
+
+    # Slow path: run uv sync, save hash on success
+    print_fn("runner setup: installing dependencies (uv sync)...")
+    sync_script = f"""
+set -e
 cd {config.project_dir}
 export UV_CACHE_DIR={config.project_dir}/.uv_cache
 export UV_LINK_MODE=copy
-module load cray-python/3.11.7 2>/dev/null || true
 uv sync --no-dev --no-install-project
+sha256sum pyproject.toml | cut -d' ' -f1 > .venv/.pyproject_hash
 """.strip()
-    await async_ssh_run(f"bash -lc {_shlex_quote(script)}", config=config, timeout=1800)
+    try:
+        await async_ssh_run(
+            f"bash -lc {_shlex_quote(sync_script)}", config=config, timeout=3600,
+        )
+    except subprocess.CalledProcessError:
+        # Retry once for transient Lustre failures (rename ENOENT)
+        print_fn("runner setup: uv sync failed, retrying...")
+        await async_ssh_run(
+            f"bash -lc {_shlex_quote(sync_script)}", config=config, timeout=3600,
+        )
 
 # %% nbs/isambard_utils/env.ipynb 6
 async def _afix_lustre_hardlinks(*, config: IsambardConfig) -> None:

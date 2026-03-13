@@ -26,7 +26,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from netrun.core import Net, NetConfig
-from netrun.logging._backends import JsonlEpochLogger, JsonlSimActionLogger
+from netrun.logging._backends import JsonlEpochLogger, JsonlNetActionLogger
 
 # %%
 #|export
@@ -132,14 +132,14 @@ async def run_pipeline_async(
     actions_log_file = run_logs_path / f"actions_{ts}.jsonl"
 
     with JsonlEpochLogger(epoch_log_file) as epoch_logger, \
-         JsonlSimActionLogger(actions_log_file) as action_logger:
+         JsonlNetActionLogger(actions_log_file) as action_logger:
         async with Net(config) as net:
             net.on_epoch_end(epoch_logger)
-            net.on_sim_actions(action_logger)
+            net.on_net_actions(action_logger)
 
             made_progress = True
             while made_progress:
-                made_progress, _ = await net.run_until_blocked()
+                made_progress, _, _ = await net.run_until_blocked()
 
             results = net.flush_all_output_queues()
             for queue_name, outputs in results.items():

@@ -1,5 +1,5 @@
 [isambard]
-project_dir = "/projects/a5u/ai-index-v2"
+project_dir = "/projects/a5u/ai-index-v3"
 hf_cache_dir = "{project_dir}/hf_cache"
 logs_dir = "{project_dir}/logs"
 partition = "workq"

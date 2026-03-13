@@ -88,6 +88,11 @@ def generate(sbatch_config: SbatchConfig, *,
     lines.append("")
 
     # Environment variables
+    # HF_HOME must point to a shared Lustre path so that ALL HuggingFace caches
+    # (hub, modules, etc.) are accessible from compute nodes. Without this,
+    # dynamic modules (trust_remote_code) default to ~/.cache/huggingface/modules/
+    # which compute nodes may not be able to reach.
+    lines.append(f'export HF_HOME="{ic.project_dir}/.hf_home"')
     lines.append(f'export HF_HUB_CACHE="{ic.hf_cache_dir}"')
     lines.append('export HF_HUB_OFFLINE=1')
     lines.append('export HF_HUB_DISABLE_TELEMETRY=1')

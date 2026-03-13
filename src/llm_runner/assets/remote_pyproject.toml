@@ -1,10 +1,6 @@
 # Minimal pyproject.toml for deploying llm_runner on Isambard.
 # Only lists the dependencies llm_runner actually needs — not the
 # full ai-index project. Uploaded by asetup_runner().
-#
-# The PyTorch CUDA index is configured so that `uv sync` installs
-# CUDA-enabled torch/torchvision directly, avoiding a separate
-# reinstall step via _aensure_cuda_torch().
 
 [project]
 name = "llm-runner"
@@ -13,7 +9,6 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy",
     "torch>=2.0",
-    "torchvision",
     "sentence-transformers>=5.0",
     "transformers>=5.0",
     "accelerate>=1.0",
@@ -24,12 +19,3 @@ dependencies = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
-[tool.uv.sources]
-torch = [{ index = "pytorch-cu126" }]
-torchvision = [{ index = "pytorch-cu126" }]

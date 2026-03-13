@@ -124,17 +124,25 @@ async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
 
     This is a no-op for models without ``auto_map``.
     """
+    # HF_HOME must point to a shared Lustre path so that dynamic modules
+    # are cached where compute nodes can access them (not ~/.cache/huggingface/).
+    hf_home = f"{config.project_dir}/.hf_home"
     script = "\n".join([
         "import json, glob, os",
+        f"os.environ['HF_HOME'] = {hf_home!r}",
+        f"os.environ['HF_HUB_CACHE'] = {cache_dir!r}",
         f"model_dir = {model_name!r}.replace('/', '--')",
         f"pattern = os.path.join({cache_dir!r}, f'models--{{model_dir}}', 'snapshots', '*', 'config.json')",
         "cfgs = glob.glob(pattern)",
         "if cfgs:",
         "    cfg = json.load(open(cfgs[0]))",
-        "    if cfg.get('auto_map'):",
-        f"        os.environ['HF_HUB_CACHE'] = {cache_dir!r}",
-        "        from transformers import AutoConfig",
-        f"        AutoConfig.from_pretrained({model_name!r}, trust_remote_code=True, cache_dir={cache_dir!r})",
+        "    auto_map = cfg.get('auto_map')",
+        "    if auto_map:",
+        # Resolve ALL auto_map entries (config, model, tokenizer, etc.)
+        # AutoConfig alone only caches configuration.py; we also need modeling.py etc.
+        "        from transformers.dynamic_module_utils import get_class_from_dynamic_module",
+        "        for class_ref in auto_map.values():",
+        f"            get_class_from_dynamic_module(class_ref, {model_name!r}, cache_dir={cache_dir!r})",
         "        print('pre-cached dynamic modules')",
         "    else:",
         "        print('no auto_map')",
