@@ -83,12 +83,48 @@ def check_model(model_name: str, *, config: IsambardConfig | None = None) -> boo
     return _run_sync(acheck_model(model_name, config=config))
 
 # %% nbs/isambard_utils/models.ipynb 10
+async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
+                                     config: IsambardConfig) -> None:
+    """Pre-cache transformers dynamic modules for trust_remote_code models.
+
+    Models with ``auto_map`` in their config.json use custom Python files that
+    transformers resolves via ``dynamic_module_utils``. These are stored in a
+    separate modules cache (``~/.cache/huggingface/modules/``) that must be
+    populated on the login node (which has internet) so that offline compute
+    nodes can load them.
+
+    This is a no-op for models without ``auto_map``.
+    """
+    script = "\n".join([
+        "import json, glob, os",
+        f"model_dir = {model_name!r}.replace('/', '--')",
+        f"pattern = os.path.join({cache_dir!r}, f'models--{{model_dir}}', 'snapshots', '*', 'config.json')",
+        "cfgs = glob.glob(pattern)",
+        "if cfgs:",
+        "    cfg = json.load(open(cfgs[0]))",
+        "    if cfg.get('auto_map'):",
+        f"        os.environ['HF_HUB_CACHE'] = {cache_dir!r}",
+        "        from transformers import AutoConfig",
+        f"        AutoConfig.from_pretrained({model_name!r}, trust_remote_code=True, cache_dir={cache_dir!r})",
+        f"        print('aensure_model: pre-cached dynamic modules for ' + {model_name!r})",
+        "    else:",
+        "        print('aensure_model: no auto_map, skipping dynamic module cache')",
+        "else:",
+        "    print('aensure_model: no config.json found, skipping dynamic module cache')",
+    ])
+    await _aremote_python(script, config=config, timeout=120)
+
+# %% nbs/isambard_utils/models.ipynb 11
 async def aensure_model(model_name: str, *, config: IsambardConfig | None = None,
                         token: str | None = None, timeout: int = 1800) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node (async).
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
     remote snapshot path. Skips download if model is already cached.
+
+    After downloading, also pre-caches any transformers dynamic modules
+    (for models with ``auto_map`` in config.json / trust_remote_code) so
+    that offline compute nodes can load them.
 
     Args:
         model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
@@ -113,24 +149,33 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
             f"print(snap)"
         )
         stdout = await _aremote_python(script, config=config, timeout=30)
-        return stdout.strip().split("\n")[-1]
+        snapshot_path = stdout.strip().split("\n")[-1]
+    else:
+        token_arg = f", token={token!r}" if token else ""
+        script = (
+            f"from huggingface_hub import snapshot_download; "
+            f"path = snapshot_download({model_name!r}, cache_dir={cache_dir!r}{token_arg}); "
+            f"print(path)"
+        )
+        stdout = await _aremote_python(script, config=config, timeout=timeout)
+        snapshot_path = stdout.strip().split("\n")[-1]
 
-    token_arg = f", token={token!r}" if token else ""
-    script = (
-        f"from huggingface_hub import snapshot_download; "
-        f"path = snapshot_download({model_name!r}, cache_dir={cache_dir!r}{token_arg}); "
-        f"print(path)"
-    )
-    stdout = await _aremote_python(script, config=config, timeout=timeout)
-    return stdout.strip().split("\n")[-1]
+    # Pre-cache transformers dynamic modules for trust_remote_code models
+    await _aprecache_dynamic_modules(model_name, cache_dir=cache_dir, config=config)
 
-# %% nbs/isambard_utils/models.ipynb 11
+    return snapshot_path
+
+# %% nbs/isambard_utils/models.ipynb 12
 def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
                  token: str | None = None, timeout: int = 1800) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node.
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
     remote snapshot path. Skips download if model is already cached.
+
+    After downloading, also pre-caches any transformers dynamic modules
+    (for models with ``auto_map`` in config.json / trust_remote_code) so
+    that offline compute nodes can load them.
 
     Args:
         model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
@@ -140,7 +185,7 @@ def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
     """
     return _run_sync(aensure_model(model_name, config=config, token=token, timeout=timeout))
 
-# %% nbs/isambard_utils/models.ipynb 13
+# %% nbs/isambard_utils/models.ipynb 14
 _DTYPE_MAP = {
     "float16": "torch.float16",
     "bfloat16": "torch.bfloat16",
@@ -159,7 +204,7 @@ def _resolve_dtype(dtype: str) -> Any:
         raise ValueError(f"Unknown dtype {dtype!r}, expected one of {list(mapping)}")
     return mapping[dtype]
 
-# %% nbs/isambard_utils/models.ipynb 14
+# %% nbs/isambard_utils/models.ipynb 15
 def set_model_env(hf_cache_dir: str | None = None, *, offline: bool = True) -> None:
     """Set environment variables for HuggingFace model loading.
 
@@ -176,7 +221,7 @@ def set_model_env(hf_cache_dir: str | None = None, *, offline: bool = True) -> N
     if hf_cache_dir is not None:
         os.environ["HF_HUB_CACHE"] = hf_cache_dir
 
-# %% nbs/isambard_utils/models.ipynb 15
+# %% nbs/isambard_utils/models.ipynb 16
 @dataclass
 class EmbeddingModel:
     """Wrapper around a SentenceTransformer model with a convenience encode method."""
@@ -203,11 +248,12 @@ class EmbeddingModel:
             **kwargs,
         )
 
-# %% nbs/isambard_utils/models.ipynb 16
+# %% nbs/isambard_utils/models.ipynb 17
 def load_embedding_model(model_name: str = "BAAI/bge-large-en-v1.5", *,
                          device: str = "cuda",
                          dtype: str = "float16",
-                         offline: bool = True) -> EmbeddingModel:
+                         offline: bool = True,
+                         st_kwargs: dict | None = None) -> EmbeddingModel:
     """Load a SentenceTransformer embedding model.
 
     Args:
@@ -215,6 +261,8 @@ def load_embedding_model(model_name: str = "BAAI/bge-large-en-v1.5", *,
         device: Device to load onto ("cuda", "cpu").
         dtype: Model precision ("float16", "bfloat16", "float32").
         offline: If True (default), force offline mode (compute nodes). False allows downloads.
+        st_kwargs: Extra kwargs passed directly to the SentenceTransformer constructor
+            (e.g. trust_remote_code). Overrides defaults.
 
     Returns:
         EmbeddingModel wrapping the loaded SentenceTransformer.
@@ -228,10 +276,11 @@ def load_embedding_model(model_name: str = "BAAI/bge-large-en-v1.5", *,
         model_name,
         device=device,
         model_kwargs={"torch_dtype": torch_dtype},
+        **(st_kwargs or {}),
     )
     return EmbeddingModel(model=model, model_name=model_name, device=device, dtype=dtype)
 
-# %% nbs/isambard_utils/models.ipynb 17
+# %% nbs/isambard_utils/models.ipynb 18
 @dataclass
 class LLM:
     """Wrapper around a causal LM with tokenizer and a convenience generate method."""
@@ -303,7 +352,7 @@ class LLM:
 
         return responses
 
-# %% nbs/isambard_utils/models.ipynb 18
+# %% nbs/isambard_utils/models.ipynb 19
 @dataclass
 class VllmLLM:
     """Wrapper around vLLM's offline LLM engine with the same generate() interface as LLM."""
@@ -348,9 +397,10 @@ class VllmLLM:
         outputs = self.engine.chat(conversations, sampling_params, use_tqdm=False)
         return [out.outputs[0].text.strip() for out in outputs]
 
-# %% nbs/isambard_utils/models.ipynb 19
+# %% nbs/isambard_utils/models.ipynb 20
 def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
-               tensor_parallel_size: int = 1) -> VllmLLM:
+               tensor_parallel_size: int = 1,
+               vllm_kwargs: dict | None = None) -> VllmLLM:
     """Load a causal LM via vLLM's offline engine.
 
     Args:
@@ -358,6 +408,8 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
         device: Device (only "cuda" supported by vLLM).
         dtype: Model precision ("float16", "bfloat16", "float32", "fp8").
         tensor_parallel_size: Number of GPUs for tensor parallelism (default 1).
+        vllm_kwargs: Extra kwargs passed directly to vLLM's LLM constructor
+            (e.g. trust_remote_code, tokenizer_mode). Overrides defaults.
 
     Returns:
         VllmLLM wrapping the vLLM engine.
@@ -365,7 +417,7 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
     set_model_env()
     from vllm import LLM as _VllmEngine
 
-    engine = _VllmEngine(
+    kw = dict(
         model=model_name,
         dtype=dtype if dtype != "float16" else "half",
         gpu_memory_utilization=0.9,
@@ -373,14 +425,19 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
         enforce_eager=True,   # safer on aarch64/GH200
         max_model_len=4096,   # our prompts are short, saves memory
     )
+    if vllm_kwargs:
+        kw.update(vllm_kwargs)
+
+    engine = _VllmEngine(**kw)
     return VllmLLM(engine=engine, model_name=model_name, device=device, dtype=dtype)
 
-# %% nbs/isambard_utils/models.ipynb 20
+# %% nbs/isambard_utils/models.ipynb 21
 def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
              device: str = "cuda",
              dtype: str = "float16",
              backend: str = "transformers",
-             tensor_parallel_size: int = 1) -> LLM | VllmLLM:
+             tensor_parallel_size: int = 1,
+             vllm_kwargs: dict | None = None) -> LLM | VllmLLM:
     """Load a causal language model with tokenizer.
 
     Args:
@@ -389,13 +446,15 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
         dtype: Model precision ("float16", "bfloat16", "float32", "fp8").
         backend: Inference backend, either "transformers" (default) or "vllm".
         tensor_parallel_size: Number of GPUs for tensor parallelism (vllm only, default 1).
+        vllm_kwargs: Extra kwargs passed to vLLM's LLM constructor (vllm only).
 
     Returns:
         LLM or VllmLLM wrapping the loaded model.
     """
     if backend == "vllm":
         return _load_vllm(model_name, device=device, dtype=dtype,
-                          tensor_parallel_size=tensor_parallel_size)
+                          tensor_parallel_size=tensor_parallel_size,
+                          vllm_kwargs=vllm_kwargs)
 
     set_model_env()
     import torch

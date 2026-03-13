@@ -110,3 +110,8 @@ llm_model = "qwen-0.5b-mac"
 [runs.test_sbatch]
 sample_n = 10
 llm_model = "qwen-7b-sbatch"
+
+[runs.test_trust_remote_code]
+sample_n = 10
+llm_model = "phi-4-sbatch"
+embedding_model = "gte-large-sbatch"

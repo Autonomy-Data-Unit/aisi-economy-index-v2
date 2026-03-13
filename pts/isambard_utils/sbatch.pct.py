@@ -89,6 +89,7 @@ def generate(sbatch_config: SbatchConfig, *,
 
     # Environment variables
     lines.append(f'export HF_HUB_CACHE="{ic.hf_cache_dir}"')
+    lines.append('export HF_HUB_OFFLINE=1')
     lines.append('export HF_HUB_DISABLE_TELEMETRY=1')
     lines.append('export TOKENIZERS_PARALLELISM=false')
     # Force GCC for triton JIT compilation. nvc (from cudatoolkit module)

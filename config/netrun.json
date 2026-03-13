@@ -60,7 +60,7 @@
   },
   "max_epochs": 1,
   "retries": 3,
-  "retry_wait": 10.0,
+  "retry_wait": 10,
   "project_root_override": "../",
   "graph": {
     "nodes": [
@@ -203,9 +203,7 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            },
+            "sbatch_time": {},
             "summarise_resume": {
               "type": "bool"
             },
@@ -248,9 +246,7 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            },
+            "sbatch_time": {},
             "embed_chunk_size": {
               "type": "int"
             }
@@ -288,9 +284,7 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            }
+            "sbatch_time": {}
           },
           "signals": [
             "epoch_finished"
@@ -328,9 +322,7 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            },
+            "sbatch_time": {},
             "cosine_alpha": {
               "type": "float"
             },
@@ -371,9 +363,7 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            },
+            "sbatch_time": {},
             "filter_resume": {
               "type": "bool"
             },
@@ -559,9 +549,7 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            },
+            "sbatch_time": {},
             "llm_model": {
               "inherit": true
             },
