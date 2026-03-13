@@ -12,7 +12,8 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
                      batch_size: int = 128,
                      system_message: str | None = None,
                      json_schema: dict | None = None,
-                     tensor_parallel_size: int = 1) -> list[str]:
+                     tensor_parallel_size: int = 1,
+                     vllm_kwargs: dict | None = None) -> list[str]:
     """Generate text completions for a list of prompts.
 
     Args:
@@ -26,12 +27,14 @@ def run_llm_generate(prompts: list[str], *, model_name: str = "Qwen/Qwen2.5-7B-I
         system_message: Optional system message prepended to each prompt.
         json_schema: Optional JSON schema dict to constrain output to valid JSON.
         tensor_parallel_size: Number of GPUs for tensor parallelism (vllm only, default 1).
+        vllm_kwargs: Extra kwargs passed to vLLM's LLM constructor (vllm only).
 
     Returns:
         List of generated response strings, one per prompt.
     """
     llm = load_llm(model_name, device=device, dtype=dtype, backend=backend,
-                   tensor_parallel_size=tensor_parallel_size)
+                   tensor_parallel_size=tensor_parallel_size,
+                   vllm_kwargs=vllm_kwargs)
 
     # For api and vllm backends, send all prompts at once (they handle batching internally)
     if backend in ("api", "vllm"):

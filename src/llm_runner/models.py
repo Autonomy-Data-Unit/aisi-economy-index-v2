@@ -69,7 +69,8 @@ class EmbeddingModel:
 def load_embedding_model(model_name: str = "BAAI/bge-large-en-v1.5", *,
                          device: str = "cuda",
                          dtype: str = "float16",
-                         offline: bool = True) -> EmbeddingModel:
+                         offline: bool = True,
+                         st_kwargs: dict | None = None) -> EmbeddingModel:
     """Load a SentenceTransformer embedding model.
 
     Args:
@@ -77,6 +78,8 @@ def load_embedding_model(model_name: str = "BAAI/bge-large-en-v1.5", *,
         device: Device to load onto ("cuda", "cpu").
         dtype: Model precision ("float16", "bfloat16", "float32").
         offline: If True (default), force offline mode (compute nodes). False allows downloads.
+        st_kwargs: Extra kwargs passed directly to the SentenceTransformer constructor
+            (e.g. trust_remote_code). Overrides defaults.
 
     Returns:
         EmbeddingModel wrapping the loaded SentenceTransformer.
@@ -90,6 +93,7 @@ def load_embedding_model(model_name: str = "BAAI/bge-large-en-v1.5", *,
         model_name,
         device=device,
         model_kwargs={"torch_dtype": torch_dtype},
+        **(st_kwargs or {}),
     )
     return EmbeddingModel(model=model, model_name=model_name, device=device, dtype=dtype)
 
@@ -304,7 +308,8 @@ class ApiLLM:
 
 # %% nbs/llm_runner/models.ipynb 16
 def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
-               tensor_parallel_size: int = 1) -> VllmLLM:
+               tensor_parallel_size: int = 1,
+               vllm_kwargs: dict | None = None) -> VllmLLM:
     """Load a causal LM via vLLM's offline engine.
 
     Args:
@@ -312,6 +317,8 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
         device: Device (only "cuda" supported by vLLM).
         dtype: Model precision ("float16", "bfloat16", "float32", "fp8").
         tensor_parallel_size: Number of GPUs for tensor parallelism (default 1).
+        vllm_kwargs: Extra kwargs passed directly to vLLM's LLM constructor
+            (e.g. trust_remote_code, tokenizer_mode). Overrides defaults.
 
     Returns:
         VllmLLM wrapping the vLLM engine.
@@ -319,7 +326,7 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
     set_model_env()
     from vllm import LLM as _VllmEngine
 
-    vllm_kwargs = dict(
+    kw = dict(
         model=model_name,
         gpu_memory_utilization=0.9,
         tensor_parallel_size=tensor_parallel_size,
@@ -329,12 +336,15 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
 
     if dtype == "fp8":
         # FP8 quantization: use bfloat16 compute dtype with FP8 weight quantization
-        vllm_kwargs["dtype"] = "bfloat16"
-        vllm_kwargs["quantization"] = "fp8"
+        kw["dtype"] = "bfloat16"
+        kw["quantization"] = "fp8"
     else:
-        vllm_kwargs["dtype"] = "half" if dtype == "float16" else dtype
+        kw["dtype"] = "half" if dtype == "float16" else dtype
 
-    engine = _VllmEngine(**vllm_kwargs)
+    if vllm_kwargs:
+        kw.update(vllm_kwargs)
+
+    engine = _VllmEngine(**kw)
     return VllmLLM(engine=engine, model_name=model_name, device=device, dtype=dtype)
 
 # %% nbs/llm_runner/models.ipynb 17
@@ -342,7 +352,8 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
              device: str = "cuda",
              dtype: str = "float16",
              backend: str = "transformers",
-             tensor_parallel_size: int = 1) -> LLM | VllmLLM | ApiLLM:
+             tensor_parallel_size: int = 1,
+             vllm_kwargs: dict | None = None) -> LLM | VllmLLM | ApiLLM:
     """Load a causal language model with the specified backend.
 
     Args:
@@ -351,6 +362,7 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
         dtype: Model precision ("float16", "bfloat16", "float32"). Ignored for api.
         backend: Inference backend, either "transformers" (default), "vllm", or "api".
         tensor_parallel_size: Number of GPUs for tensor parallelism (vllm only, default 1).
+        vllm_kwargs: Extra kwargs passed to vLLM's LLM constructor (vllm only).
 
     Returns:
         LLM, VllmLLM, or ApiLLM wrapping the loaded model.
@@ -360,7 +372,8 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
 
     if backend == "vllm":
         return _load_vllm(model_name, device=device, dtype=dtype,
-                          tensor_parallel_size=tensor_parallel_size)
+                          tensor_parallel_size=tensor_parallel_size,
+                          vllm_kwargs=vllm_kwargs)
 
     set_model_env(offline=device != "cpu")
     import torch

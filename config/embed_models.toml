@@ -51,8 +51,8 @@ model = "BAAI/bge-large-en-v1.5"
 mode = "sbatch"
 model = "intfloat/e5-large-v2"
 
-# NOTE: Requires trust_remote_code=True in SentenceTransformer (not yet
-# supported by our load_embedding_model code). Custom arch: BERT + RoPE + GLU.
+# Custom arch (BERT + RoPE + GLU) requires trust_remote_code.
 [models.gte-large-sbatch]
 mode = "sbatch"
 model = "Alibaba-NLP/gte-large-en-v1.5"
+st_kwargs = { trust_remote_code = true }
