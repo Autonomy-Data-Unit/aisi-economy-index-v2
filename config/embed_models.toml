@@ -87,7 +87,9 @@ mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-8B"
 
 # Llama-3.1-8B base with bidirectional attention. Requires trust_remote_code.
+# Native dtype is bfloat16; float16 may produce NaN due to dynamic range issues.
 [models.llama-embed-nemotron-sbatch]
 mode = "sbatch"
 model = "nvidia/llama-embed-nemotron-8b"
+dtype = "bfloat16"
 st_kwargs = { trust_remote_code = true }
