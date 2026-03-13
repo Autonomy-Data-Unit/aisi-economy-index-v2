@@ -56,3 +56,39 @@ model = "intfloat/e5-large-v2"
 mode = "sbatch"
 model = "Alibaba-NLP/gte-large-en-v1.5"
 st_kwargs = { trust_remote_code = true }
+
+# Fully open (code+data+weights). Custom arch requires trust_remote_code.
+[models.nomic-embed-sbatch]
+mode = "sbatch"
+model = "nomic-ai/nomic-embed-text-v1.5"
+st_kwargs = { trust_remote_code = true }
+
+# Gemma 3 architecture. Does NOT support float16 — must use bfloat16.
+[models.embedding-gemma-sbatch]
+mode = "sbatch"
+model = "google/EmbeddingGemma-300M"
+dtype = "bfloat16"
+
+# 1024-dim like BGE baseline. Custom arch requires trust_remote_code.
+[models.arctic-embed-l-sbatch]
+mode = "sbatch"
+model = "Snowflake/snowflake-arctic-embed-l-v2.0"
+st_kwargs = { trust_remote_code = true }
+
+[models.qwen3-embed-0.6b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-Embedding-0.6B"
+
+[models.qwen3-embed-4b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-Embedding-4B"
+
+[models.qwen3-embed-8b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-Embedding-8B"
+
+# Llama-3.1-8B base with bidirectional attention. Requires trust_remote_code.
+[models.llama-embed-nemotron-sbatch]
+mode = "sbatch"
+model = "nvidia/llama-embed-nemotron-8b"
+st_kwargs = { trust_remote_code = true }
