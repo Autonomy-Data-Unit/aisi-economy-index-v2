@@ -103,11 +103,16 @@ print(f"  taskskill sample: {taskskill_texts[0][:100]}...")
 # %%
 #|export
 started_at = time.time()
+slurm_jobs = []
 
-role_embeddings = await aembed(role_texts, model=embedding_model, cache=sbatch_cache)
+_sa1 = {}
+role_embeddings = await aembed(role_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa1)
+if _sa1: slurm_jobs.append(_sa1)
 print(f"embed_onet: role embeddings shape: {role_embeddings.shape}")
 
-taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model, cache=sbatch_cache)
+_sa2 = {}
+taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa2)
+if _sa2: slurm_jobs.append(_sa2)
 print(f"embed_onet: taskskill embeddings shape: {taskskill_embeddings.shape}")
 
 ended_at = time.time()
@@ -134,6 +139,8 @@ embed_meta = {
     "started_at": started_at,
     "ended_at": ended_at,
     "elapsed_seconds": ended_at - started_at,
+    "slurm_jobs": slurm_jobs,
+    "slurm_total_seconds": sum(j.get("elapsed_seconds", 0) for j in slurm_jobs),
 }
 meta_path = output_dir / "embed_meta.json"
 with open(meta_path, "w") as f:

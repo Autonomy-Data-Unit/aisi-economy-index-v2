@@ -9,6 +9,10 @@ Example:
 Runs the pipeline with sample_n=1000 ads (configurable in calibration/run_defs.toml),
 collects timing data from LLM and embedding nodes, and writes results to
 calibration/results/<llm_model>__<embed_model>.json.
+
+Timing data includes both wall-clock times (from Python time.time()) and Slurm
+accounting times (from sacct). The Slurm times reflect actual GPU execution and
+exclude transfer/queue overhead, making them more accurate for cost estimation.
 """
 
 import asyncio
@@ -63,44 +67,55 @@ def _read_meta(run_name: str, node_name: str, meta_filename: str) -> dict | None
         return json.load(f)
 
 
-def _extract_llm_timing(meta: dict) -> dict:
-    """Extract timing fields from a run_batched meta dict."""
-    n_total = meta["n_total"]
-    elapsed = meta["elapsed_seconds"]
-    return {
-        "n_total": n_total,
-        "n_success": meta["n_success"],
-        "n_failed": meta["n_failed"],
-        "started_at": meta["started_at"],
-        "ended_at": meta["ended_at"],
+def _extract_timing(meta: dict, n_key: str) -> dict:
+    """Extract timing fields from a node meta dict.
+
+    Uses slurm_total_seconds (actual GPU time from sacct) when available,
+    falling back to elapsed_seconds (wall-clock including transfer overhead).
+    """
+    n = meta[n_key]
+    slurm_total = meta.get("slurm_total_seconds", 0)
+    wall_clock = meta.get("elapsed_seconds", 0)
+
+    # Prefer slurm timing (excludes transfer/queue overhead)
+    elapsed = slurm_total if slurm_total > 0 else wall_clock
+
+    result = {
+        "n": n,
+        "wall_clock_seconds": wall_clock,
+        "slurm_seconds": slurm_total if slurm_total > 0 else None,
         "elapsed_seconds": elapsed,
-        "seconds_per_ad": elapsed / n_total if n_total > 0 else 0.0,
+        "seconds_per_ad": elapsed / n if n > 0 else 0.0,
     }
 
+    # Include node hours if available
+    slurm_jobs = meta.get("slurm_jobs", [])
+    total_node_hours = sum(j.get("node_hours", 0) for j in slurm_jobs)
+    if total_node_hours > 0:
+        result["node_hours"] = total_node_hours
 
-def _extract_embed_ads_timing(meta: dict) -> dict:
-    """Extract timing fields from embed_ads meta dict."""
-    n_embedded = meta["n_embedded"]
-    elapsed = meta["elapsed_seconds"]
-    return {
-        "n_total": meta["n_total"],
-        "n_embedded": n_embedded,
-        "n_skipped": meta["n_skipped"],
-        "started_at": meta["started_at"],
-        "ended_at": meta["ended_at"],
-        "elapsed_seconds": elapsed,
-        "seconds_per_ad": elapsed / n_embedded if n_embedded > 0 else 0.0,
-    }
+    return result
 
 
 def _extract_embed_onet_timing(meta: dict) -> dict:
-    """Extract timing fields from embed_onet meta dict."""
-    return {
+    """Extract timing fields from embed_onet meta dict (fixed-cost node)."""
+    slurm_total = meta.get("slurm_total_seconds", 0)
+    wall_clock = meta.get("elapsed_seconds", 0)
+    elapsed = slurm_total if slurm_total > 0 else wall_clock
+
+    result = {
         "n_occupations": meta["n_occupations"],
-        "started_at": meta["started_at"],
-        "ended_at": meta["ended_at"],
-        "elapsed_seconds": meta["elapsed_seconds"],
+        "wall_clock_seconds": wall_clock,
+        "slurm_seconds": slurm_total if slurm_total > 0 else None,
+        "elapsed_seconds": elapsed,
     }
+
+    slurm_jobs = meta.get("slurm_jobs", [])
+    total_node_hours = sum(j.get("node_hours", 0) for j in slurm_jobs)
+    if total_node_hours > 0:
+        result["node_hours"] = total_node_hours
+
+    return result
 
 
 async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
@@ -124,15 +139,15 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
 
     summarise_meta = _read_meta(RUN_NAME, "llm_summarise", "summary_meta.json")
     if summarise_meta is not None:
-        nodes["llm_summarise"] = _extract_llm_timing(summarise_meta)
+        nodes["llm_summarise"] = _extract_timing(summarise_meta, "n_total")
 
     filter_meta = _read_meta(RUN_NAME, "llm_filter_candidates", "filter_meta.json")
     if filter_meta is not None:
-        nodes["llm_filter_candidates"] = _extract_llm_timing(filter_meta)
+        nodes["llm_filter_candidates"] = _extract_timing(filter_meta, "n_total")
 
     embed_ads_meta = _read_meta(RUN_NAME, "embed_ads", "embed_meta.json")
     if embed_ads_meta is not None:
-        nodes["embed_ads"] = _extract_embed_ads_timing(embed_ads_meta)
+        nodes["embed_ads"] = _extract_timing(embed_ads_meta, "n_embedded")
 
     embed_onet_meta = _read_meta(RUN_NAME, "embed_onet", "embed_meta.json")
     if embed_onet_meta is not None:
@@ -157,12 +172,14 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
     # Print summary
     for name, timing in nodes.items():
         elapsed = timing["elapsed_seconds"]
+        slurm = timing.get("slurm_seconds")
+        source = "slurm" if slurm else "wall-clock"
         if "seconds_per_ad" in timing:
             spa = timing["seconds_per_ad"]
-            n = timing.get("n_total", timing.get("n_embedded", "?"))
-            print(f"  {name}: {elapsed:.1f}s total, {spa:.3f}s/ad (n={n})")
+            n = timing["n"]
+            print(f"  {name}: {elapsed:.1f}s total, {spa:.3f}s/ad (n={n}, {source})")
         else:
-            print(f"  {name}: {elapsed:.1f}s total")
+            print(f"  {name}: {elapsed:.1f}s total ({source})")
 
 
 def main():

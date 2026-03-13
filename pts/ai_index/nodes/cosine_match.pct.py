@@ -31,6 +31,8 @@
 
 # %%
 #|top_export
+import json
+
 import duckdb
 import numpy as np
 import pandas as pd
@@ -182,6 +184,7 @@ def _weighted_merge(chunk_ad_ids, role_results, task_results):
 # %%
 #|export
 all_rows = []
+slurm_jobs = []
 for chunk_idx in range(n_chunks):
     start = chunk_idx * chunk_size
     end = min(start + chunk_size, n_ads)
@@ -189,8 +192,12 @@ for chunk_idx in range(n_chunks):
 
     ad_role_embeds, ad_task_embeds = _load_chunk_embeddings(chunk_ad_ids)
 
-    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache)
-    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache)
+    _sa1 = {}
+    role_results = await acosine_topk(ad_role_embeds, onet_role_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache, slurm_accounting=_sa1)
+    if _sa1: slurm_jobs.append(_sa1)
+    _sa2 = {}
+    task_results = await acosine_topk(ad_task_embeds, onet_task_embeds, k=topk, mode=cosine_mode, cache=sbatch_cache, slurm_accounting=_sa2)
+    if _sa2: slurm_jobs.append(_sa2)
 
     chunk_rows = _weighted_merge(chunk_ad_ids, role_results, task_results)
     all_rows.extend(chunk_rows)
@@ -211,6 +218,12 @@ matches_df.to_parquet(output_path, index=False)
 print(f"cosine_match: wrote {len(matches_df)} match rows ({n_ads} ads x topk={topk})")
 print(f"  output: {output_path}")
 print(f"  score range: {matches_df['combined_score'].min():.4f} - {matches_df['combined_score'].max():.4f}")
+
+if slurm_jobs:
+    _meta = {"slurm_jobs": slurm_jobs, "slurm_total_seconds": sum(j.get("elapsed_seconds", 0) for j in slurm_jobs)}
+    with open(output_dir / "cosine_meta.json", "w") as _f:
+        json.dump(_meta, _f, indent=2)
+    print(f"cosine_match: wrote {const.rel(output_dir / 'cosine_meta.json')}")
 
 ad_ids #|func_return_line
 

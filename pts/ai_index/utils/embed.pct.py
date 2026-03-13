@@ -32,10 +32,15 @@ def embed(
     The model key determines the execution mode (api/local/sbatch).
     Any explicit **kwargs override config values.
 
+    Pass slurm_accounting={} to collect Slurm resource accounting data
+    (sbatch mode only). The dict is populated in-place with timing and
+    resource fields from sacct.
+
     Returns:
         numpy array of shape (len(texts), embedding_dim).
     """
     mode, model_name, cfg = _resolve_model_args(embed_models_config_path, model, kwargs)
+    slurm_accounting = cfg.pop("slurm_accounting", None)
 
     if mode == "local":
         from llm_runner.embed import run_embeddings
@@ -51,13 +56,16 @@ def embed(
         from isambard_utils.orchestrate import run_remote
         remote_kw = _split_remote_kwargs(cfg)
         cfg["model_name"] = model_name
-        return run_remote(
+        result = run_remote(
             "embed",
             inputs={"texts": texts},
             config_dict=cfg,
             required_models=[model_name],
             **remote_kw,
-        )["embeddings"]
+        )
+        if slurm_accounting is not None and "_slurm_accounting" in result:
+            slurm_accounting.update(result["_slurm_accounting"])
+        return result["embeddings"]
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}")
@@ -75,8 +83,12 @@ async def aembed(
     For local mode, runs run_embeddings in a thread.
     For api mode, uses adulib's native async_batch_embeddings.
     For sbatch mode, uses arun_remote.
+
+    Pass slurm_accounting={} to collect Slurm resource accounting data
+    (sbatch mode only).
     """
     mode, model_name, cfg = _resolve_model_args(embed_models_config_path, model, kwargs)
+    slurm_accounting = cfg.pop("slurm_accounting", None)
 
     if mode == "local":
         from llm_runner.embed import run_embeddings
@@ -92,13 +104,16 @@ async def aembed(
         from isambard_utils.orchestrate import arun_remote
         remote_kw = _split_remote_kwargs(cfg)
         cfg["model_name"] = model_name
-        return (await arun_remote(
+        result = await arun_remote(
             "embed",
             inputs={"texts": texts},
             config_dict=cfg,
             required_models=[model_name],
             **remote_kw,
-        ))["embeddings"]
+        )
+        if slurm_accounting is not None and "_slurm_accounting" in result:
+            slurm_accounting.update(result["_slurm_accounting"])
+        return result["embeddings"]
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}")

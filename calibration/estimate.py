@@ -5,6 +5,10 @@ Usage:
 
 Reads all calibration result JSONs from calibration/results/ and prints
 estimated GPU-hours per model per node. Default N_ADS is 30,000,000.
+
+When Slurm accounting data is available (from sacct), estimates use actual
+GPU execution time. Otherwise falls back to wall-clock time (which includes
+transfer overhead and may overestimate).
 """
 
 import json
@@ -38,12 +42,12 @@ def main():
     results = load_results()
     if not results:
         print(f"No calibration results found in {RESULTS_DIR}/")
-        print("Run: uv run python calibration/run_calibration.py <llm_model> [<embed_model>]")
+        print("Run: uv run python calibration/run_calibration.py <llm_model> <embed_model>")
         sys.exit(1)
 
     # Header
     print(f"\nGPU-hour estimates for {n_ads:,} ads")
-    print("=" * 90)
+    print("=" * 100)
 
     # Column widths
     model_w = max(
@@ -52,7 +56,7 @@ def main():
     node_w = max(len(n) for n in PER_AD_NODES + FIXED_NODES) + 2
 
     # Table header
-    header = f"{'Models':<{model_w}} {'Node':<{node_w}} {'s/ad':>8} {'Est. hours':>12} {'Cal. N':>10}"
+    header = f"{'Models':<{model_w}} {'Node':<{node_w}} {'s/ad':>8} {'Est. hours':>12} {'NHR':>8} {'Cal. N':>8} {'Source':>8}"
     print(header)
     print("-" * len(header))
 
@@ -60,19 +64,25 @@ def main():
         model_label = f"{r['llm_model_key']} / {r['embedding_model_key']}"
         nodes = r["nodes"]
         total_hours = 0.0
+        total_nhr = 0.0
 
         for node_name in PER_AD_NODES:
             if node_name not in nodes:
-                print(f"{model_label:<{model_w}} {node_name:<{node_w}} {'n/a':>8} {'n/a':>12} {'n/a':>10}")
+                print(f"{model_label:<{model_w}} {node_name:<{node_w}} {'n/a':>8}")
                 continue
 
             timing = nodes[node_name]
             spa = timing["seconds_per_ad"]
             hours = estimate_hours(spa, n_ads)
             total_hours += hours
-            n_cal = timing.get("n_total", timing.get("n_embedded", 0))
+            n_cal = timing["n"]
+            source = "slurm" if timing.get("slurm_seconds") else "clock"
 
-            print(f"{model_label:<{model_w}} {node_name:<{node_w}} {spa:>8.4f} {hours:>12.1f} {n_cal:>10,}")
+            # Estimate node-hours (0.25 NHR per GPU-hour for 1-GPU jobs)
+            nhr = hours * 0.25
+            total_nhr += nhr
+
+            print(f"{model_label:<{model_w}} {node_name:<{node_w}} {spa:>8.4f} {hours:>12.1f} {nhr:>8.1f} {n_cal:>8,} {source:>8}")
             model_label = ""  # only print model on first row
 
         for node_name in FIXED_NODES:
@@ -82,11 +92,14 @@ def main():
             timing = nodes[node_name]
             fixed_hours = timing["elapsed_seconds"] / 3600
             total_hours += fixed_hours
+            source = "slurm" if timing.get("slurm_seconds") else "clock"
+            nhr = fixed_hours * 0.25
+            total_nhr += nhr
 
-            print(f"{model_label:<{model_w}} {node_name:<{node_w}} {'fixed':>8} {fixed_hours:>12.3f} {'':>10}")
+            print(f"{model_label:<{model_w}} {node_name:<{node_w}} {'fixed':>8} {fixed_hours:>12.3f} {nhr:>8.3f} {'':>8} {source:>8}")
             model_label = ""
 
-        print(f"{'':>{model_w}} {'TOTAL':<{node_w}} {'':>8} {total_hours:>12.1f}")
+        print(f"{'':>{model_w}} {'TOTAL':<{node_w}} {'':>8} {total_hours:>12.1f} {total_nhr:>8.1f}")
         print()
 
 

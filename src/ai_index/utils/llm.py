@@ -18,8 +18,12 @@ def llm_generate(
 
     The model key determines the execution mode (api/local/sbatch).
     Any explicit **kwargs override config values.
+
+    Pass slurm_accounting={} to collect Slurm resource accounting data
+    (sbatch mode only).
     """
     mode, model_name, cfg = _resolve_model_args(llm_models_config_path, model, kwargs)
+    slurm_accounting = cfg.pop("slurm_accounting", None)
 
     if mode in ("api", "local"):
         from llm_runner.llm import run_llm_generate
@@ -32,13 +36,16 @@ def llm_generate(
         remote_kw = _split_remote_kwargs(cfg)
         cfg["model_name"] = model_name
         cfg["tensor_parallel_size"] = remote_kw.get("gpus", 1)
-        return run_remote(
+        result = run_remote(
             "llm_generate",
             inputs={"prompts": prompts},
             config_dict=cfg,
             required_models=[model_name],
             **remote_kw,
-        )["responses"]
+        )
+        if slurm_accounting is not None and "_slurm_accounting" in result:
+            slurm_accounting.update(result["_slurm_accounting"])
+        return result["responses"]
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}")
@@ -54,8 +61,12 @@ async def allm_generate(
 
     For api/local modes, runs the sync run_llm_generate in a thread.
     For sbatch mode, uses the native async arun_remote.
+
+    Pass slurm_accounting={} to collect Slurm resource accounting data
+    (sbatch mode only).
     """
     mode, model_name, cfg = _resolve_model_args(llm_models_config_path, model, kwargs)
+    slurm_accounting = cfg.pop("slurm_accounting", None)
 
     if mode in ("api", "local"):
         from llm_runner.llm import run_llm_generate
@@ -68,13 +79,16 @@ async def allm_generate(
         remote_kw = _split_remote_kwargs(cfg)
         cfg["model_name"] = model_name
         cfg["tensor_parallel_size"] = remote_kw.get("gpus", 1)
-        return (await arun_remote(
+        result = await arun_remote(
             "llm_generate",
             inputs={"prompts": prompts},
             config_dict=cfg,
             required_models=[model_name],
             **remote_kw,
-        ))["responses"]
+        )
+        if slurm_accounting is not None and "_slurm_accounting" in result:
+            slurm_accounting.update(result["_slurm_accounting"])
+        return result["responses"]
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}")

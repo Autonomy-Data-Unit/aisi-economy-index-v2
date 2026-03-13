@@ -201,6 +201,8 @@ def _validate_response(raw: str, n_candidates: int) -> str | None:
         return f"{type(e).__name__}: {e}"
 
 
+_slurm_jobs = []
+
 async def _work_fn(chunk_ids):
     """Load chunk context, build prompts, call LLM, validate, return DataFrame."""
     matches_by_ad, summaries_by_ad, raw_ads_by_id = _load_chunk_context(chunk_ids)
@@ -212,6 +214,7 @@ async def _work_fn(chunk_ids):
         prompts.append(_build_prompt(ad_id, candidates, summaries_by_ad[ad_id], raw_ads_by_id[ad_id]))
         n_candidates_per_ad.append(len(candidates))
 
+    _sa = {}
     responses = await allm_generate(
         prompts,
         model=llm_model,
@@ -219,7 +222,9 @@ async def _work_fn(chunk_ids):
         max_new_tokens=max_new_tokens,
         json_schema=FilterResponseModel.model_json_schema(),
         cache=sbatch_cache,
+        slurm_accounting=_sa,
     )
+    if _sa: _slurm_jobs.append(_sa)
 
     records = []
     for ad_id, response, n_cands in zip(chunk_ids, responses, n_candidates_per_ad):
@@ -249,6 +254,8 @@ filter_meta = await run_batched(
     raise_on_failure=raise_on_failure,
 )
 store.close()
+filter_meta["slurm_jobs"] = _slurm_jobs
+filter_meta["slurm_total_seconds"] = sum(j.get("elapsed_seconds", 0) for j in _slurm_jobs)
 print(f"llm_filter: wrote {const.rel(db_path)}")
 
 meta_path = output_dir / "filter_meta.json"

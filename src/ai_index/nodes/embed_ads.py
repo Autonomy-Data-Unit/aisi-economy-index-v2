@@ -63,6 +63,7 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
     n_chunks = (n_remaining + chunk_size - 1) // chunk_size
     
     started_at = time.time()
+    slurm_jobs = []
     
     for chunk_idx in range(n_chunks):
         start = chunk_idx * chunk_size
@@ -72,8 +73,12 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
         chunk_role_texts = [role_texts[i] for i in chunk_indices]
         chunk_taskskill_texts = [taskskill_texts[i] for i in chunk_indices]
     
-        role_chunk = await aembed(chunk_role_texts, model=embedding_model, cache=sbatch_cache)
-        taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model, cache=sbatch_cache)
+        _sa1 = {}
+        role_chunk = await aembed(chunk_role_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa1)
+        if _sa1: slurm_jobs.append(_sa1)
+        _sa2 = {}
+        taskskill_chunk = await aembed(chunk_taskskill_texts, model=embedding_model, cache=sbatch_cache, slurm_accounting=_sa2)
+        if _sa2: slurm_jobs.append(_sa2)
     
         df = pd.DataFrame({
             "id": [ad_ids[i] for i in chunk_indices],
@@ -98,6 +103,8 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
         "started_at": started_at,
         "ended_at": ended_at,
         "elapsed_seconds": ended_at - started_at,
+        "slurm_jobs": slurm_jobs,
+        "slurm_total_seconds": sum(j.get("elapsed_seconds", 0) for j in slurm_jobs),
     }
     meta_path = output_dir / "embed_meta.json"
     with open(meta_path, "w") as f:

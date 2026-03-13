@@ -155,8 +155,10 @@ print(f"score_task_exposure: built {len(prompts)} prompts")
 # %%
 #|export
 all_responses = []
+slurm_jobs = []
 for i in range(0, len(prompts), batch_size):
     batch = prompts[i : i + batch_size]
+    _sa = {}
     responses = await allm_generate(
         batch,
         model=llm_model,
@@ -164,7 +166,9 @@ for i in range(0, len(prompts), batch_size):
         max_new_tokens=max_new_tokens,
         json_schema=TaskExposureModel.model_json_schema(),
         cache=sbatch_cache,
+        slurm_accounting=_sa,
     )
+    if _sa: slurm_jobs.append(_sa)
     all_responses.extend(responses)
     print(f"  batch {i // batch_size + 1}: {len(all_responses)}/{len(prompts)} done")
 
@@ -254,6 +258,13 @@ print(f"score_task_exposure: wrote {const.rel(output_dir / 'task_details.parquet
 score_set = OnetScoreSet(name="task_exposure", scores=scores)
 score_set.save(output_dir)
 print(f"score_task_exposure: wrote {const.rel(output_dir / 'scores.csv')}")
+
+if slurm_jobs:
+    import json as _json
+    _meta = {"slurm_jobs": slurm_jobs, "slurm_total_seconds": sum(j.get("elapsed_seconds", 0) for j in slurm_jobs)}
+    with open(output_dir / "score_meta.json", "w") as _f:
+        _json.dump(_meta, _f, indent=2)
+    print(f"score_task_exposure: wrote {const.rel(output_dir / 'score_meta.json')}")
 
 scores #|func_return_line
 

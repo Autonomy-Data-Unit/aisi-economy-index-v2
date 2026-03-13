@@ -461,6 +461,15 @@ Model-key-based utility functions used by pipeline nodes. Each function resolves
 
 Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls. Explicit `**kwargs` passed to `llm_generate`/`embed` override TOML config values (via `cfg.update(kwargs)` in `_resolve_model_args`).
 
+### Slurm accounting via `slurm_accounting` kwarg
+All public utility functions (`embed`, `aembed`, `llm_generate`, `allm_generate`, `cosine_topk`, `acosine_topk`) support an optional `slurm_accounting={}` kwarg. In sbatch mode, the dict is populated in-place with Slurm resource accounting data from `sacct`:
+- `elapsed_seconds` (int) — wall-clock job duration on compute node (excludes queue wait)
+- `start_time` / `end_time` (int) — Unix epoch timestamps
+- `allocated_cpus` / `allocated_gpus` (int) — resources allocated
+- `node_hours` (float) — Isambard billing NHR (0.25 per GPU-hour)
+
+In non-sbatch modes, the kwarg is harmlessly popped and ignored. Pipeline nodes that call these functions in loops accumulate accounting dicts into a `slurm_jobs` list, then write them to meta JSON files alongside `slurm_total_seconds`.
+
 ### `OnetScoreSet` (scoring.py)
 Standard output format for O\*NET occupation-level score nodes. All score nodes (`score_presence`, `score_felten`, `score_task_exposure`) produce an `OnetScoreSet` — a validated DataFrame with `onet_code` + float score columns in [0, 1]. Provides `.validate()` (checks column types and ranges) and `.save(output_dir)` (writes `scores.csv`).
 
@@ -504,9 +513,28 @@ The `orchestrate` module handles the full sbatch lifecycle:
 2. **Pre-cache models** — download HuggingFace models to login node cache
 3. **Transfer inputs** — serialize + upload via chosen transfer mode
 4. **Submit SBATCH** — generate script, submit via `slurm.asubmit`
-5. **Poll** — wait for Slurm job completion
-6. **Download outputs** — retrieve + deserialize results
-7. **Cleanup** — remove work directory (cache preserved)
+5. **Poll** — wait for Slurm job completion via `slurm.await_job`
+6. **Collect accounting** — extract timing/resource data from `sacct --json`
+7. **Download outputs** — retrieve + deserialize results
+8. **Cleanup** — remove work directory (cache preserved)
+
+### Slurm accounting
+
+After each sbatch job completes, `_asacct_status()` extracts resource accounting from `sacct --json`:
+- `elapsed_seconds` — wall-clock duration of the Slurm job (excludes queue wait and transfer)
+- `start_time` / `end_time` — Unix timestamps
+- `allocated_cpus` / `allocated_gpus` — resources allocated
+- `node_hours` — Isambard billing: `(gpus / 4) * elapsed / 3600` (1 GPU = 0.25 NHR/hour)
+
+This data is:
+- Stored in `_status.json` on the remote cache (as `slurm_accounting`)
+- Included in `arun_remote()` return dict as `_slurm_accounting`
+- Propagated through utility functions (`aembed`, `allm_generate`, `acosine_topk`) via an optional `slurm_accounting={}` callback dict
+- Accumulated by pipeline nodes into `slurm_jobs` lists in their meta JSON files
+
+### Isambard node-hour billing
+
+Each Isambard-AI node has 4x GH200 (each: 1 H100 GPU + 72-core Grace CPU + ~216GB memory). Billing = `max(gpu_fraction, cpu_fraction, mem_fraction) * wall_hours`. For typical 1-GPU jobs: 0.25 NHR per wall-hour.
 
 ### Running integration tests
 ```bash
@@ -748,6 +776,37 @@ def process(data: Batch(str, count=3)):  # collects up to 3 packets into list[st
 - **`inject_data(node_name, port, values)`** — Inject data into a node's input port. Works before `Net.start()`.
 - **`on_epoch_start(callback)` / `on_epoch_end(callback)`** — Register lifecycle callbacks. Callback signature: `(node_name, epoch_id)` for start, `(node_name, epoch_id, record)` for end. Returns a `remove()` callable. Also available on `NodeInfo` (fires only for that node).
 - **`Net(config, run_source_nodes=True)`** — Constructor. `run_source_nodes` (formerly `run_startup_nodes`) controls whether source nodes execute during `start()`.
+
+## GPU-Hours Calibration
+
+The `calibration/` directory contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard.
+
+### Running calibration
+```bash
+uv run python calibration/run_calibration.py <llm_model_key> <embedding_model_key>
+# Example: uv run python calibration/run_calibration.py qwen-7b-sbatch bge-large-sbatch
+```
+
+This runs the pipeline with `sample_n=1000` ads (configurable in `calibration/run_defs.toml`), `sbatch_cache=false` (forces fresh GPU execution), and `resume=false` for LLM nodes. Cleans `store/pipeline/calibration/` before each run. Results written to `calibration/results/<llm>__<embed>.json`.
+
+The calibration `run_defs.toml` contains only overrides, deep-merged on top of the main `config/run_defs.toml`. The LLM and embedding model keys are injected dynamically as a `[runs.calibration]` entry.
+
+### Estimating GPU-hours
+```bash
+uv run python calibration/estimate.py [N_ADS]  # default: 30,000,000
+```
+
+Reads all result JSONs and prints estimated hours, node-hours (NHR), and per-ad cost. When Slurm accounting data is available (from `sacct`), uses actual GPU execution time. Falls back to wall-clock time (which includes transfer overhead).
+
+### `sbatch_cache` node variable
+
+Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. Default `true` in `config/run_defs.toml`. When `false`, forces fresh GPU execution by bypassing the content-addressed remote cache. Set to `false` in `calibration/run_defs.toml` for accurate timing.
+
+### Key files
+- `calibration/run_calibration.py` — CLI script: run pipeline, collect timing, save results
+- `calibration/estimate.py` — Read results, print GPU-hour estimates
+- `calibration/run_defs.toml` — Calibration-specific config overrides
+- `calibration/results/*.json` — Per-model timing results
 
 ## Old Repository Reference
 

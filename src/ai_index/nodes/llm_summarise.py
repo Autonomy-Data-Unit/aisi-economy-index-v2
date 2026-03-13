@@ -49,6 +49,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "summaries.duckdb"
     json_schema = JobInfoModel.model_json_schema()
+    _slurm_jobs = []
     
     async def _work_fn(chunk_ids):
         """Fetch ads, build prompts, call LLM, validate, return DataFrame."""
@@ -72,6 +73,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             job_text = f"{title or ''}\n{category or ''}\n\n{(description or '')[:1200]}"
             prompts.append(strict_format(USER_PROMPT_TEMPLATE, job_text=job_text))
     
+        _sa = {}
         responses = await allm_generate(
             prompts,
             model=llm_model,
@@ -79,7 +81,9 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
             max_new_tokens=max_new_tokens,
             json_schema=json_schema,
             cache=sbatch_cache,
+            slurm_accounting=_sa,
         )
+        if _sa: _slurm_jobs.append(_sa)
     
         records = []
         for ad_id, response in zip(ids_ordered, responses):
@@ -106,6 +110,8 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
         raise_on_failure=raise_on_failure,
     )
     store.close()
+    summary_meta["slurm_jobs"] = _slurm_jobs
+    summary_meta["slurm_total_seconds"] = sum(j.get("elapsed_seconds", 0) for j in _slurm_jobs)
     print(f"llm_summarise: wrote {const.rel(db_path)}")
     
     meta_path = output_dir / "summary_meta.json"

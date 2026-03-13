@@ -516,6 +516,17 @@ async def arun_remote(
         )
 
 # %% nbs/isambard_utils/orchestrate.ipynb 26
+def _extract_accounting(sacct: dict) -> dict:
+    """Extract accounting fields from a sacct result dict for storage/return.
+
+    Returns a dict with the timing and resource fields, or empty dict if
+    no accounting data is available.
+    """
+    fields = ("elapsed_seconds", "start_time", "end_time",
+              "allocated_cpus", "allocated_gpus", "node_hours")
+    return {k: sacct[k] for k in fields if k in sacct}
+
+
 async def _run_remote_cached(
     operation: str,
     inputs: dict[str, Any],
@@ -556,14 +567,18 @@ async def _run_remote_cached(
             "slurm_job_name": slurm_job_name,
         }, config=config)
 
-        await _poll_job(job.job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
+        sacct = await _poll_job(job.job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
+        accounting = _extract_accounting(sacct)
         await _write_remote_status(cache_path, {
             "state": "completed", "job_id": job.job_id,
             "slurm_job_name": slurm_job_name,
+            "slurm_accounting": accounting,
         }, config=config)
 
         print_fn(f"run_remote [{slurm_job_name}]: downloading outputs...")
         result = await _download_outputs(cache_path, output_transfer, config=config)
+        if accounting:
+            result["_slurm_accounting"] = accounting
         print_fn(f"run_remote [{slurm_job_name}]: done")
         return result
 
@@ -573,6 +588,9 @@ async def _run_remote_cached(
         # Cache hit: download from cache
         print_fn(f"run_remote [{slurm_job_name}]: cache hit (completed), downloading outputs...")
         result = await _download_outputs(cache_path, output_transfer, config=config)
+        cached_accounting = status.get("slurm_accounting")
+        if cached_accounting:
+            result["_slurm_accounting"] = cached_accounting
         print_fn(f"run_remote [{slurm_job_name}]: done (from cache)")
         return result
 
@@ -583,23 +601,33 @@ async def _run_remote_cached(
             if slurm_state in ("PENDING", "RUNNING"):
                 # Attach to running job
                 print_fn(f"run_remote [{slurm_job_name}]: attaching to running job {job_id}...")
-                await _poll_job(job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
+                sacct = await _poll_job(job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
+                accounting = _extract_accounting(sacct)
                 await _write_remote_status(cache_path, {
                     "state": "completed", "job_id": job_id,
                     "slurm_job_name": slurm_job_name,
+                    "slurm_accounting": accounting,
                 }, config=config)
                 print_fn(f"run_remote [{slurm_job_name}]: downloading outputs...")
                 result = await _download_outputs(cache_path, output_transfer, config=config)
+                if accounting:
+                    result["_slurm_accounting"] = accounting
                 print_fn(f"run_remote [{slurm_job_name}]: done (attached)")
                 return result
             elif slurm_state == "COMPLETED":
-                # Job completed but status wasn't updated
+                # Job completed but status wasn't updated -- query sacct for accounting
+                from .slurm import _asacct_status
+                sacct = await _asacct_status(job_id, config=config)
+                accounting = _extract_accounting(sacct)
                 await _write_remote_status(cache_path, {
                     "state": "completed", "job_id": job_id,
                     "slurm_job_name": slurm_job_name,
+                    "slurm_accounting": accounting,
                 }, config=config)
                 print_fn(f"run_remote [{slurm_job_name}]: job already completed, downloading...")
                 result = await _download_outputs(cache_path, output_transfer, config=config)
+                if accounting:
+                    result["_slurm_accounting"] = accounting
                 print_fn(f"run_remote [{slurm_job_name}]: done (from cache)")
                 return result
             else:
@@ -676,14 +704,18 @@ async def _run_remote_cached(
             "slurm_job_name": slurm_job_name,
         }, config=config)
 
-        await _poll_job(job.job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
+        sacct = await _poll_job(job.job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
+        accounting = _extract_accounting(sacct)
         await _write_remote_status(cache_path, {
             "state": "completed", "job_id": job.job_id,
             "slurm_job_name": slurm_job_name,
+            "slurm_accounting": accounting,
         }, config=config)
 
         print_fn(f"run_remote [{slurm_job_name}]: downloading outputs...")
         result = await _download_outputs(cache_path, output_transfer, config=config)
+        if accounting:
+            result["_slurm_accounting"] = accounting
         print_fn(f"run_remote [{slurm_job_name}]: done (resubmitted)")
         return result
 
@@ -770,7 +802,8 @@ async def _run_remote_uncached(
     print_fn(f"run_remote [{job_name}]: submitted job {job.job_id}")
 
     # Poll
-    await _poll_job(job.job_id, label=job_name, cache_path=work_dir, config=config, print_fn=print_fn)
+    sacct = await _poll_job(job.job_id, label=job_name, cache_path=work_dir, config=config, print_fn=print_fn)
+    accounting = _extract_accounting(sacct)
 
     # Check status.json
     check = await async_ssh_run(f"cat {outputs_remote}/status.json", config=config, check=False)
@@ -797,6 +830,8 @@ async def _run_remote_uncached(
 
     # Cleanup work dir
     await async_ssh_run(f"rm -rf {work_dir}", config=config, check=False)
+    if accounting:
+        result["_slurm_accounting"] = accounting
     print_fn(f"run_remote [{job_name}]: done")
 
     return result

@@ -19,9 +19,14 @@ def cosine_topk(
 ) -> dict:
     """Compute top-K cosine similarity (api/local/sbatch).
 
+    Pass slurm_accounting={} to collect Slurm resource accounting data
+    (sbatch mode only).
+
     Returns:
         Dict with "indices" (n, k) and "scores" (n, k) arrays.
     """
+    slurm_accounting = kwargs.pop("slurm_accounting", None)
+
     if mode in ("api", "local"):
         from llm_runner.cosine import run_cosine_topk
         if mode == "api":
@@ -34,12 +39,17 @@ def cosine_topk(
         remote_kw = _split_remote_kwargs(cfg)
         remote_kw.setdefault("job_name", "cosine_topk")
         cfg["k"] = k
-        return run_remote(
+        result = run_remote(
             "cosine_topk",
             inputs={"A": A, "B": B},
             config_dict=cfg,
             **remote_kw,
         )
+        if slurm_accounting is not None and "_slurm_accounting" in result:
+            slurm_accounting.update(result.pop("_slurm_accounting"))
+        else:
+            result.pop("_slurm_accounting", None)
+        return result
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'local' and 'sbatch'.")
@@ -56,7 +66,12 @@ async def acosine_topk(
     """Async version of cosine_topk.
 
     For api/local mode, runs in a thread. For sbatch, uses arun_remote.
+
+    Pass slurm_accounting={} to collect Slurm resource accounting data
+    (sbatch mode only).
     """
+    slurm_accounting = kwargs.pop("slurm_accounting", None)
+
     if mode in ("api", "local"):
         from llm_runner.cosine import run_cosine_topk
         if mode == "api":
@@ -69,12 +84,17 @@ async def acosine_topk(
         remote_kw = _split_remote_kwargs(cfg)
         remote_kw.setdefault("job_name", "cosine_topk")
         cfg["k"] = k
-        return await arun_remote(
+        result = await arun_remote(
             "cosine_topk",
             inputs={"A": A, "B": B},
             config_dict=cfg,
             **remote_kw,
         )
+        if slurm_accounting is not None and "_slurm_accounting" in result:
+            slurm_accounting.update(result.pop("_slurm_accounting"))
+        else:
+            result.pop("_slurm_accounting", None)
+        return result
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'local' and 'sbatch'.")

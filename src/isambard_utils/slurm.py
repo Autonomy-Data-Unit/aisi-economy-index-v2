@@ -142,7 +142,17 @@ def status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
 
 # %% nbs/isambard_utils/slurm.ipynb 9
 async def _asacct_status(job_id: str, *, config: IsambardConfig | None = None) -> dict:
-    """Get completed job status via sacct (async)."""
+    """Get completed job status and resource accounting via sacct (async).
+
+    Returns a dict with at minimum {"state": str}. When sacct provides
+    accounting data, also includes timing and resource fields:
+    - elapsed_seconds: int — wall-clock job duration (excludes queue wait)
+    - start_time: int — Unix epoch when the job started running
+    - end_time: int — Unix epoch when the job finished
+    - allocated_cpus: int — number of CPUs allocated
+    - allocated_gpus: int — number of GPUs allocated
+    - node_hours: float — Isambard billing node-hours (0.25 NHR per GPU-hour)
+    """
     config = _get_config(config)
     result = await async_ssh_run(
         f"sacct -j {job_id} --json",
@@ -159,11 +169,47 @@ async def _asacct_status(job_id: str, *, config: IsambardConfig | None = None) -
         state = job.get("state", {})
         if isinstance(state, dict):
             state = state.get("current", ["UNKNOWN"])[0]
-        return {
+
+        result_dict = {
             "job_id": str(job.get("job_id", job_id)),
             "state": state,
             "exit_code": job.get("exit_code", {}).get("return_code", None),
         }
+
+        # Extract timing from sacct time object
+        time_info = job.get("time", {})
+        if isinstance(time_info, dict):
+            elapsed = time_info.get("elapsed")
+            if isinstance(elapsed, (int, float)) and elapsed >= 0:
+                result_dict["elapsed_seconds"] = int(elapsed)
+            start = time_info.get("start")
+            if isinstance(start, int) and start > 0:
+                result_dict["start_time"] = start
+            end = time_info.get("end")
+            if isinstance(end, int) and end > 0:
+                result_dict["end_time"] = end
+
+        # Extract allocated resources from TRES
+        tres = job.get("tres", {})
+        allocated = tres.get("allocated", [])
+        if isinstance(allocated, list):
+            for item in allocated:
+                if not isinstance(item, dict):
+                    continue
+                tres_type = item.get("type", "")
+                tres_name = item.get("name", "")
+                count = item.get("count", 0)
+                if tres_type == "cpu":
+                    result_dict["allocated_cpus"] = count
+                elif tres_type == "gres" and tres_name == "gpu":
+                    result_dict["allocated_gpus"] = count
+
+        # Compute Isambard node-hours: 1 GPU = 0.25 NHR per wall-hour
+        if "elapsed_seconds" in result_dict and "allocated_gpus" in result_dict:
+            gpu_frac = result_dict["allocated_gpus"] / 4  # 4 GPUs per node
+            result_dict["node_hours"] = gpu_frac * result_dict["elapsed_seconds"] / 3600
+
+        return result_dict
     except (json.JSONDecodeError, KeyError, IndexError):
         return {"state": "UNKNOWN"}
 
