@@ -49,95 +49,17 @@ The pipeline is defined in `config/netrun.json`. It currently contains 20 nodes 
 
 ### Nodes (20 total: 17 function + 2 broadcast + 1 join)
 
-**Data ingestion & preparation:**
-- `fetch_onet` (run_on_startup) — Download and extract O\*NET 30.0 database to `store/inputs/onet/`. No output ports; signals `epoch_finished`.
-- `fetch_adzuna` (run_on_startup) — Download raw Adzuna job ads from S3 to DuckDB, deduplicate. Signals `epoch_finished` to trigger `sample_ads`. Node vars: `fetch_years`.
-- `sample_ads` — Sample job ads for processing (or pass through all if `sample_n=0`). Output: `ad_ids`.
-- `prepare_onet_targets` — Filter O\*NET occupations (remove 33 public-sector-only) and build text descriptions for embedding. Reads O\*NET tables from disk, writes `store/inputs/onet_targets.parquet`. Triggered by `fetch_onet` `epoch_finished` signal via `start_epoch` control, signals `epoch_finished`. Node vars: `onet_exclude_public_sector` (bool), `onet_top_n` (int).
+Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`).
 
-**Job ad processing (matching):**
-- `llm_summarise` — Run LLM to extract structured summaries from job ads using structured JSON output (`json_schema` parameter). Processes ads in configurable chunks with incremental DuckDB writes and resume support. Input: `ad_ids`. Output: `successful_ad_ids` (list[int]). Prompts loaded from `prompt_library/` via `system_prompt` and `user_prompt` node vars. Node vars: `summarise_resume` (bool), `summarise_max_retries` (int), `system_prompt`, `user_prompt`.
-- `embed_ads` — Build text descriptions from LLM summaries (`[domain] short_description` + tasks/skills) and embed with configured model in chunks. Input: `successful_ad_ids`. Output: `ad_ids` (list[int]). Stores embeddings as BLOBs in DuckDB via ResultStore (supports resume). Node vars: `embed_chunk_size` (int).
-- `embed_onet` — Embed O\*NET occupation text descriptions (role + tasks/skills). Reads `onet_targets.parquet`. Output: `out` (bool). Writes `.npy` files to `store/pipeline/{run_name}/embed_onet/`. Triggered via `start_epoch` control from `broadcast_onet_ready`, signals `epoch_finished`.
-- `cosine_match` — Weighted dual cosine similarity between ad and O\*NET embeddings. Inputs: `ad_ids` (list[int] from embed_ads), `onet_done` (bool from embed_onet). Output: `ad_ids` (list[int]). Loads `.npy` embeddings from disk, computes top-K role and taskskill cosine scores, combines with `combined = alpha * role + (1-alpha) * task`. Writes `matches.parquet` to `store/pipeline/{run_name}/cosine_match/`. Node vars: `cosine_alpha` (float), `cosine_chunk_size` (int).
-- `llm_filter_candidates` — LLM negative selection to filter cosine match candidates. For each ad, builds a prompt with job context (title, sector, domain, tasks, raw description excerpt) and candidate occupations. LLM identifies which candidates to DROP, keeping 2-3 functional matches. Input: `ad_ids` (list[int] from cosine_match). Output: `ad_ids` (list[int]). Uses `run_batched` with `ResultStore` for incremental DuckDB writes and resume support. Writes `filtered_matches.parquet` to `store/pipeline/{run_name}/llm_filter_candidates/`. Node vars: `filter_resume` (bool), `filter_max_retries` (int), `system_prompt`, `user_prompt`.
-
-**O\*NET exposure scoring:**
-- `build_aspectt_vectors` — Build ASPECTT numeric vectors (Abilities, Skills, Knowledge, Work Activities) from O\*NET database tables. Reads `onet_targets.parquet` for filtered occupation codes, loads 4 O\*NET tables, pivots each by Level (LV) and Importance (IM) scales into ~157-dimensional feature vectors per occupation. Writes `aspectt_vectors.npz` to `store/inputs/aspectt_vectors/`. Triggered via `start_epoch` control from `broadcast_onet_ready`. Runs in parallel with the ad processing branch and score nodes.
-- `score_presence` — Compute humanness/presence scores per O\*NET occupation across three dimensions: physical, emotional, and creative. Each dimension is defined by curated O\*NET element IDs (Work Context, Work Activities, Skills). Normalized to [0, 1] and averaged. Output: `out` (pd.DataFrame with `onet_code`, `presence_physical`, `presence_emotional`, `presence_creative`, `presence_composite`). Writes to `store/outputs/onet_exposure_scores/score_presence/`. Triggered via `start_epoch` control from `broadcast_onet_ready`.
-- `score_felten` — Compute Felten AIOE (AI Occupational Exposure) scores per O\*NET occupation using the ability-application relatedness methodology from Felten et al. (2021). Uses a progress-weighted average of ability-application relatedness scores across 10 AI applications. Output: `out` (pd.DataFrame with `onet_code`, `felten_score`). Writes to `store/outputs/onet_exposure_scores/score_felten/`. Node vars: `felten_alpha` (float), `felten_scenario` (str). Triggered via `start_epoch` control from `broadcast_onet_ready`.
-- `score_task_exposure` — Classify each O\*NET task statement via LLM into a 3-level AI exposure scale (0=no change, 1=human+LLM collaboration, 2=LLM independent), then aggregate to occupation level. Uses structured JSON output (`TaskExposureModel`). Output: `out` (pd.DataFrame with `onet_code`, `task_exposure_mean`, `task_exposure_importance_weighted`). Writes to `store/outputs/onet_exposure_scores/score_task_exposure/{llm_model}/`. Node vars: `llm_model` (inherited global), `system_prompt`, `user_prompt`. Triggered via `start_epoch` control from `broadcast_onet_ready`.
-- `combine_onet_exposure` — Merge all O\*NET score DataFrames into a single combined exposure table. Receives a dict of `{name: pd.DataFrame}` from `join_scores`. Joins on `onet_code` and saves `scores.csv` to `store/outputs/onet_exposure_scores/`. Output: `out` (pd.DataFrame). No node vars.
-
-**Index construction:**
-- `compute_job_ad_exposure` — Map occupation-level exposure scores to individual job ads using filtered match weights. Column-agnostic — computes weighted averages for whatever score columns exist in the combined exposure table. Processes in chunks. Inputs: `ad_ids` (list[int] from `broadcast_filter_done`), `exposure_scores` (pd.DataFrame from `combine_onet_exposure`). Output: `ad_ids` (list[int]). Writes `ad_exposure.parquet` to `store/pipeline/{run_name}/compute_job_ad_exposure/`. Node vars: `exposure_chunk_size` (int).
-- `aggregate_geo` — Aggregate ad-level AI exposure scores by Local Authority District (LAD22CD). Joins `ad_exposure.parquet` with the Adzuna ads table via DuckDB, computes per-LAD mean scores. Outputs `geo_lad.csv` to `store/outputs/{run_name}/`. Input: `ad_ids` (list[int] from `compute_job_ad_exposure`). No node vars beyond `run_name`.
-- `compute_job_ad_aspectt_vectors` (currently **disabled**) — Compute per-ad weighted ASPECTT vectors from filtered occupation matches. Uses `ResultStore` for resume support. Inputs: `ad_ids` (from `broadcast_filter_done`), `aspectt_done` (bool from `build_aspectt_vectors`). Node vars: `aspectt_chunk_size` (int).
-
-**Infrastructure nodes:**
-- `broadcast_onet_ready` — Broadcast node (`num_outputs: 5`). Fans out `prepare_onet_targets` `epoch_finished` signal to `embed_onet`, `build_aspectt_vectors`, `score_presence`, `score_felten`, and `score_task_exposure`.
-- `broadcast_filter_done` — Broadcast node (`num_outputs: 2`). Fans out `llm_filter_candidates` `ad_ids` to `compute_job_ad_aspectt_vectors` and `compute_job_ad_exposure`.
-- `join_scores` — Join node (synchronization barrier). Waits for packets on ports `presence`, `felten`, and `task_exposure` from the three score nodes, then emits a single dict on `out` to `combine_onet_exposure`.
+**Data ingestion & preparation:** `fetch_onet`, `fetch_adzuna`, `sample_ads`, `prepare_onet_targets`
+**Job ad processing (matching):** `llm_summarise`, `embed_ads`, `embed_onet`, `cosine_match`, `llm_filter_candidates`
+**O\*NET exposure scoring:** `build_aspectt_vectors`, `score_presence`, `score_felten`, `score_task_exposure`, `combine_onet_exposure`
+**Index construction:** `compute_job_ad_exposure`, `aggregate_geo`, `compute_job_ad_aspectt_vectors` (disabled)
+**Infrastructure:** `broadcast_onet_ready` (1->5), `broadcast_filter_done` (1->2), `join_scores` (3->1)
 
 ### Node Storage Convention
 
-Three storage locations, each serving a different purpose:
-
-**`store/inputs/`** — Run-independent source data (shared across all runs):
-```
-store/inputs/
-├── onet/                    # O*NET database (fetch_onet)
-├── onet_targets.parquet     # Filtered O*NET occupations (prepare_onet_targets)
-├── adzuna.duckdb            # Adzuna ads (fetch_adzuna)
-├── aspectt_vectors/         # .npz — ASPECTT feature vectors (build_aspectt_vectors)
-├── lad22_lookup.csv         # ONS LAD22 name lookup table
-└── AIOE_DataAppendix.xlsx   # Felten et al. ability-application matrix
-```
-
-**`store/pipeline/{run_name}/`** — Run-specific pipeline intermediates:
-```
-store/pipeline/{run_name}/
-├── llm_summarise/               # DuckDB (ResultStore) — incremental LLM results
-├── embed_ads/                   # DuckDB (ResultStore) — embeddings as BLOBs
-├── embed_onet/                  # .npy — dense embedding arrays
-├── cosine_match/                # .parquet — tabular match results
-├── llm_filter_candidates/       # DuckDB (ResultStore) + .parquet — filtered matches
-├── compute_job_ad_exposure/     # .parquet — per-ad exposure scores
-└── compute_job_ad_aspectt_vectors/  # DuckDB (ResultStore) — per-ad ASPECTT vectors
-```
-
-**`store/outputs/`** — Final outputs:
-```
-store/outputs/
-├── onet_exposure_scores/        # O*NET occupation-level scores (run-independent)
-│   ├── score_presence/          # .csv — humanness/presence scores
-│   ├── score_felten/            # .csv — Felten AIOE scores
-│   ├── score_task_exposure/     # .csv + .parquet — per-model task exposure
-│   │   └── {llm_model}/        # Subdirectory per LLM model
-│   └── scores.csv              # Combined exposure table (combine_onet_exposure)
-└── {run_name}/                  # Run-specific final outputs
-    └── geo_lad.csv              # LAD-level geographic aggregation (aggregate_geo)
-```
-
-Storage format guidelines:
-- **DuckDB** (via `ResultStore`): Nodes with incremental/transactional writes and resume/retry (LLM processing nodes)
-- **Parquet**: Final tabular outputs read downstream (match results, filtered matches, ad exposure)
-- **NumPy** (`.npy`/`.npz`): Dense numeric arrays (embeddings, feature vectors)
-- **CSV**: Small human-readable outputs (O\*NET scores, geographic aggregations)
-
-### Node Function Paths
-
-Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`).
-
-### Old Pipeline Reference
-
-The old pipeline (now fully rebuilt in v2) had these stages:
-1. **Embedding Generation** — `nbs/isambard/2026_01/00_transformers_for_origin_and_target.ipynb`
-2. **Cosine Similarity Search** — `nbs/isambard/2026_01/01_cosine_sim_target_vs_origin.ipynb`
-3. **LLM Filtering** — `nbs/isambard/2026_01/02_llm_negative_selection.ipynb`
-4. **Impact Computation** — `nbs/helpers/AI_impact_occupation_and_seniority_job_zone.ipynb`
-- **O\*NET fetch & build**: `nbs/helpers/fetch_and_build_onet.ipynb`
-- **Exposure scoring**: `nbs/__scratch/exposure_score_pipeline/`
+Three storage tiers: `store/inputs/` (run-independent source data), `store/pipeline/{run_name}/` (run-specific intermediates), `store/outputs/` (final outputs). Storage format by use case: DuckDB via `ResultStore` for incremental/resumable writes (LLM nodes), Parquet for tabular outputs, NumPy for dense arrays (embeddings), CSV for small human-readable outputs.
 
 ## Tech Stack
 
@@ -179,173 +101,9 @@ Defines named pipeline configurations. `[defaults]` provides base values; `[runs
 
 **Convention:** Default values for all node variables (both global and per-node) live in `run_defs.toml`, not in `netrun.json`. The `netrun.json` only declares variable names and types as unfilled placeholders.
 
-```toml
-[defaults]
-sample_n = 10            # N = sample N ads, 0 = full run
-sample_seed = 42
-embedding_model = "text-embedding-3-large"   # Key into embed_models.toml
-cosine_mode = "api"      # "api", "local", or "sbatch"
-topk = 10                # Top-K candidates for cosine similarity
-llm_model = "gpt-5.2"   # Key into llm_models.toml
-llm_batch_size = 1000    # Number of prompts per LLM call
-llm_max_new_tokens = 220 # Max tokens per LLM response
-llm_max_concurrent_batches = 1   # Max concurrent batch LLM calls
+### `embed_models.toml` / `llm_models.toml` — Model configs
 
-[defaults.fetch_adzuna]
-fetch_years = "all"
-
-[defaults.prepare_onet_targets]
-onet_exclude_public_sector = true
-onet_top_n = 10
-
-[defaults.embed_ads]
-embed_chunk_size = 50000
-
-[defaults.cosine_match]
-cosine_alpha = 0.4               # Role score weight (task weight = 1 - alpha)
-cosine_chunk_size = 50000
-
-[defaults.llm_summarise]
-summarise_resume = true          # Resume from previous partial run
-summarise_max_retries = 0        # Retry rounds for failed ads
-system_prompt = "llm_summarise/main/system"  # Path in prompt_library/
-user_prompt = "llm_summarise/main/user"      # Path in prompt_library/
-
-[defaults.llm_filter_candidates]
-filter_resume = true             # Resume from previous partial run
-filter_max_retries = 0           # Retry rounds for failed ads
-system_prompt = "llm_filter/main/system"     # Path in prompt_library/
-user_prompt = "llm_filter/main/user"         # Path in prompt_library/
-
-[defaults.compute_job_ad_aspectt_vectors]
-aspectt_chunk_size = 50000
-
-[defaults.compute_job_ad_exposure]
-exposure_chunk_size = 50000
-
-[defaults.score_felten]
-felten_alpha = 0.5
-felten_scenario = "baseline_2025"
-
-[defaults.score_task_exposure]
-llm_model = "gpt-5.2"                                # Override of inherited global
-system_prompt = "score_task_exposure/main/system"
-user_prompt = "score_task_exposure/main/user"
-
-[runs.baseline]          # Inherits all defaults
-[runs.test]              # Quick test (10 ads, otherwise defaults)
-sample_n = 10
-[runs.test_api]          # API mode test (10 ads, text-embedding-3-large, gpt-5.2)
-[runs.test_local]        # Local CPU test (10 ads, bge-large-mac, qwen-0.5b-mac)
-[runs.test_sbatch]       # Isambard sbatch test (10 ads, bge-large-sbatch, qwen-7b-sbatch)
-```
-
-### `embed_models.toml` — Embedding model configs
-
-Model-key-based lookup. Callers pass a model key (e.g., `embed(texts, model="bge-large-local")`), and the config resolves the execution mode and parameters.
-
-```toml
-[defaults.api]           # Defaults for mode="api"
-batch_size = 200
-[defaults.local]         # Defaults for mode="local"
-device = "cuda"
-dtype = "float16"
-batch_size = 64
-[defaults.sbatch]        # Defaults for mode="sbatch"
-dtype = "float16"
-batch_size = 64
-gpus = 1
-job_name = "embed"
-time = "01:00:00"
-setup = true
-
-[models."text-embedding-3-small"]
-mode = "api"
-model = "text-embedding-3-small"
-[models."text-embedding-3-large"]
-mode = "api"
-model = "text-embedding-3-large"
-[models.bge-large-local]
-mode = "local"
-model = "BAAI/bge-large-en-v1.5"
-[models.bge-large-mac]    # CPU/float32 for Mac testing
-mode = "local"
-model = "BAAI/bge-large-en-v1.5"
-device = "cpu"
-dtype = "float32"
-[models.gemini-embed]     # Gemini API with retry config
-mode = "api"
-model = "gemini/gemini-embedding-001"
-batch_size = 10
-retry_delay = 65
-max_retries = 20
-[models.bge-large-sbatch]
-mode = "sbatch"
-model = "BAAI/bge-large-en-v1.5"
-```
-
-Resolution: `_load_model_config(config_path, model_key)` looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with the model entry, returns `(mode, merged_dict)`.
-
-### `llm_models.toml` — LLM model configs
-
-Same structure as `embed_models.toml`. Model keys map to execution modes and model parameters.
-
-```toml
-[defaults.api]           # (empty — no special defaults)
-[defaults.local]
-max_new_tokens = 60
-device = "cuda"
-dtype = "float16"
-backend = "transformers"
-batch_size = 128
-[defaults.sbatch]
-max_new_tokens = 60
-dtype = "fp8"
-backend = "vllm"
-gpus = 1
-job_name = "llm_generate"
-time = "02:00:00"
-setup = true
-
-[models."gpt-5.2"]
-mode = "api"
-model = "openai/gpt-5.2"
-[models.gemini-2-flash]
-mode = "api"
-model = "gemini/gemini-2.0-flash"
-[models.qwen-7b-local]
-mode = "local"
-model = "Qwen/Qwen2.5-7B-Instruct"
-[models."qwen-0.5b-mac"]  # CPU/float32 for Mac testing
-mode = "local"
-model = "Qwen/Qwen2.5-0.5B-Instruct"
-device = "cpu"
-dtype = "float32"
-batch_size = 16
-[models.qwen-7b-sbatch]
-mode = "sbatch"
-model = "Qwen/Qwen2.5-7B-Instruct"
-time = "00:30:00"
-```
-
-### `isambard_config.toml` — HPC cluster config
-
-Configures the Isambard AI Phase 2 cluster connection. Located at `src/isambard_utils/assets/config.toml`.
-
-```toml
-[isambard]
-project_dir = "/projects/a5u/ai-index-v2"
-hf_cache_dir = "{project_dir}/hf_cache"
-logs_dir = "{project_dir}/logs"
-partition = "workq"
-default_gpus = 1
-default_cpus = 16
-default_mem = "80G"
-default_time = "12:00:00"
-cuda_module = "cudatoolkit/24.11_12.6"
-python_version = "3.12"
-torch_index_url = "https://download.pytorch.org/whl/cu126"
-```
+Model-key-based lookup. Each model entry has a `mode` (api/local/sbatch) and model-specific params. Resolution: `_load_model_config(config_path, model_key)` looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with the model entry, returns `(mode, merged_dict)`.
 
 ### `netrun.json` — Pipeline graph
 
@@ -437,110 +195,23 @@ time = "04:00:00"
 
 ## `ai_index.utils` — Pipeline utilities
 
-Model-key-based utility functions used by pipeline nodes. Each function resolves its execution mode from the TOML config, so callers only pass a model key.
+Model-key-based utility functions in `pts/ai_index/utils/`. Each function resolves its execution mode from the TOML config, so callers only pass a model key. All have sync and async variants (e.g. `embed`/`aembed`).
 
-### Model config resolution
-- `_load_model_config(config_path, model_key)` — looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with model entry, returns `(mode, merged_dict)`
-- `_resolve_model_args(config_path, model_key, kwargs)` — calls `_load_model_config`, merges `kwargs`, pops `model` name, returns `(mode, model_name, cfg)`
+- **`embed(texts, *, model, **kwargs) -> np.ndarray`** — Embed texts. Routes by mode (api/local/sbatch).
+- **`llm_generate(prompts, *, model, **kwargs) -> list[str]`** — Generate LLM responses. Routes by mode. All three backends support `system_message`, `max_new_tokens`, and `json_schema` kwargs.
+- **`cosine_topk(A, B, k, *, mode, **kwargs) -> dict`** — Top-K cosine similarity. Returns `{"indices": (n,k), "scores": (n,k)}`.
 
-### Public functions
-- **`embed(texts, *, model, **kwargs) -> np.ndarray`** — Embed texts. Routes by mode:
-  - `api`: `adulib.llm.batch_embeddings` (litellm -> OpenAI/Gemini/etc.)
-  - `local`: `llm_runner.embed.run_embeddings` (sentence-transformers, CUDA)
-  - `sbatch`: `isambard_utils.orchestrate.run_remote("embed", ...)`
-- **`aembed(texts, *, model, **kwargs) -> np.ndarray`** — Async version of `embed`
-- **`llm_generate(prompts, *, model, **kwargs) -> list[str]`** — Generate LLM responses. Routes by mode:
-  - `api`: `llm_runner.llm.run_llm_generate` with `backend="api"` (adulib -> litellm)
-  - `local`: `llm_runner.llm.run_llm_generate` with `backend="transformers"` (CUDA)
-  - `sbatch`: `isambard_utils.orchestrate.run_remote("llm_generate", ...)`
-- **`allm_generate(prompts, *, model, **kwargs) -> list[str]`** — Async version
-- **`cosine_topk(A, B, k, *, mode, **kwargs) -> dict`** — Top-K cosine similarity. Returns `{"indices": (n,k), "scores": (n,k)}`. Routes by mode:
-  - `api`/`local`: `llm_runner.cosine.run_cosine_topk` (api uses `device="cpu"`)
-  - `sbatch`: `isambard_utils.orchestrate.run_remote("cosine_topk", ...)`
-- **`acosine_topk(A, B, k, *, mode, **kwargs) -> dict`** — Async version
+Explicit `**kwargs` override TOML config values. All functions support an optional `slurm_accounting={}` kwarg for Slurm resource tracking in sbatch mode.
 
-Extra kwargs from the TOML config (e.g., `retry_delay`, `max_retries`) flow through to the underlying adulib/litellm calls. Explicit `**kwargs` passed to `llm_generate`/`embed` override TOML config values (via `cfg.update(kwargs)` in `_resolve_model_args`).
-
-### Slurm accounting via `slurm_accounting` kwarg
-All public utility functions (`embed`, `aembed`, `llm_generate`, `allm_generate`, `cosine_topk`, `acosine_topk`) support an optional `slurm_accounting={}` kwarg. In sbatch mode, the dict is populated in-place with Slurm resource accounting data from `sacct`:
-- `elapsed_seconds` (int) — wall-clock job duration on compute node (excludes queue wait)
-- `start_time` / `end_time` (int) — Unix epoch timestamps
-- `allocated_cpus` / `allocated_gpus` (int) — resources allocated
-- `node_hours` (float) — Isambard billing NHR (0.25 per GPU-hour)
-
-In non-sbatch modes, the kwarg is harmlessly popped and ignored. Pipeline nodes that call these functions in loops accumulate accounting dicts into a `slurm_jobs` list, then write them to meta JSON files alongside `slurm_total_seconds`.
-
-### `OnetScoreSet` (scoring.py)
-Standard output format for O\*NET occupation-level score nodes. All score nodes (`score_presence`, `score_felten`, `score_task_exposure`) produce an `OnetScoreSet` — a validated DataFrame with `onet_code` + float score columns in [0, 1]. Provides `.validate()` (checks column types and ranges) and `.save(output_dir)` (writes `scores.csv`).
-
-### `llm_generate` kwargs passthrough
-All three backends (transformers `LLM`, `VllmLLM`, `ApiLLM`) support `system_message`, `max_new_tokens`, and `json_schema` in their `generate()` method. To use a system prompt from a node, pass it as a kwarg:
-```python
-llm_generate(prompts, model="gpt-5.2", system_message="You are...", max_new_tokens=220, json_schema=schema)
-```
-The `system_message` flows through: `llm_generate` → `run_llm_generate` → backend `.generate(system_message=...)`. Each backend handles it correctly (chat template for transformers, chat messages for vLLM, `system=` param for API/adulib).
-
-### Structured JSON output (`json_schema`)
-All three backends support constraining LLM output to valid JSON matching a schema. Pass a `json_schema` dict (from Pydantic's `model_json_schema()`) to guarantee parseable output:
-- **transformers**: Uses [outlines](https://github.com/dottxt-ai/outlines) (`pip install outlines`). API: `outlines.from_transformers(model, tokenizer)` → `outlines.Generator(outlines_model, outlines.json_schema(schema))` → `generator.batch(texts, max_new_tokens=N)`
-- **vLLM** (0.17.0): Uses `SamplingParams(structured_outputs=StructuredOutputsParams(json=json_schema))` from `vllm.sampling_params`
-- **API**: Passes `response_format={"type": "json_schema", "json_schema": {"name": "response", "schema": json_schema}}` to adulib's `async_single`
-
-See `pts/examples/02_structured_output.pct.py` for usage examples.
+**`OnetScoreSet`** (`scoring.py`): Standard output for score nodes. Validated DataFrame with `onet_code` + float score columns in [0, 1]. Provides `.validate()` and `.save(output_dir)`.
 
 ## Isambard HPC
 
-The `isambard_utils` package automates interaction with the Isambard HPC cluster for GPU-intensive pipeline nodes.
+The `isambard_utils` package (`pts/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `src/isambard_utils/assets/config.toml` + `ISAMBARD_HOST` env var.
 
-**Cluster:** Isambard AI Phase 2 — NVIDIA GH200 120GB (ARM64), Slurm scheduler
-**Project dir:** `/projects/a5u/ai-index-v2` (configured in `isambard_config.toml`)
-**SSH host:** `ISAMBARD_HOST` env var in `.env` (Clifton certificate auth, 12hr renewal)
+The high-level entry point is `orchestrate.arun_remote()`, which manages the full lifecycle: setup, model caching, input transfer, SBATCH submit, poll, accounting collection, output download, and cleanup. Billing: 0.25 NHR per GPU-hour for typical 1-GPU jobs.
 
-### isambard_utils modules
-- `config` — `IsambardConfig` pydantic model, loads from `config.toml` + `.env`
-- `ssh` — SSH command execution via subprocess (`run`/`arun` sync/async pairs)
-- `transfer` — rsync upload/download, tar+SSH pipes. Three transfer modes: DIRECT (ephemeral stream), UPLOAD (content-hashed rsync), COMPRESSED (tar.gz stream)
-- `slurm` — Slurm job submit/status/wait/cancel/log. Returns `SlurmJob` dataclass
-- `env` — Remote environment bootstrap (ensure uv, create venv, install CUDA torch)
-- `sbatch` — SBATCH script generation from `SbatchConfig` dataclass
-- `models` — HuggingFace model pre-caching (`ensure_model`/`aensure_model`) + compute-node model loading (`load_embedding_model`, `load_llm`)
-- `orchestrate` — High-level remote execution: `run_remote`/`arun_remote` + `setup_runner`/`asetup_runner`
-
-### Remote execution flow (`arun_remote`)
-
-The `orchestrate` module handles the full sbatch lifecycle:
-1. **Setup** — deploy `llm_runner` to Isambard (idempotent)
-2. **Pre-cache models** — download HuggingFace models to login node cache
-3. **Transfer inputs** — serialize + upload via chosen transfer mode
-4. **Submit SBATCH** — generate script, submit via `slurm.asubmit`
-5. **Poll** — wait for Slurm job completion via `slurm.await_job`
-6. **Collect accounting** — extract timing/resource data from `sacct --json`
-7. **Download outputs** — retrieve + deserialize results
-8. **Cleanup** — remove work directory (cache preserved)
-
-### Slurm accounting
-
-After each sbatch job completes, `_asacct_status()` extracts resource accounting from `sacct --json`:
-- `elapsed_seconds` — wall-clock duration of the Slurm job (excludes queue wait and transfer)
-- `start_time` / `end_time` — Unix timestamps
-- `allocated_cpus` / `allocated_gpus` — resources allocated
-- `node_hours` — Isambard billing: `(gpus / 4) * elapsed / 3600` (1 GPU = 0.25 NHR/hour)
-
-This data is:
-- Stored in `_status.json` on the remote cache (as `slurm_accounting`)
-- Included in `arun_remote()` return dict as `_slurm_accounting`
-- Propagated through utility functions (`aembed`, `allm_generate`, `acosine_topk`) via an optional `slurm_accounting={}` callback dict
-- Accumulated by pipeline nodes into `slurm_jobs` lists in their meta JSON files
-
-### Isambard node-hour billing
-
-Each Isambard-AI node has 4x GH200 (each: 1 H100 GPU + 72-core Grace CPU + ~216GB memory). Billing = `max(gpu_fraction, cpu_fraction, mem_fraction) * wall_hours`. For typical 1-GPU jobs: 0.25 NHR per wall-hour.
-
-### Running integration tests
-```bash
-pytest src/tests/isambard_utils/
-```
-Tests SSH, file transfer, env setup, GPU access, LLM inference, and job cancellation. Requires active Clifton cert.
+Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton cert).
 
 ## Project Structure
 
@@ -810,11 +481,4 @@ Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. 
 
 ## Old Repository Reference
 
-The old codebase is at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`. Key locations:
-- `nbs/helpers/` - Core data processing notebooks
-- `nbs/isambard/2026_01/` - GPU pipeline (3-stage: embed, cosine, LLM filter)
-- `nbs/api/` - Configuration and CLI modules
-- `aisi_economy_index/assets/config.toml` - Path configuration
-- `nbs/__scratch/` - Experimental/legacy (ignore unless needed)
-
-Old dependencies of note: `adulib[llm]` (LLM abstraction), `sentence-transformers`, `google-generativeai`, `polars`, `pandas`.
+The old codebase is at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index` (manually-run notebooks, now fully rebuilt in v2).
