@@ -1,11 +1,11 @@
 [defaults]
 sample_n = 10
 sample_seed = 42
-embedding_model = "text-embedding-3-large"
-cosine_mode = "api"
+embedding_model = "bge-large-sbatch"
+cosine_mode = "sbatch"
 topk = 10
-llm_model = "gpt-5.2"
-llm_batch_size = 1000
+llm_model = "qwen-7b-sbatch"
+llm_batch_size = 5000
 llm_max_new_tokens = 220
 llm_max_concurrent_batches = 1
 sbatch_cache = true
@@ -57,7 +57,7 @@ felten_scenario = "baseline_2025"
 
 [defaults.score_task_exposure]
 sbatch_time = "02:00:00"
-llm_model = "gpt-5.2"
+llm_model = "qwen-7b-sbatch"
 system_prompt = "score_task_exposure/main/system"
 user_prompt = "score_task_exposure/main/user"
 
@@ -85,9 +85,6 @@ llm_model = "qwen-0.5b-mac"
 
 [runs.test_sbatch]
 sample_n = 10
-embedding_model = "bge-large-sbatch"
-cosine_mode = "sbatch"
-llm_model = "qwen-7b-sbatch"
 
 # llm_model and embedding_model are injected dynamically by the calibration script.
 [runs.calibration]
