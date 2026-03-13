@@ -132,7 +132,8 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
     from ai_index.run_pipeline import run_pipeline_async
 
     run_defs = _build_run_defs(llm_model_key, embedding_model_key)
-    sample_n = run_defs["defaults"]["sample_n"]
+    # Effective sample_n: run-level override takes precedence over defaults
+    sample_n = run_defs["runs"][RUN_NAME].get("sample_n", run_defs["defaults"]["sample_n"])
 
     # Clean previous calibration run to ensure fresh timing
     calibration_store = pipeline_store_path / RUN_NAME

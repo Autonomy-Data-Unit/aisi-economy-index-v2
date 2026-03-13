@@ -68,6 +68,7 @@ user_prompt = "score_task_exposure/main/user"
 [runs.calibration]
 # llm_model and embedding_model are injected dynamically by the calibration script.
 sample_n = 1000
+sbatch_cache = false
 
 [runs.calibration.llm_summarise]
 sbatch_time = "01:00:00"
