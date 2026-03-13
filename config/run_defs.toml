@@ -88,3 +88,27 @@ sample_n = 10
 embedding_model = "bge-large-sbatch"
 cosine_mode = "sbatch"
 llm_model = "qwen-7b-sbatch"
+
+# llm_model and embedding_model are injected dynamically by the calibration script.
+[runs.calibration]
+sample_n = 1000
+
+[runs.calibration.llm_summarise]
+sbatch_time = "01:00:00"
+summarise_resume = false
+
+[runs.calibration.llm_filter_candidates]
+sbatch_time = "01:00:00"
+filter_resume = false
+
+[runs.calibration.embed_onet]
+sbatch_time = "00:30:00"
+
+[runs.calibration.embed_ads]
+sbatch_time = "00:30:00"
+
+[runs.calibration.cosine_match]
+sbatch_time = "00:30:00"
+
+[runs.calibration.score_task_exposure]
+sbatch_time = "00:30:00"

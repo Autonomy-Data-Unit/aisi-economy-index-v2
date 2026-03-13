@@ -457,9 +457,7 @@ uv run python calibration/run_calibration.py <llm_model_key> <embedding_model_ke
 # Example: uv run python calibration/run_calibration.py qwen-7b-sbatch bge-large-sbatch
 ```
 
-This runs the pipeline with `sample_n=1000` ads (configurable in `calibration/run_defs.toml`), `sbatch_cache=false` (forces fresh GPU execution), and `resume=false` for LLM nodes. Cleans `store/pipeline/calibration/` before each run. Results written to `calibration/results/<llm>__<embed>.json`.
-
-The calibration `run_defs.toml` contains only overrides, deep-merged on top of the main `config/run_defs.toml`. The LLM and embedding model keys are injected dynamically as a `[runs.calibration]` entry.
+This runs the pipeline with the `[runs.calibration]` definition from `config/run_defs.toml` (`sample_n=1000`, shorter sbatch times, `resume=false` for LLM nodes). Cleans `store/pipeline/calibration/` before each run. The LLM and embedding model keys are injected dynamically. Results written to `calibration/results/{llm,embed}/`.
 
 ### Estimating GPU-hours
 ```bash
@@ -470,21 +468,21 @@ Reads all result JSONs and prints estimated hours, node-hours (NHR), and per-ad 
 
 ### `sbatch_cache` node variable
 
-Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. Default `true` in `config/run_defs.toml`. When `false`, forces fresh GPU execution by bypassing the content-addressed remote cache. Set to `false` in `calibration/run_defs.toml` for accurate timing.
+Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. Default `true` in `config/run_defs.toml`. When `false`, forces fresh GPU execution by bypassing the content-addressed remote cache.
 
 ### `sbatch_time` node variable (IMPORTANT)
 
 **Per-node** var (not global) on all 6 sbatch-capable nodes (`llm_summarise`, `llm_filter_candidates`, `embed_ads`, `embed_onet`, `cosine_match`, `score_task_exposure`). Controls the Slurm `--time` walltime limit for sbatch jobs submitted by that node.
 
-**This value must be adjusted when changing `sample_n`.** The walltime needed scales with input size: 1000 ads needs minutes, 30M ads needs hours. If the walltime is too short, Slurm kills the job mid-execution. Defaults in `config/run_defs.toml` are set for full-scale runs (~30M ads). The `calibration/run_defs.toml` overrides them with shorter values suitable for `sample_n=1000`.
+**This value must be adjusted when changing `sample_n`.** The walltime needed scales with input size: 1000 ads needs minutes, 30M ads needs hours. If the walltime is too short, Slurm kills the job mid-execution. Defaults in `config/run_defs.toml` are set for full-scale runs (~30M ads). The `[runs.calibration]` section overrides them with shorter values suitable for `sample_n=1000`.
 
 Nodes pass `time=sbatch_time` as a kwarg to `embed()`/`llm_generate()`/`cosine_topk()`, which overrides any `time` in the model TOML. In api/local modes, `time` is harmlessly stripped by `_strip_remote_kwargs()`.
 
 ### Key files
 - `calibration/run_calibration.py` — CLI script: run pipeline, collect timing, save results
+- `calibration/calibrate_all.py` — Run all uncalibrated sbatch models
 - `calibration/estimate.py` — Read results, print GPU-hour estimates
-- `calibration/run_defs.toml` — Calibration-specific config overrides
-- `calibration/results/*.json` — Per-model timing results
+- `calibration/results/{llm,embed}/*.json` — Per-model timing results
 
 ## Old Repository Reference
 

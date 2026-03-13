@@ -6,8 +6,9 @@ Usage:
 Example:
     uv run python calibration/run_calibration.py qwen-7b-sbatch bge-large-sbatch
 
-Runs the pipeline with sample_n=1000 ads (configurable in calibration/run_defs.toml),
-collects timing data from LLM and embedding nodes, and writes separate results to:
+Runs the pipeline with the 'calibration' run definition from config/run_defs.toml
+(sample_n=1000, shorter sbatch times, resume=false for LLM nodes).
+Collects timing data from LLM and embedding nodes and writes separate results to:
   calibration/results/llm/<llm_model_key>.json
   calibration/results/embed/<embedding_model_key>.json
 
@@ -27,34 +28,17 @@ CALIBRATION_DIR = Path(__file__).parent
 RESULTS_DIR = CALIBRATION_DIR / "results"
 LLM_RESULTS_DIR = RESULTS_DIR / "llm"
 EMBED_RESULTS_DIR = RESULTS_DIR / "embed"
-CALIBRATION_RUN_DEFS_PATH = CALIBRATION_DIR / "run_defs.toml"
 RUN_NAME = "calibration"
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
-    """Recursively merge override into base, returning a new dict."""
-    merged = dict(base)
-    for k, v in override.items():
-        if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
-            merged[k] = _deep_merge(merged[k], v)
-        else:
-            merged[k] = v
-    return merged
-
-
 def _build_run_defs(llm_model_key: str, embedding_model_key: str) -> dict:
-    """Load main run_defs.toml, overlay calibration overrides, and inject dynamic run."""
-    from ai_index.const import run_defs_path as main_run_defs_path
+    """Load run_defs.toml and inject dynamic model keys into the calibration run."""
+    from ai_index.const import run_defs_path
     from ai_index.run_pipeline import _load_run_defs
 
-    base = _load_run_defs(main_run_defs_path)
-    overrides = _load_run_defs(CALIBRATION_RUN_DEFS_PATH)
-    run_defs = _deep_merge(base, overrides)
-
-    run_defs.setdefault("runs", {})[RUN_NAME] = {
-        "llm_model": llm_model_key,
-        "embedding_model": embedding_model_key,
-    }
+    run_defs = _load_run_defs(run_defs_path)
+    run_defs["runs"][RUN_NAME]["llm_model"] = llm_model_key
+    run_defs["runs"][RUN_NAME]["embedding_model"] = embedding_model_key
     return run_defs
 
 
