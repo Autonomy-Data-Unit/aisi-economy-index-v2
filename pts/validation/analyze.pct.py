@@ -1,0 +1,792 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # analyze
+#
+# Analysis module for the model sensitivity validation system.
+#
+# Computes pairwise statistics between validation runs, generates summary tables
+# and plots, and saves everything to store/validation/results/.
+#
+# Usage:
+#     uv run analyze-validation
+#
+# Statistics computed (pairwise vs the reference run):
+# 1. Top-1 agreement rate
+# 2. Top-K Jaccard similarity
+# 3. Rank-Biased Overlap (RBO)
+# 4. Per-stage decomposition (cosine_match vs llm_filter)
+# 5. Stratified breakdown by Adzuna category
+# 6. O*NET distribution divergence (chi-squared, KL)
+
+# %%
+#|default_exp analyze
+
+# %%
+#|export
+import sys
+import tomllib
+from collections import Counter
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from ai_index.const import (
+    adzuna_db_path,
+    pipeline_store_path,
+    validation_config_path,
+    validation_results_path,
+)
+from validation.run_validation import _make_run_name
+
+# %% [markdown]
+# ## Data loading
+
+# %%
+#|export
+def load_matches(run_name: str, stage: str = "filtered") -> pd.DataFrame:
+    """Load match results for a validation run.
+
+    Args:
+        run_name: Validation run name (e.g. val__qwen-7b-sbatch__bge-large-sbatch).
+        stage: 'filtered' for llm_filter output, 'cosine' for cosine_match output.
+
+    Returns:
+        DataFrame with columns: ad_id, rank, onet_code, onet_title,
+        role_score, taskskill_score, combined_score.
+    """
+    if stage == "filtered":
+        path = pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
+    elif stage == "cosine":
+        path = pipeline_store_path / run_name / "cosine_match" / "matches.parquet"
+    else:
+        raise ValueError(f"Unknown stage {stage!r}, expected 'filtered' or 'cosine'")
+    return pd.read_parquet(path)
+
+# %%
+#|export
+def _matches_to_ranked_lists(df: pd.DataFrame) -> dict[int, list[str]]:
+    """Convert a matches DataFrame to {ad_id: [onet_codes ordered by rank]}.
+
+    Only includes ads that have at least one match.
+    """
+    result = {}
+    for ad_id, group in df.sort_values("rank").groupby("ad_id"):
+        result[ad_id] = group["onet_code"].tolist()
+    return result
+
+# %%
+#|export
+def _discover_completed_runs() -> list[tuple[str, str, str]]:
+    """Scan store/pipeline/ for completed validation runs.
+
+    Returns list of (run_name, llm_key, embed_key) tuples.
+    """
+    runs = []
+    if not pipeline_store_path.exists():
+        return runs
+
+    for run_dir in sorted(pipeline_store_path.iterdir()):
+        if not run_dir.name.startswith("val__"):
+            continue
+        filtered = run_dir / "llm_filter_candidates" / "filtered_matches.parquet"
+        if not filtered.exists():
+            continue
+        parts = run_dir.name.split("__", 2)
+        if len(parts) != 3:
+            continue
+        _, llm, embed = parts
+        runs.append((run_dir.name, llm, embed))
+
+    return runs
+
+# %%
+#|export
+def load_ad_categories(ad_ids: list[int]) -> pd.DataFrame:
+    """Load category_name for given ad IDs from adzuna.duckdb.
+
+    Returns DataFrame with columns: ad_id, category_name.
+    """
+    import duckdb
+
+    con = duckdb.connect(str(adzuna_db_path), read_only=True)
+    id_list = ",".join(str(i) for i in ad_ids)
+    df = con.sql(f"SELECT id AS ad_id, category_name FROM ads WHERE id IN ({id_list})").df()
+    con.close()
+    return df
+
+# %% [markdown]
+# ## Statistics
+
+# %%
+#|export
+def top1_agreement(sets_a: dict[int, list[str]], sets_b: dict[int, list[str]]) -> float:
+    """Fraction of ads where the top-1 O*NET match agrees between two runs.
+
+    Only considers ads present in both sets.
+    """
+    common = set(sets_a) & set(sets_b)
+    if not common:
+        return 0.0
+    agree = sum(1 for ad_id in common if sets_a[ad_id][0] == sets_b[ad_id][0])
+    return agree / len(common)
+
+# %%
+#|export
+def topk_jaccard(sets_a: dict[int, list[str]], sets_b: dict[int, list[str]]) -> float:
+    """Mean Jaccard similarity of top-K O*NET match sets across ads.
+
+    For each ad, Jaccard = |A & B| / |A | B|. Averaged over common ads.
+    """
+    common = set(sets_a) & set(sets_b)
+    if not common:
+        return 0.0
+    total = 0.0
+    for ad_id in common:
+        a = set(sets_a[ad_id])
+        b = set(sets_b[ad_id])
+        union = a | b
+        if union:
+            total += len(a & b) / len(union)
+    return total / len(common)
+
+# %%
+#|export
+def rbo(list_a: list[str], list_b: list[str], p: float = 0.9) -> float:
+    """Rank-Biased Overlap for two ranked lists (Webber et al. 2010).
+
+    Computes RBO_EXT which extrapolates agreement at the evaluation depth.
+    For identical lists this returns ~1.0; for disjoint lists ~0.0.
+    """
+    k = max(len(list_a), len(list_b))
+    if k == 0:
+        return 1.0
+
+    # Compute overlap at each depth
+    set_a = set()
+    set_b = set()
+    agreements = []  # A_d = overlap_d / d
+    for d in range(1, k + 1):
+        if d <= len(list_a):
+            set_a.add(list_a[d - 1])
+        if d <= len(list_b):
+            set_b.add(list_b[d - 1])
+        agreements.append(len(set_a & set_b) / d)
+
+    # RBO_MIN: (1 - p) * sum_{d=1}^{k} p^{d-1} * A_d
+    rbo_min = 0.0
+    for d in range(1, k + 1):
+        rbo_min += (p ** (d - 1)) * agreements[d - 1]
+    rbo_min *= (1 - p)
+
+    # RBO_EXT: extrapolate agreement at depth k to infinity
+    return rbo_min + (p ** k) * agreements[-1]
+
+# %%
+#|export
+def mean_rbo(sets_a: dict[int, list[str]], sets_b: dict[int, list[str]], p: float = 0.9) -> float:
+    """Mean RBO across all common ads."""
+    common = set(sets_a) & set(sets_b)
+    if not common:
+        return 0.0
+    total = sum(rbo(sets_a[ad_id], sets_b[ad_id], p) for ad_id in common)
+    return total / len(common)
+
+# %%
+#|export
+def onet_distribution_divergence(
+    sets_a: dict[int, list[str]], sets_b: dict[int, list[str]]
+) -> dict:
+    """Compare top-1 O*NET assignment distributions between two runs.
+
+    Returns dict with chi2_statistic, chi2_pvalue, kl_divergence.
+    """
+    from scipy import stats
+
+    common = set(sets_a) & set(sets_b)
+
+    # Count top-1 assignments
+    counts_a = Counter(sets_a[ad_id][0] for ad_id in common)
+    counts_b = Counter(sets_b[ad_id][0] for ad_id in common)
+
+    # Align to shared set of O*NET codes
+    all_codes = sorted(set(counts_a) | set(counts_b))
+    freq_a = np.array([counts_a.get(c, 0) for c in all_codes], dtype=float)
+    freq_b = np.array([counts_b.get(c, 0) for c in all_codes], dtype=float)
+
+    # Chi-squared test
+    # Combine into contingency-style observed vs expected
+    chi2_stat, chi2_p = stats.chisquare(freq_a, f_exp=freq_b + 1e-10)
+
+    # KL divergence (A || B): how much A diverges from B
+    prob_a = freq_a / freq_a.sum()
+    prob_b = freq_b / freq_b.sum()
+    # Add small epsilon to avoid log(0)
+    prob_b_safe = np.where(prob_b > 0, prob_b, 1e-10)
+    prob_a_safe = np.where(prob_a > 0, prob_a, 1e-10)
+    kl = float(np.sum(prob_a_safe * np.log(prob_a_safe / prob_b_safe)))
+
+    return {
+        "chi2_statistic": float(chi2_stat),
+        "chi2_pvalue": float(chi2_p),
+        "kl_divergence": kl,
+        "n_unique_codes_a": len(counts_a),
+        "n_unique_codes_b": len(counts_b),
+        "n_common_ads": len(common),
+    }
+
+# %%
+#|export
+def stratified_agreement(
+    sets_a: dict[int, list[str]],
+    sets_b: dict[int, list[str]],
+    categories: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute top-1 agreement and Jaccard stratified by Adzuna category.
+
+    Args:
+        sets_a, sets_b: Ranked match sets from two runs.
+        categories: DataFrame with ad_id, category_name columns.
+
+    Returns:
+        DataFrame with columns: category, n_ads, top1_agreement, jaccard.
+    """
+    common = set(sets_a) & set(sets_b)
+    cat_map = dict(zip(categories["ad_id"], categories["category_name"]))
+
+    # Group common ads by category
+    by_cat: dict[str, list[int]] = {}
+    for ad_id in common:
+        cat = cat_map.get(ad_id, "Unknown")
+        by_cat.setdefault(cat, []).append(ad_id)
+
+    rows = []
+    for cat, ad_ids in sorted(by_cat.items()):
+        sub_a = {i: sets_a[i] for i in ad_ids}
+        sub_b = {i: sets_b[i] for i in ad_ids}
+        rows.append({
+            "category": cat,
+            "n_ads": len(ad_ids),
+            "top1_agreement": top1_agreement(sub_a, sub_b),
+            "jaccard": topk_jaccard(sub_a, sub_b),
+        })
+
+    return pd.DataFrame(rows)
+
+# %% [markdown]
+# ## High-level analysis
+
+# %%
+#|export
+def compute_pairwise(
+    run_a: str, run_b: str, stage: str = "filtered", rbo_p: float = 0.9
+) -> dict:
+    """Compute all pairwise statistics between two validation runs.
+
+    Returns dict with top1, jaccard, rbo, divergence stats.
+    """
+    df_a = load_matches(run_a, stage)
+    df_b = load_matches(run_b, stage)
+    sets_a = _matches_to_ranked_lists(df_a)
+    sets_b = _matches_to_ranked_lists(df_b)
+
+    result = {
+        "run_a": run_a,
+        "run_b": run_b,
+        "stage": stage,
+        "n_common_ads": len(set(sets_a) & set(sets_b)),
+        "top1_agreement": top1_agreement(sets_a, sets_b),
+        "jaccard": topk_jaccard(sets_a, sets_b),
+        "rbo": mean_rbo(sets_a, sets_b, rbo_p),
+    }
+
+    div = onet_distribution_divergence(sets_a, sets_b)
+    result.update(div)
+
+    return result
+
+# %%
+#|export
+def build_arm_summary(
+    completed_runs: list[tuple[str, str, str]],
+    config: dict,
+    stage: str = "filtered",
+    rbo_p: float = 0.9,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build summary tables for both arms of the crossed design.
+
+    Args:
+        completed_runs: List of (run_name, llm, embed) from _discover_completed_runs().
+        config: Validation config dict.
+        stage: Which matching stage to compare.
+        rbo_p: RBO persistence parameter.
+
+    Returns:
+        (arm1_df, arm2_df): DataFrames with columns model, top1, jaccard, rbo, kl_divergence.
+        arm1 = vary LLM (fixed embed), arm2 = vary embed (fixed LLM).
+    """
+    fixed_embed = config["fixed_embedding"]
+    fixed_llm = config["fixed_llm"]
+    ref_run = _make_run_name(fixed_llm, fixed_embed)
+
+    # Index completed runs
+    run_lookup = {(llm, embed): rn for rn, llm, embed in completed_runs}
+
+    # Arm 1: fix embedding, vary LLMs
+    arm1_rows = []
+    for llm in config["llm_models"]:
+        key = (llm, fixed_embed)
+        if key not in run_lookup:
+            continue
+        run_name = run_lookup[key]
+        if run_name == ref_run:
+            continue
+        stats = compute_pairwise(ref_run, run_name, stage, rbo_p)
+        arm1_rows.append({
+            "model": llm,
+            "top1_agreement": stats["top1_agreement"],
+            "jaccard": stats["jaccard"],
+            "rbo": stats["rbo"],
+            "kl_divergence": stats["kl_divergence"],
+        })
+
+    # Arm 2: fix LLM, vary embeddings
+    arm2_rows = []
+    for embed in config["embed_models"]:
+        key = (fixed_llm, embed)
+        if key not in run_lookup:
+            continue
+        run_name = run_lookup[key]
+        if run_name == ref_run:
+            continue
+        stats = compute_pairwise(ref_run, run_name, stage, rbo_p)
+        arm2_rows.append({
+            "model": embed,
+            "top1_agreement": stats["top1_agreement"],
+            "jaccard": stats["jaccard"],
+            "rbo": stats["rbo"],
+            "kl_divergence": stats["kl_divergence"],
+        })
+
+    return pd.DataFrame(arm1_rows), pd.DataFrame(arm2_rows)
+
+# %%
+#|export
+def per_stage_decomposition(
+    completed_runs: list[tuple[str, str, str]],
+    config: dict,
+    rbo_p: float = 0.9,
+) -> pd.DataFrame:
+    """Compare cosine vs filtered stage agreement for each run vs reference.
+
+    Returns DataFrame with columns: run_name, llm, embed, arm,
+    cosine_top1, filtered_top1, cosine_jaccard, filtered_jaccard.
+    """
+    fixed_embed = config["fixed_embedding"]
+    fixed_llm = config["fixed_llm"]
+    ref_run = _make_run_name(fixed_llm, fixed_embed)
+
+    run_lookup = {(llm, embed): rn for rn, llm, embed in completed_runs}
+    rows = []
+
+    for rn, llm, embed in completed_runs:
+        if rn == ref_run:
+            continue
+
+        # Determine arm
+        if embed == fixed_embed:
+            arm = "vary_llm"
+        elif llm == fixed_llm:
+            arm = "vary_embed"
+        else:
+            continue
+
+        # Check that reference has both stages
+        cosine_path = pipeline_store_path / ref_run / "cosine_match" / "matches.parquet"
+        if not cosine_path.exists():
+            continue
+        cosine_path_b = pipeline_store_path / rn / "cosine_match" / "matches.parquet"
+        if not cosine_path_b.exists():
+            continue
+
+        cosine_stats = compute_pairwise(ref_run, rn, "cosine", rbo_p)
+        filtered_stats = compute_pairwise(ref_run, rn, "filtered", rbo_p)
+
+        rows.append({
+            "run_name": rn,
+            "llm": llm,
+            "embed": embed,
+            "arm": arm,
+            "cosine_top1": cosine_stats["top1_agreement"],
+            "filtered_top1": filtered_stats["top1_agreement"],
+            "cosine_jaccard": cosine_stats["jaccard"],
+            "filtered_jaccard": filtered_stats["jaccard"],
+        })
+
+    return pd.DataFrame(rows)
+
+# %% [markdown]
+# ## Plots
+
+# %%
+#|export
+def _save_fig(fig: plt.Figure, output_dir: Path, name: str) -> None:
+    """Save figure to output directory as PNG."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / f"{name}.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {path}")
+
+# %%
+#|export
+def plot_arm_bars(
+    arm_df: pd.DataFrame, arm_label: str, output_dir: Path
+) -> None:
+    """Grouped bar chart of top1/jaccard/RBO per model for one arm."""
+    if arm_df.empty:
+        print(f"  Skipping {arm_label} bar chart (no data)")
+        return
+
+    metrics = ["top1_agreement", "jaccard", "rbo"]
+    labels = ["Top-1 Agreement", "Jaccard", "RBO"]
+    x = np.arange(len(arm_df))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(max(10, len(arm_df) * 1.2), 5))
+    for i, (metric, label) in enumerate(zip(metrics, labels)):
+        ax.bar(x + i * width, arm_df[metric].values, width, label=label)
+
+    ax.set_xlabel("Model")
+    ax.set_ylabel("Agreement Score")
+    ax.set_title(f"Model Sensitivity: {arm_label}")
+    ax.set_xticks(x + width)
+    ax.set_xticklabels(arm_df["model"].values, rotation=45, ha="right")
+    ax.legend()
+    ax.set_ylim(0, 1.05)
+    fig.tight_layout()
+
+    name = f"arm_bars_{arm_label.lower().replace(' ', '_')}"
+    _save_fig(fig, output_dir, name)
+
+# %%
+#|export
+def plot_stage_decomposition(
+    decomp_df: pd.DataFrame, arm: str, output_dir: Path
+) -> None:
+    """Side-by-side bars for cosine vs filtered stage per model."""
+    sub = decomp_df[decomp_df["arm"] == arm].copy()
+    if sub.empty:
+        print(f"  Skipping stage decomposition for {arm} (no data)")
+        return
+
+    model_col = "llm" if arm == "vary_llm" else "embed"
+    x = np.arange(len(sub))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(max(10, len(sub) * 1.2), 5))
+    ax.bar(x - width / 2, sub["cosine_top1"].values, width, label="Cosine stage")
+    ax.bar(x + width / 2, sub["filtered_top1"].values, width, label="Filtered stage")
+
+    ax.set_xlabel("Model")
+    ax.set_ylabel("Top-1 Agreement vs Reference")
+    arm_label = "Vary LLM" if arm == "vary_llm" else "Vary Embedding"
+    ax.set_title(f"Stage Decomposition: {arm_label}")
+    ax.set_xticks(x)
+    ax.set_xticklabels(sub[model_col].values, rotation=45, ha="right")
+    ax.legend()
+    ax.set_ylim(0, 1.05)
+    fig.tight_layout()
+
+    _save_fig(fig, output_dir, f"stage_decomposition_{arm}")
+
+# %%
+#|export
+def plot_pairwise_heatmap(
+    completed_runs: list[tuple[str, str, str]], output_dir: Path
+) -> None:
+    """Pairwise top-1 agreement heatmap across all completed runs."""
+    if len(completed_runs) < 2:
+        print("  Skipping heatmap (need >= 2 runs)")
+        return
+
+    run_names = [rn for rn, _, _ in completed_runs]
+    n = len(run_names)
+    matrix = np.ones((n, n))
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            stats = compute_pairwise(run_names[i], run_names[j], "filtered")
+            matrix[i, j] = stats["top1_agreement"]
+            matrix[j, i] = stats["top1_agreement"]
+
+    fig, ax = plt.subplots(figsize=(max(8, n * 0.8), max(6, n * 0.6)))
+    im = ax.imshow(matrix, vmin=0, vmax=1, cmap="YlOrRd")
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    # Shorten labels: remove val__ prefix
+    short_labels = [rn.replace("val__", "") for rn in run_names]
+    ax.set_xticklabels(short_labels, rotation=90, fontsize=7)
+    ax.set_yticklabels(short_labels, fontsize=7)
+    ax.set_title("Pairwise Top-1 Agreement")
+    fig.colorbar(im)
+    fig.tight_layout()
+
+    _save_fig(fig, output_dir, "pairwise_heatmap")
+
+# %%
+#|export
+def plot_stratified_dotplot(
+    sets_a: dict[int, list[str]],
+    sets_b: dict[int, list[str]],
+    categories: pd.DataFrame,
+    pair_label: str,
+    output_dir: Path,
+) -> None:
+    """Dot plot of top-1 agreement by category, dot size = n_ads."""
+    strat = stratified_agreement(sets_a, sets_b, categories)
+    if strat.empty:
+        print("  Skipping stratified dot plot (no data)")
+        return
+
+    strat = strat.sort_values("top1_agreement")
+    fig, ax = plt.subplots(figsize=(10, max(5, len(strat) * 0.4)))
+    sizes = (strat["n_ads"] / strat["n_ads"].max()) * 300 + 20
+    ax.scatter(strat["top1_agreement"], range(len(strat)), s=sizes, alpha=0.7)
+    ax.set_yticks(range(len(strat)))
+    ax.set_yticklabels(strat["category"].values)
+    ax.set_xlabel("Top-1 Agreement")
+    ax.set_title(f"Agreement by Category: {pair_label}")
+    ax.set_xlim(-0.05, 1.05)
+    fig.tight_layout()
+
+    _save_fig(fig, output_dir, "stratified_dotplot")
+
+# %%
+#|export
+def plot_onet_distribution(
+    sets_ref: dict[int, list[str]],
+    sets_other: dict[int, list[str]],
+    ref_label: str,
+    other_label: str,
+    output_dir: Path,
+    top_n: int = 20,
+) -> None:
+    """Grouped bar chart of top-N most-assigned O*NET codes."""
+    common = set(sets_ref) & set(sets_other)
+    counts_ref = Counter(sets_ref[i][0] for i in common)
+    counts_other = Counter(sets_other[i][0] for i in common)
+
+    top_codes = [c for c, _ in counts_ref.most_common(top_n)]
+    ref_vals = [counts_ref.get(c, 0) for c in top_codes]
+    other_vals = [counts_other.get(c, 0) for c in top_codes]
+
+    x = np.arange(len(top_codes))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(14, 5))
+    ax.bar(x - width / 2, ref_vals, width, label=ref_label)
+    ax.bar(x + width / 2, other_vals, width, label=other_label)
+    ax.set_xlabel("O*NET Code")
+    ax.set_ylabel("Count (top-1 assignments)")
+    ax.set_title(f"O*NET Distribution: Top {top_n} Codes")
+    ax.set_xticks(x)
+    ax.set_xticklabels(top_codes, rotation=90, fontsize=7)
+    ax.legend()
+    fig.tight_layout()
+
+    _save_fig(fig, output_dir, "onet_distribution")
+
+# %%
+#|export
+def plot_kl_divergence_bars(
+    arm_df: pd.DataFrame, arm_label: str, output_dir: Path
+) -> None:
+    """Bar chart of KL divergence per model for one arm."""
+    if arm_df.empty:
+        print(f"  Skipping KL divergence chart for {arm_label} (no data)")
+        return
+
+    fig, ax = plt.subplots(figsize=(max(10, len(arm_df) * 1.0), 5))
+    ax.bar(range(len(arm_df)), arm_df["kl_divergence"].values)
+    ax.set_xlabel("Model")
+    ax.set_ylabel("KL Divergence")
+    ax.set_title(f"KL Divergence vs Reference: {arm_label}")
+    ax.set_xticks(range(len(arm_df)))
+    ax.set_xticklabels(arm_df["model"].values, rotation=45, ha="right")
+    fig.tight_layout()
+
+    name = f"kl_divergence_{arm_label.lower().replace(' ', '_')}"
+    _save_fig(fig, output_dir, name)
+
+# %%
+#|export
+def plot_all(
+    completed_runs: list[tuple[str, str, str]],
+    config: dict,
+    output_dir: Path,
+) -> None:
+    """Generate and save all validation plots."""
+    rbo_p = config["rbo_p"]
+    figures_dir = output_dir / "figures"
+
+    print("\nGenerating plots...")
+
+    # Arm summaries
+    arm1_df, arm2_df = build_arm_summary(completed_runs, config, "filtered", rbo_p)
+
+    plot_arm_bars(arm1_df, "Vary LLM", figures_dir)
+    plot_arm_bars(arm2_df, "Vary Embedding", figures_dir)
+
+    # Stage decomposition
+    decomp = per_stage_decomposition(completed_runs, config, rbo_p)
+    if not decomp.empty:
+        plot_stage_decomposition(decomp, "vary_llm", figures_dir)
+        plot_stage_decomposition(decomp, "vary_embed", figures_dir)
+
+    # Pairwise heatmap
+    plot_pairwise_heatmap(completed_runs, figures_dir)
+
+    # KL divergence
+    plot_kl_divergence_bars(arm1_df, "Vary LLM", figures_dir)
+    plot_kl_divergence_bars(arm2_df, "Vary Embedding", figures_dir)
+
+    # Stratified and O*NET distribution for a representative pair
+    fixed_embed = config["fixed_embedding"]
+    fixed_llm = config["fixed_llm"]
+    ref_run = _make_run_name(fixed_llm, fixed_embed)
+
+    # Pick first non-reference completed run for representative comparison
+    representative = None
+    for rn, llm, embed in completed_runs:
+        if rn != ref_run:
+            representative = (rn, llm, embed)
+            break
+
+    if representative is not None:
+        rep_run, rep_llm, rep_embed = representative
+        df_ref = load_matches(ref_run, "filtered")
+        df_rep = load_matches(rep_run, "filtered")
+        sets_ref = _matches_to_ranked_lists(df_ref)
+        sets_rep = _matches_to_ranked_lists(df_rep)
+
+        # Stratified dot plot
+        common_ids = list(set(sets_ref) & set(sets_rep))
+        if common_ids:
+            categories = load_ad_categories(common_ids)
+            pair_label = f"{ref_run} vs {rep_run}"
+            plot_stratified_dotplot(sets_ref, sets_rep, categories, pair_label, figures_dir)
+
+        # O*NET distribution comparison
+        plot_onet_distribution(
+            sets_ref, sets_rep,
+            ref_label=f"{fixed_llm}/{fixed_embed}",
+            other_label=f"{rep_llm}/{rep_embed}",
+            output_dir=figures_dir,
+        )
+
+# %% [markdown]
+# ## CLI
+
+# %%
+#|export
+def _print_arm_table(title: str, arm_df: pd.DataFrame) -> None:
+    """Print a formatted summary table for one arm."""
+    if arm_df.empty:
+        print(f"\n{title}: no completed runs")
+        return
+
+    print(f"\n{title}")
+    print("=" * 80)
+    model_w = max(len(m) for m in arm_df["model"]) + 2
+    header = f"{'Model':<{model_w}} {'Top-1':>8} {'Jaccard':>8} {'RBO':>8} {'KL Div':>10}"
+    print(header)
+    print("-" * len(header))
+
+    for _, row in arm_df.iterrows():
+        print(
+            f"{row['model']:<{model_w}} "
+            f"{row['top1_agreement']:>8.4f} "
+            f"{row['jaccard']:>8.4f} "
+            f"{row['rbo']:>8.4f} "
+            f"{row['kl_divergence']:>10.4f}"
+        )
+
+# %%
+#|export
+def main():
+    with open(validation_config_path, "rb") as f:
+        config = tomllib.load(f)
+
+    completed = _discover_completed_runs()
+
+    if not completed:
+        print("No completed validation runs found.")
+        print("Run: uv run validate-all")
+        sys.exit(1)
+
+    rbo_p = config["rbo_p"]
+    ref_run = _make_run_name(config["fixed_llm"], config["fixed_embedding"])
+
+    print(f"Completed validation runs: {len(completed)}")
+    print(f"Reference run: {ref_run}")
+    for rn, llm, embed in completed:
+        marker = " (reference)" if rn == ref_run else ""
+        print(f"  {rn}{marker}")
+
+    # Build arm summaries
+    arm1_df, arm2_df = build_arm_summary(completed, config, "filtered", rbo_p)
+    _print_arm_table("Arm 1: Vary LLM (fixed embedding)", arm1_df)
+    _print_arm_table("Arm 2: Vary Embedding (fixed LLM)", arm2_df)
+
+    # Stage decomposition
+    decomp = per_stage_decomposition(completed, config, rbo_p)
+    if not decomp.empty:
+        print("\nPer-Stage Decomposition")
+        print("=" * 90)
+        model_w = max(max(len(r) for r in decomp["llm"]), max(len(r) for r in decomp["embed"])) + 2
+        header = f"{'Model':<{model_w}} {'Arm':<12} {'Cos Top1':>10} {'Filt Top1':>10} {'Cos Jacc':>10} {'Filt Jacc':>10}"
+        print(header)
+        print("-" * len(header))
+        for _, row in decomp.iterrows():
+            model = row["llm"] if row["arm"] == "vary_llm" else row["embed"]
+            print(
+                f"{model:<{model_w}} "
+                f"{row['arm']:<12} "
+                f"{row['cosine_top1']:>10.4f} "
+                f"{row['filtered_top1']:>10.4f} "
+                f"{row['cosine_jaccard']:>10.4f} "
+                f"{row['filtered_jaccard']:>10.4f}"
+            )
+
+    # Save CSVs
+    output_dir = validation_results_path
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not arm1_df.empty:
+        arm1_path = output_dir / "arm1_vary_llm.csv"
+        arm1_df.to_csv(arm1_path, index=False)
+        print(f"\nSaved: {arm1_path}")
+    if not arm2_df.empty:
+        arm2_path = output_dir / "arm2_vary_embed.csv"
+        arm2_df.to_csv(arm2_path, index=False)
+        print(f"Saved: {arm2_path}")
+    if not decomp.empty:
+        decomp_path = output_dir / "stage_decomposition.csv"
+        decomp.to_csv(decomp_path, index=False)
+        print(f"Saved: {decomp_path}")
+
+    # Generate plots
+    plot_all(completed, config, output_dir)
+
+    print(f"\nAll results saved to {output_dir}")

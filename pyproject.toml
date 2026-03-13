@@ -21,6 +21,7 @@ dependencies = [
     "duckdb>=1.0",
     "outlines>=1.2.12",
     "openpyxl>=3.1.5",
+    "matplotlib>=3.10.8",
 ]
 
 [dependency-groups]
@@ -48,6 +49,9 @@ run-pipeline = "ai_index.run_pipeline:main"
 run-calibration = "calibration.run_calibration:main"
 estimate-calibration = "calibration.estimate:main"
 calibrate-all = "calibration.calibrate_all:main"
+run-validation = "validation.run_validation:main"
+validate-all = "validation.run_all:main"
+analyze-validation = "validation.analyze:main"
 
 [project.urls]
 Homepage = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
@@ -61,7 +65,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 ignore-vcs = true
 sources = ["src"]
-packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner", "src/calibration"]
+packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner", "src/calibration", "src/validation"]
 include = [
     "src/ai_index/scripts/**",
     "src/isambard_utils/assets/**",

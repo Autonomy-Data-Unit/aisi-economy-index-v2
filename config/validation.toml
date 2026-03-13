@@ -1,0 +1,31 @@
+fixed_embedding = "bge-large-sbatch"
+fixed_llm = "qwen-7b-sbatch"
+
+llm_models = [
+    "qwen-7b-sbatch",
+    "qwen-14b-sbatch",
+    "qwen-32b-sbatch",
+    "qwen-72b-sbatch",
+    "mistral-7b-sbatch",
+    "ministral-8b-sbatch",
+    "llama-8b-sbatch",
+    "llama-70b-sbatch",
+    "phi-4-sbatch",
+    "gemma-27b-sbatch",
+    "exaone-32b-sbatch",
+]
+
+embed_models = [
+    "bge-large-sbatch",
+    "e5-large-sbatch",
+    "gte-large-sbatch",
+    "nomic-embed-sbatch",
+    "embedding-gemma-sbatch",
+    "arctic-embed-l-sbatch",
+    "qwen3-embed-0.6b-sbatch",
+    "qwen3-embed-4b-sbatch",
+    "qwen3-embed-8b-sbatch",
+    "llama-embed-nemotron-sbatch",
+]
+
+rbo_p = 0.9

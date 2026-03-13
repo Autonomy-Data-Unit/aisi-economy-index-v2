@@ -19,6 +19,9 @@ nbs_runner -> pts_runner
 
 nbs_calibration -> lib_calibration
 nbs_calibration -> pts_calibration
+
+nbs_validation -> lib_validation
+nbs_validation -> pts_validation
 """
 
 [cl.nbs]
@@ -106,4 +109,17 @@ format = "percent"
 
 [cl.lib_calibration]
 path = "src/calibration"
+format = "module"
+
+
+[cl.nbs_validation]
+path = "nbs/validation"
+format = "ipynb"
+
+[cl.pts_validation]
+path = "pts/validation"
+format = "percent"
+
+[cl.lib_validation]
+path = "src/validation"
 format = "module"

@@ -99,6 +99,36 @@ sbatch_time = "00:30:00"
 #   Runs
 # --------
 
+# ----------------
+#   Validation
+# ----------------
+
+[runs.validation]
+sample_n = 100000
+sample_seed = 42
+sbatch_cache = true
+
+[runs.validation.llm_summarise]
+sbatch_time = "04:00:00"
+summarise_resume = true
+
+[runs.validation.llm_filter_candidates]
+sbatch_time = "04:00:00"
+filter_resume = true
+
+[runs.validation.embed_onet]
+sbatch_time = "01:00:00"
+
+[runs.validation.embed_ads]
+sbatch_time = "02:00:00"
+
+[runs.validation.cosine_match]
+sbatch_time = "01:00:00"
+
+[runs.validation.score_task_exposure]
+sbatch_time = "02:00:00"
+
+
 [runs.test_api]
 sample_n = 10
 embedding_model = "text-embedding-3-large"
