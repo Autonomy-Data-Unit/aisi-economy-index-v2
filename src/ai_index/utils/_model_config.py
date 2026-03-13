@@ -13,13 +13,13 @@ def _load_model_config(config_path: Path, model_key: str) -> tuple[str, dict]:
     """
     with open(config_path, "rb") as f:
         cfg = tomllib.load(f)
-    models = cfg.get("models", {})
+    models = cfg["models"]
     if model_key not in models:
         available = ", ".join(sorted(models.keys()))
         raise ValueError(f"Unknown model key {model_key!r}. Available: {available}")
     entry = dict(models[model_key])
     mode = entry.pop("mode")
-    defaults = dict(cfg.get("defaults", {}).get(mode, {}))
+    defaults = dict(cfg["defaults"][mode])
     defaults.update(entry)
     return mode, defaults
 

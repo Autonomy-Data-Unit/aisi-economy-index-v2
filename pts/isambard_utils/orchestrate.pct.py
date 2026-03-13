@@ -401,6 +401,7 @@ def clear_job_cache(job_hash: str, *, config: IsambardConfig | None = None) -> N
 # %%
 #|export
 _setup_done = False
+_setup_lock = asyncio.Lock()
 
 async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprint,
                         force: bool = False) -> None:
@@ -410,7 +411,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprin
     src/llm_runner/. Creates dirs, installs uv if needed, and runs uv sync.
 
     Skips entirely if already called successfully in this process, unless
-    force=True.
+    force=True. Uses a lock to prevent concurrent setup attempts.
 
     Args:
         config: Isambard configuration.
@@ -418,55 +419,56 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprin
         force: Run setup even if already done this session.
     """
     global _setup_done
-    if _setup_done and not force:
-        return
-    import subprocess
-    config = _get_config(config)
-    from isambard_utils.env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
-    from isambard_utils.transfer import aupload as async_rsync_upload, aupload_bytes
-    import llm_runner
+    async with _setup_lock:
+        if _setup_done and not force:
+            return
+        import subprocess
+        config = _get_config(config)
+        from isambard_utils.env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
+        from isambard_utils.transfer import aupload as async_rsync_upload, aupload_bytes
+        import llm_runner
 
-    try:
-        # 1. Create remote dirs
-        await async_ssh_run(
-            f"mkdir -p {config.project_dir}/src {config.hf_cache_dir} {config.logs_dir}",
-            config=config, retries=3, print_fn=print_fn,
-        )
+        try:
+            # 1. Create remote dirs
+            await async_ssh_run(
+                f"mkdir -p {config.project_dir}/src {config.hf_cache_dir} {config.logs_dir}",
+                config=config, retries=3, print_fn=print_fn,
+            )
 
-        # 2. Ensure uv
-        await _aensure_uv(config=config)
+            # 2. Ensure uv
+            await _aensure_uv(config=config)
 
-        # 3. Upload remote_pyproject.toml as pyproject.toml
-        runner_src = Path(llm_runner.__path__[0])
-        remote_pyproject = runner_src / "assets" / "remote_pyproject.toml"
-        await aupload_bytes(remote_pyproject.read_bytes(),
-                            f"{config.project_dir}/pyproject.toml", config=config)
+            # 3. Upload remote_pyproject.toml as pyproject.toml
+            runner_src = Path(llm_runner.__path__[0])
+            remote_pyproject = runner_src / "assets" / "remote_pyproject.toml"
+            await aupload_bytes(remote_pyproject.read_bytes(),
+                                f"{config.project_dir}/pyproject.toml", config=config)
 
-        # 4. Rsync llm_runner source
-        print_fn("runner setup: syncing llm_runner source...")
-        await async_rsync_upload(
-            str(runner_src) + "/", f"{config.project_dir}/src/llm_runner",
-            config=config, exclude=["__pycache__", "*.pyc"],
-        )
+            # 4. Rsync llm_runner source
+            print_fn("runner setup: syncing llm_runner source...")
+            await async_rsync_upload(
+                str(runner_src) + "/", f"{config.project_dir}/src/llm_runner",
+                config=config, exclude=["__pycache__", "*.pyc"],
+            )
 
-        # 5. Install deps
-        await _aensure_venv(config=config, print_fn=print_fn)
+            # 5. Install deps
+            await _aensure_venv(config=config, print_fn=print_fn)
 
-        # 6. Ensure CUDA torch (PyPI installs CPU-only on ARM64)
-        print_fn("runner setup: ensuring CUDA torch...")
-        await _aensure_cuda_torch(config=config)
+            # 6. Ensure CUDA torch (PyPI installs CPU-only on ARM64)
+            print_fn("runner setup: ensuring CUDA torch...")
+            await _aensure_cuda_torch(config=config)
 
-        # 7. Fix Lustre hardlinks (one-time migration to copy mode)
-        await _afix_lustre_hardlinks(config=config)
-        print_fn("runner setup: done")
-        _setup_done = True
+            # 7. Fix Lustre hardlinks (one-time migration to copy mode)
+            await _afix_lustre_hardlinks(config=config)
+            print_fn("runner setup: done")
+            _setup_done = True
 
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"Runner setup failed (exit {e.returncode}).\n"
-            f"--- command ---\n{e.cmd}\n"
-            f"--- stderr ---\n{e.stderr or '(empty)'}"
-        ) from e
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"Runner setup failed (exit {e.returncode}).\n"
+                f"--- command ---\n{e.cmd}\n"
+                f"--- stderr ---\n{e.stderr or '(empty)'}"
+            ) from e
 
 # %%
 #|export

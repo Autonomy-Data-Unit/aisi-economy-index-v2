@@ -233,6 +233,8 @@ def print_ads(*ids: int, width: int = 80) -> None:
 
 def get_all_ad_ids(memory_limit: str | None = None):
     conn = get_adzuna_conn(read_only=True, memory_limit=memory_limit)
-    all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()
-    conn.close()
+    try:
+        all_ids = conn.execute("SELECT id FROM ads").fetchnumpy()["id"].tolist()
+    finally:
+        conn.close()
     return all_ids

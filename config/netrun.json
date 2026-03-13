@@ -77,7 +77,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_onet.py",
+          "source_path": "src/ai_index/nodes/fetch_onet.py",
           "ui": {
             "descriptionExpanded": true,
             "position": {
@@ -109,7 +109,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_adzuna.py",
+          "source_path": "src/ai_index/nodes/fetch_adzuna.py",
           "ui": {
             "descriptionExpanded": true,
             "position": {
@@ -139,7 +139,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/sample_ads.py",
+          "source_path": "src/ai_index/nodes/sample_ads.py",
           "ui": {
             "position": {
               "x": 220,
@@ -182,7 +182,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/prepare_onet_targets.py",
+          "source_path": "src/ai_index/nodes/prepare_onet_targets.py",
           "ui": {
             "position": {
               "x": 260,
@@ -221,7 +221,7 @@
           }
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_summarise.py",
+          "source_path": "src/ai_index/nodes/llm_summarise.py",
           "ui": {
             "position": {
               "x": 540,
@@ -259,7 +259,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_ads.py",
+          "source_path": "src/ai_index/nodes/embed_ads.py",
           "ui": {
             "position": {
               "x": 940,
@@ -297,7 +297,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_onet.py",
+          "source_path": "src/ai_index/nodes/embed_onet.py",
           "ui": {
             "position": {
               "x": 880,
@@ -338,7 +338,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/cosine_match.py",
+          "source_path": "src/ai_index/nodes/cosine_match.py",
           "ui": {
             "position": {
               "x": 1340,
@@ -381,7 +381,7 @@
           }
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_filter_candidates.py",
+          "source_path": "src/ai_index/nodes/llm_filter_candidates.py",
           "ui": {
             "position": {
               "x": 1680,
@@ -436,7 +436,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/build_aspectt_vectors.py",
+          "source_path": "src/ai_index/nodes/build_aspectt_vectors.py",
           "ui": {
             "position": {
               "x": 1340,
@@ -464,7 +464,7 @@
           }
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_aspectt_vectors.py",
+          "source_path": "src/ai_index/nodes/compute_job_ad_aspectt_vectors.py",
           "ui": {
             "position": {
               "x": 1800,
@@ -489,7 +489,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_presence.py",
+          "source_path": "src/ai_index/nodes/score_presence.py",
           "ui": {
             "position": {
               "x": 1100,
@@ -524,7 +524,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_felten.py",
+          "source_path": "src/ai_index/nodes/score_felten.py",
           "ui": {
             "position": {
               "x": 1100,
@@ -564,7 +564,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_task_exposure.py",
+          "source_path": "src/ai_index/nodes/score_task_exposure.py",
           "ui": {
             "position": {
               "x": 1100,
@@ -619,7 +619,7 @@
         "name": "combine_onet_exposure",
         "description": "Merge all O*NET score DataFrames into a single combined exposure table.",
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/combine_onet_exposure.py",
+          "source_path": "src/ai_index/nodes/combine_onet_exposure.py",
           "ui": {
             "position": {
               "x": 1840,
@@ -676,7 +676,7 @@
           }
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_exposure.py",
+          "source_path": "src/ai_index/nodes/compute_job_ad_exposure.py",
           "ui": {
             "position": {
               "x": 2420,
@@ -700,7 +700,7 @@
         "name": "aggregate_geo",
         "description": "Aggregate ad-level AI exposure scores by Local Authority District (LAD22CD).",
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/aggregate_geo.py",
+          "source_path": "src/ai_index/nodes/aggregate_geo.py",
           "ui": {
             "position": {
               "x": 2900,

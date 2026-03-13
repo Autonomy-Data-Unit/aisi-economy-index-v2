@@ -28,8 +28,8 @@ def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
     scalar values are global vars. Returns dicts compatible with
     NetConfig.from_file(global_node_vars=..., node_vars=...).
     """
-    defaults = dict(run_defs.get("defaults", {}))
-    runs = run_defs.get("runs", {})
+    defaults = dict(run_defs["defaults"])
+    runs = run_defs["runs"]
 
     if run_name not in runs:
         available = ", ".join(sorted(runs.keys()))
@@ -62,7 +62,7 @@ def _resolve_run_defs(run_defs: dict, run_name: str) -> tuple[dict, dict]:
     # Convert to (str_value, type_name) tuples so netrun preserves types
     _TYPE_MAP = {int: "int", float: "float", bool: "bool", str: "str"}
     def _to_node_var(v):
-        return (str(v), _TYPE_MAP.get(type(v), "str"))
+        return (str(v), _TYPE_MAP[type(v)])
 
     global_node_vars = {k: _to_node_var(v) for k, v in merged_globals.items()}
 

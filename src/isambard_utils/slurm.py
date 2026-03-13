@@ -124,7 +124,9 @@ async def astatus(job_id: str, *, config: IsambardConfig | None = None) -> dict:
             "time": job.get("time", ""),
             "partition": job.get("partition", ""),
         }
-    except (json.JSONDecodeError, KeyError, IndexError):
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        import warnings
+        warnings.warn(f"astatus: failed to parse squeue JSON for job {job_id}: {e}")
         return {}
 
 # %% nbs/isambard_utils/slurm.ipynb 8
@@ -210,7 +212,9 @@ async def _asacct_status(job_id: str, *, config: IsambardConfig | None = None) -
             result_dict["node_hours"] = gpu_frac * result_dict["elapsed_seconds"] / 3600
 
         return result_dict
-    except (json.JSONDecodeError, KeyError, IndexError):
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        import warnings
+        warnings.warn(f"_asacct_status: failed to parse sacct JSON for job {job_id}: {e}")
         return {"state": "UNKNOWN"}
 
 # %% nbs/isambard_utils/slurm.ipynb 10

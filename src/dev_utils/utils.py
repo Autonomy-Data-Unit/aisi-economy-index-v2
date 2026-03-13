@@ -122,9 +122,7 @@ def _get_node_func(config: NetConfig, node_name: str):
     if node_name not in node_map:
         raise ValueError(f"Node '{node_name}' not found in graph.")
     node = node_map[node_name]
-    func_path = node.factory_args.get("func")
-    if not func_path:
-        raise ValueError(f"Node '{node_name}' has no 'func' in factory_args.")
+    func_path = node.factory_args["func"]
     module_path, _, attr_name = func_path.rpartition(".")
     mod = importlib.import_module(module_path)
     return getattr(mod, attr_name)
@@ -335,7 +333,12 @@ def show_node_vars(node_name: str, *filter_names: str, run_name: str | None = No
             value = gvar.value
             source = "global"
 
-        var_type = declared_types.get(var_name, global_vars.get(var_name, per_node_raw.get(var_name)).type)
+        if var_name in declared_types:
+            var_type = declared_types[var_name]
+        elif var_name in global_vars:
+            var_type = global_vars[var_name].type
+        else:
+            var_type = per_node_raw[var_name].type
 
         rows.append((var_name, value, var_type, source))
 

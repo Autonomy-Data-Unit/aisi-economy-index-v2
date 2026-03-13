@@ -17,6 +17,7 @@
 # %%
 #|export
 import asyncio
+import shlex
 import subprocess
 from pathlib import Path
 from isambard_utils.config import IsambardConfig
@@ -184,7 +185,7 @@ async def aupload_bytes(data: bytes, remote_path: str, *,
     ssh_cmd = ["ssh"]
     if config.ssh_user:
         ssh_cmd.extend(["-l", config.ssh_user])
-    ssh_cmd.extend([config.ssh_host, f"cat > {remote_path}"])
+    ssh_cmd.extend([config.ssh_host, f"cat > {shlex.quote(remote_path)}"])
     async def _attempt():
         proc = await asyncio.create_subprocess_exec(
             *ssh_cmd, stdin=asyncio.subprocess.PIPE,
@@ -230,7 +231,7 @@ async def aupload_tar_pipe(local_dir: str, remote_dir: str, *,
     config = _get_config(config)
     remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
     tar_cmd = ["tar", "cf", "-", "-C", local_dir, "."]
-    ssh_cmd = ["ssh", remote, f"mkdir -p {remote_dir} && tar xf - -C {remote_dir}"]
+    ssh_cmd = ["ssh", remote, f"mkdir -p {shlex.quote(remote_dir)} && tar xf - -C {shlex.quote(remote_dir)}"]
 
     async def _attempt():
         read_fd, write_fd = os.pipe()
@@ -285,7 +286,7 @@ async def adownload_tar_pipe(remote_dir: str, local_dir: str, *,
     config = _get_config(config)
     os.makedirs(local_dir, exist_ok=True)
     remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
-    ssh_cmd = ["ssh", remote, f"tar cf - -C {remote_dir} ."]
+    ssh_cmd = ["ssh", remote, f"tar cf - -C {shlex.quote(remote_dir)} ."]
     tar_cmd = ["tar", "xf", "-", "-C", local_dir]
 
     async def _attempt():
@@ -378,18 +379,18 @@ async def aupload_idempotent(local_dir: str, remote_base: str, content_hash: str
 
     # Check if already uploaded
     check = await async_ssh_run(
-        f"test -f {remote_path}/.complete", config=config, check=False,
+        f"test -f {shlex.quote(f'{remote_path}/.complete')}", config=config, check=False,
     )
     if check.returncode == 0:
         return remote_path
 
     # Upload via rsync
-    await async_ssh_run(f"mkdir -p {remote_path}", config=config)
+    await async_ssh_run(f"mkdir -p {shlex.quote(remote_path)}", config=config)
     local = local_dir.rstrip("/") + "/"
     await aupload(local, remote_path, config=config)
 
     # Mark complete
-    await async_ssh_run(f"touch {remote_path}/.complete", config=config)
+    await async_ssh_run(f"touch {shlex.quote(f'{remote_path}/.complete')}", config=config)
     return remote_path
 
 # %%
@@ -434,7 +435,7 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
 
     # Check if already uploaded
     check = await async_ssh_run(
-        f"test -f {remote_path}/.complete", config=config, check=False,
+        f"test -f {shlex.quote(f'{remote_path}/.complete')}", config=config, check=False,
     )
     if check.returncode == 0:
         return remote_path
@@ -453,11 +454,12 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
 
         # Stream tar.gz to remote and extract
         remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
+        _qrp = shlex.quote(remote_path)
         extract_cmd = (
-            f"mkdir -p {remote_path} && "
+            f"mkdir -p {_qrp} && "
             f"cat > /tmp/_upload_{content_hash[:16]}.tar.gz && "
-            f"tar xzf /tmp/_upload_{content_hash[:16]}.tar.gz -C {remote_path} && "
-            f"touch {remote_path}/.complete && "
+            f"tar xzf /tmp/_upload_{content_hash[:16]}.tar.gz -C {_qrp} && "
+            f"touch {shlex.quote(f'{remote_path}/.complete')} && "
             f"rm /tmp/_upload_{content_hash[:16]}.tar.gz"
         )
         ssh_cmd = ["ssh", remote, extract_cmd]
@@ -496,7 +498,7 @@ async def _aupload_compressed_direct(local_dir: str, remote_dir: str, *,
     from isambard_utils.ssh import arun as async_ssh_run
     config = _get_config(config)
 
-    await async_ssh_run(f"mkdir -p {remote_dir}", config=config)
+    await async_ssh_run(f"mkdir -p {shlex.quote(remote_dir)}", config=config)
 
     with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
         tmp_path = tmp.name
@@ -510,7 +512,7 @@ async def _aupload_compressed_direct(local_dir: str, remote_dir: str, *,
             raise subprocess.CalledProcessError(tar_proc.returncode, ["tar", "czf"])
 
         remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
-        extract_cmd = f"tar xzf - -C {remote_dir}"
+        extract_cmd = f"tar xzf - -C {shlex.quote(remote_dir)}"
         ssh_cmd = ["ssh", remote, extract_cmd]
 
         async def _attempt():
