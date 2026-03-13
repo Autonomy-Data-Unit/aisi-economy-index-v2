@@ -13,7 +13,7 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
     
     from ai_index import const
     from ai_index.nodes.llm_summarise import JobInfoModel
-    from ai_index.utils import aembed
+    from ai_index.utils import aembed, duckdb_connect_retry
     from ai_index.utils.result_store import ResultStore
     run_name = ctx.vars["run_name"]
     embedding_model = ctx.vars["embedding_model"]
@@ -24,7 +24,7 @@ async def main(ctx, print, successful_ad_ids: list[int]) -> {
     output_dir = const.pipeline_store_path / run_name / "embed_ads"
     output_dir.mkdir(parents=True, exist_ok=True)
     summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
-    conn = duckdb.connect(str(summaries_db), read_only=True)
+    conn = duckdb_connect_retry(summaries_db, read_only=True)
     rows = conn.execute(
         "SELECT id, data FROM results WHERE error IS NULL ORDER BY id"
     ).fetchall()

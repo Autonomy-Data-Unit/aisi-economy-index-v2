@@ -60,7 +60,7 @@ import pandas as pd
 
 from ai_index import const
 from ai_index.nodes.llm_summarise import JobInfoModel
-from ai_index.utils import aembed
+from ai_index.utils import aembed, duckdb_connect_retry
 from ai_index.utils.result_store import ResultStore
 
 # %% [markdown]
@@ -83,7 +83,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 # %%
 #|export
 summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
-conn = duckdb.connect(str(summaries_db), read_only=True)
+conn = duckdb_connect_retry(summaries_db, read_only=True)
 rows = conn.execute(
     "SELECT id, data FROM results WHERE error IS NULL ORDER BY id"
 ).fetchall()
