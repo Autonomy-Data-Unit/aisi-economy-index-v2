@@ -45,6 +45,9 @@ netrun-ui = { git = "https://github.com/lukastk/netrun", subdirectory = "netrun-
 [project.scripts]
 ai-index = "ai_index.cli._app:app_main"
 run-pipeline = "ai_index.run_pipeline:main"
+run-calibration = "calibration.run_calibration:main"
+estimate-calibration = "calibration.estimate:main"
+calibrate-all = "calibration.calibrate_all:main"
 
 [project.urls]
 Homepage = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
@@ -58,7 +61,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 ignore-vcs = true
 sources = ["src"]
-packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner"]
+packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner", "src/calibration"]
 include = [
     "src/ai_index/scripts/**",
     "src/isambard_utils/assets/**",

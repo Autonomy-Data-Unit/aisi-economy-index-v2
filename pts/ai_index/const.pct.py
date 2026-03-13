@@ -42,6 +42,7 @@ adzuna_store_path = inputs_path / "adzuna"  # legacy parquet store
 lad22_lookup_path = inputs_path / "lad22_lookup.csv"
 pipeline_store_path = store_path / "pipeline"
 logs_path = store_path / "logs"
+calibration_results_path = store_path / "calibration" / "results"
 outputs_path = store_path / "outputs"
 onet_exposure_scores_path = outputs_path / "onet_exposure_scores"
 aspectt_vectors_path = inputs_path / "aspectt_vectors"

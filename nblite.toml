@@ -16,6 +16,9 @@ nbs_examples -> pts_examples
 
 nbs_runner -> lib_runner
 nbs_runner -> pts_runner
+
+nbs_calibration -> lib_calibration
+nbs_calibration -> pts_calibration
 """
 
 [cl.nbs]
@@ -90,4 +93,17 @@ format = "percent"
 
 [cl.lib_runner]
 path = "src/llm_runner"
+format = "module"
+
+
+[cl.nbs_calibration]
+path = "nbs/calibration"
+format = "ipynb"
+
+[cl.pts_calibration]
+path = "pts/calibration"
+format = "percent"
+
+[cl.lib_calibration]
+path = "src/calibration"
 format = "module"

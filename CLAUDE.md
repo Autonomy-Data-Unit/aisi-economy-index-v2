@@ -243,6 +243,9 @@ Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton c
 ├── pts/dev_utils/            # Development utilities (set_node_func_args, etc.)
 ├── nbs/dev_utils/            # Dev utils notebooks (auto-generated)
 ├── src/dev_utils/            # Dev utils Python modules (auto-generated)
+├── pts/calibration/          # GPU-hours calibration tools (.pct.py) - EDIT THESE
+├── nbs/calibration/          # Calibration notebooks (auto-generated)
+├── src/calibration/          # Calibration Python modules (auto-generated)
 ├── pts/examples/             # Example notebooks
 ├── nbs/examples/             # Example notebooks (.ipynb, auto-generated)
 ├── pts/tests/                # Test notebooks (.pct.py) - EDIT THESE
@@ -449,19 +452,19 @@ def process(data: Batch(str, count=3)):  # collects up to 3 packets into list[st
 
 ## GPU-Hours Calibration
 
-The `calibration/` directory contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard.
+The `pts/calibration/` module contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard. Results are stored in `store/calibration/results/` (gitignored, regeneratable).
 
 ### Running calibration
 ```bash
-uv run python calibration/run_calibration.py <llm_model_key> <embedding_model_key>
-# Example: uv run python calibration/run_calibration.py qwen-7b-sbatch bge-large-sbatch
+uv run run-calibration <llm_model_key> <embedding_model_key>
+# Example: uv run run-calibration qwen-7b-sbatch bge-large-sbatch
 ```
 
-This runs the pipeline with the `[runs.calibration]` definition from `config/run_defs.toml` (`sample_n=1000`, shorter sbatch times, `resume=false` for LLM nodes). Cleans `store/pipeline/calibration/` before each run. The LLM and embedding model keys are injected dynamically. Results written to `calibration/results/{llm,embed}/`.
+This runs the pipeline with the `[runs.calibration]` definition from `config/run_defs.toml` (`sample_n=1000`, shorter sbatch times, `resume=false` for LLM nodes). Cleans `store/pipeline/calibration/` before each run. The LLM and embedding model keys are injected dynamically. Results written to `store/calibration/results/{llm,embed}/`.
 
 ### Estimating GPU-hours
 ```bash
-uv run python calibration/estimate.py [N_ADS]  # default: 30,000,000
+uv run estimate-calibration [N_ADS]  # default: 30,000,000
 ```
 
 Reads all result JSONs and prints estimated hours, node-hours (NHR), and per-ad cost. When Slurm accounting data is available (from `sacct`), uses actual GPU execution time. Falls back to wall-clock time (which includes transfer overhead).
@@ -479,10 +482,10 @@ Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. 
 Nodes pass `time=sbatch_time` as a kwarg to `embed()`/`llm_generate()`/`cosine_topk()`, which overrides any `time` in the model TOML. In api/local modes, `time` is harmlessly stripped by `_strip_remote_kwargs()`.
 
 ### Key files
-- `calibration/run_calibration.py` — CLI script: run pipeline, collect timing, save results
-- `calibration/calibrate_all.py` — Run all uncalibrated sbatch models
-- `calibration/estimate.py` — Read results, print GPU-hour estimates
-- `calibration/results/{llm,embed}/*.json` — Per-model timing results
+- `pts/calibration/run_calibration.pct.py` — CLI (`run-calibration`): run pipeline, collect timing, save results
+- `pts/calibration/calibrate_all.pct.py` — CLI (`calibrate-all`): run all uncalibrated sbatch models
+- `pts/calibration/estimate.pct.py` — CLI (`estimate-calibration`): read results, print GPU-hour estimates
+- `store/calibration/results/{llm,embed}/*.json` — Per-model timing results (gitignored)
 
 ## Old Repository Reference
 

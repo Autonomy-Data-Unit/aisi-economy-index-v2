@@ -1,27 +1,43 @@
-"""Estimate GPU-hours for a full pipeline run based on calibration results.
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
 
-Usage:
-    uv run python calibration/estimate.py [N_ADS] [SAMPLE_N]
+# %% [markdown]
+# # estimate
+#
+# Estimate GPU-hours for a full pipeline run based on calibration results.
+#
+# Usage:
+#     uv run estimate-calibration [N_ADS] [SAMPLE_N]
+#
+# Arguments:
+#     N_ADS     Total ads to estimate for (default: actual count from adzuna.duckdb)
+#     SAMPLE_N  Override calibration sample size for per-ad rate calculation
+#
+# Reads calibration results from store/calibration/results/llm/ and
+# store/calibration/results/embed/, reporting LLM and embedding models separately.
+#
+# When Slurm accounting data is available (from sacct), estimates use actual
+# GPU execution time. Otherwise falls back to wall-clock time (which includes
+# transfer overhead and may overestimate).
 
-Arguments:
-    N_ADS     Total ads to estimate for (default: actual count from adzuna.duckdb)
-    SAMPLE_N  Override calibration sample size for per-ad rate calculation
+# %%
+#|default_exp estimate
 
-Reads calibration results from calibration/results/llm/ and
-calibration/results/embed/, reporting LLM and embedding models separately.
-
-When Slurm accounting data is available (from sacct), estimates use actual
-GPU execution time. Otherwise falls back to wall-clock time (which includes
-transfer overhead and may overestimate).
-"""
-
+# %%
+#|export
 import json
 import sys
 from pathlib import Path
 
-RESULTS_DIR = Path(__file__).parent / "results"
-LLM_RESULTS_DIR = RESULTS_DIR / "llm"
-EMBED_RESULTS_DIR = RESULTS_DIR / "embed"
+from ai_index.const import calibration_results_path
+
+LLM_RESULTS_DIR = calibration_results_path / "llm"
+EMBED_RESULTS_DIR = calibration_results_path / "embed"
 
 # LLM nodes with per-ad scaling
 LLM_NODES = ["llm_summarise", "llm_filter_candidates"]
@@ -30,7 +46,8 @@ EMBED_PER_AD_NODES = ["embed_ads"]
 # Embed nodes with fixed cost
 EMBED_FIXED_NODES = ["embed_onet"]
 
-
+# %%
+#|export
 def _count_ads() -> int:
     """Count total ads in the Adzuna DuckDB database."""
     import duckdb
@@ -40,7 +57,8 @@ def _count_ads() -> int:
     con.close()
     return count
 
-
+# %%
+#|export
 def _load_results(results_dir: Path) -> list[dict]:
     results = []
     if results_dir.exists():
@@ -49,11 +67,13 @@ def _load_results(results_dir: Path) -> list[dict]:
                 results.append(json.load(f))
     return results
 
-
+# %%
+#|export
 def _estimate_hours(seconds_per_ad: float, n_ads: int) -> float:
     return seconds_per_ad * n_ads / 3600
 
-
+# %%
+#|export
 def _print_table(title: str, results: list[dict], per_ad_nodes: list[str],
                  fixed_nodes: list[str], n_ads: int, sample_n_override: int | None) -> None:
     if not results:
@@ -110,7 +130,8 @@ def _print_table(title: str, results: list[dict], per_ad_nodes: list[str],
         print(f"{'':>{model_w}} {'TOTAL':<{node_w}} {'':>8} {total_hours:>12.1f} {total_nhr:>8.1f}")
         print()
 
-
+# %%
+#|export
 def main():
     n_ads = int(sys.argv[1]) if len(sys.argv) > 1 else _count_ads()
     sample_n_override = int(sys.argv[2]) if len(sys.argv) > 2 else None
@@ -119,15 +140,11 @@ def main():
     embed_results = _load_results(EMBED_RESULTS_DIR)
 
     if not llm_results and not embed_results:
-        print(f"No calibration results found in {RESULTS_DIR}/")
-        print("Run: uv run python calibration/run_calibration.py <llm_model> <embed_model>")
+        print(f"No calibration results found in {calibration_results_path}/")
+        print("Run: uv run run-calibration <llm_model> <embed_model>")
         sys.exit(1)
 
     print(f"\nGPU-hour estimates for {n_ads:,} ads")
 
     _print_table("LLM Models", llm_results, LLM_NODES, [], n_ads, sample_n_override)
     _print_table("Embedding Models", embed_results, EMBED_PER_AD_NODES, EMBED_FIXED_NODES, n_ads, sample_n_override)
-
-
-if __name__ == "__main__":
-    main()
