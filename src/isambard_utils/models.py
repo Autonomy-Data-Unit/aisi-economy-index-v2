@@ -119,7 +119,7 @@ async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
 
 # %% nbs/isambard_utils/models.ipynb 11
 async def aensure_model(model_name: str, *, config: IsambardConfig | None = None,
-                        token: str | None = None, timeout: int = 1800,
+                        token: str | None = None, timeout: int = 7200,
                         print_fn=print) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node (async).
 
@@ -134,7 +134,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
         model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
         config: Isambard configuration.
         token: Optional HuggingFace token for gated models.
-        timeout: SSH timeout in seconds (default 30 minutes for large models).
+        timeout: SSH timeout in seconds (default 2 hours for large models).
         print_fn: Callable for progress logging (default: print).
     """
     config = _get_config(config)
@@ -175,7 +175,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
 
 # %% nbs/isambard_utils/models.ipynb 12
 def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
-                 token: str | None = None, timeout: int = 1800,
+                 token: str | None = None, timeout: int = 7200,
                  print_fn=print) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node.
 
@@ -190,7 +190,7 @@ def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
         model_name: HuggingFace model ID (e.g. "BAAI/bge-large-en-v1.5").
         config: Isambard configuration.
         token: Optional HuggingFace token for gated models.
-        timeout: SSH timeout in seconds (default 30 minutes for large models).
+        timeout: SSH timeout in seconds (default 2 hours for large models).
         print_fn: Callable for progress logging (default: print).
     """
     return _run_sync(aensure_model(model_name, config=config, token=token, timeout=timeout, print_fn=print_fn))
