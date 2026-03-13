@@ -138,7 +138,7 @@ async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
         "else:",
         "    print('no config.json found')",
     ])
-    stdout = await _aremote_python(script, config=config, timeout=120)
+    stdout = await _aremote_python(script, config=config, timeout=600)
     result = stdout.strip().split("\n")[-1]
     print_fn(f"aensure_model: {model_name}: {result}")
 
