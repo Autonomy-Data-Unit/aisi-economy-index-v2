@@ -108,3 +108,4 @@ llm_model = "qwen-0.5b-mac"
 
 [runs.test_sbatch]
 sample_n = 10
+llm_model = "qwen-7b-sbatch"
