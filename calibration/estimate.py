@@ -1,10 +1,14 @@
 """Estimate GPU-hours for a full pipeline run based on calibration results.
 
 Usage:
-    uv run python calibration/estimate.py [N_ADS]
+    uv run python calibration/estimate.py [N_ADS] [SAMPLE_N]
+
+Arguments:
+    N_ADS     Total ads to estimate for (default: actual count from adzuna.duckdb)
+    SAMPLE_N  Override calibration sample size for per-ad rate calculation
 
 Reads all calibration result JSONs from calibration/results/ and prints
-estimated GPU-hours per model per node. Default N_ADS is 30,000,000.
+estimated GPU-hours per model per node.
 
 When Slurm accounting data is available (from sacct), estimates use actual
 GPU execution time. Otherwise falls back to wall-clock time (which includes
@@ -16,7 +20,16 @@ import sys
 from pathlib import Path
 
 RESULTS_DIR = Path(__file__).parent / "results"
-DEFAULT_N_ADS = 30_000_000
+
+
+def _count_ads() -> int:
+    """Count total ads in the Adzuna DuckDB database."""
+    import duckdb
+    from ai_index.const import inputs_path
+    con = duckdb.connect(str(inputs_path / "adzuna.duckdb"), read_only=True)
+    count = con.sql("SELECT COUNT(*) FROM ads").fetchone()[0]
+    con.close()
+    return count
 
 # Nodes with per-ad scaling (seconds_per_ad field)
 PER_AD_NODES = ["llm_summarise", "llm_filter_candidates", "embed_ads"]
@@ -37,7 +50,8 @@ def estimate_hours(seconds_per_ad: float, n_ads: int) -> float:
 
 
 def main():
-    n_ads = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_N_ADS
+    n_ads = int(sys.argv[1]) if len(sys.argv) > 1 else _count_ads()
+    sample_n_override = int(sys.argv[2]) if len(sys.argv) > 2 else None
 
     results = load_results()
     if not results:
@@ -72,10 +86,10 @@ def main():
                 continue
 
             timing = nodes[node_name]
-            spa = timing["seconds_per_ad"]
+            n_cal = sample_n_override if sample_n_override else timing["n"]
+            spa = timing["elapsed_seconds"] / n_cal
             hours = estimate_hours(spa, n_ads)
             total_hours += hours
-            n_cal = timing["n"]
             source = "slurm" if timing.get("slurm_seconds") else "clock"
 
             # Estimate node-hours (0.25 NHR per GPU-hour for 1-GPU jobs)
