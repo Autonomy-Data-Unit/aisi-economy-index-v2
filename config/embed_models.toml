@@ -75,7 +75,7 @@ mode = "sbatch"
 model = "Snowflake/snowflake-arctic-embed-l-v2.0"
 st_kwargs = { trust_remote_code = true }
 
-[models.qwen3-embed-0.6b-sbatch]
+[models."qwen3-embed-0.6b-sbatch"]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-0.6B"
 
