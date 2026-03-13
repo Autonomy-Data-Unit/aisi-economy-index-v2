@@ -20,10 +20,13 @@
 #|export
 import os
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 from isambard_utils.config import IsambardConfig
 from isambard_utils.ssh import run as ssh_run, arun as async_ssh_run, _get_config, _run_sync
+
+_fprint = partial(print, flush=True)
 
 # %% [markdown]
 # ## Orchestration (run locally, SSH to Isambard)
@@ -110,7 +113,7 @@ def check_model(model_name: str, *, config: IsambardConfig | None = None) -> boo
 #|export
 async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
                                      config: IsambardConfig,
-                                     print_fn=print) -> None:
+                                     print_fn=_fprint) -> None:
     """Pre-cache transformers dynamic modules for trust_remote_code models.
 
     Models with ``auto_map`` in their config.json use custom Python files that
@@ -146,7 +149,7 @@ async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
 #|export
 async def aensure_model(model_name: str, *, config: IsambardConfig | None = None,
                         token: str | None = None, timeout: int = 7200,
-                        print_fn=print) -> str:
+                        print_fn=_fprint) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node (async).
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
@@ -203,7 +206,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
 #|export
 def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
                  token: str | None = None, timeout: int = 7200,
-                 print_fn=print) -> str:
+                 print_fn=_fprint) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node.
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the

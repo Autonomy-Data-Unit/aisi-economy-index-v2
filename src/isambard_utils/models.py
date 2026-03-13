@@ -5,10 +5,13 @@ __all__ = ['EmbeddingModel', 'LLM', 'VllmLLM', 'acheck_model', 'aensure_model', 
 # %% nbs/isambard_utils/models.ipynb 2
 import os
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 from .config import IsambardConfig
 from .ssh import run as ssh_run, arun as async_ssh_run, _get_config, _run_sync
+
+_fprint = partial(print, flush=True)
 
 # %% nbs/isambard_utils/models.ipynb 4
 def _shlex_quote(s: str) -> str:
@@ -85,7 +88,7 @@ def check_model(model_name: str, *, config: IsambardConfig | None = None) -> boo
 # %% nbs/isambard_utils/models.ipynb 10
 async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
                                      config: IsambardConfig,
-                                     print_fn=print) -> None:
+                                     print_fn=_fprint) -> None:
     """Pre-cache transformers dynamic modules for trust_remote_code models.
 
     Models with ``auto_map`` in their config.json use custom Python files that
@@ -120,7 +123,7 @@ async def _aprecache_dynamic_modules(model_name: str, *, cache_dir: str,
 # %% nbs/isambard_utils/models.ipynb 11
 async def aensure_model(model_name: str, *, config: IsambardConfig | None = None,
                         token: str | None = None, timeout: int = 7200,
-                        print_fn=print) -> str:
+                        print_fn=_fprint) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node (async).
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the
@@ -176,7 +179,7 @@ async def aensure_model(model_name: str, *, config: IsambardConfig | None = None
 # %% nbs/isambard_utils/models.ipynb 12
 def ensure_model(model_name: str, *, config: IsambardConfig | None = None,
                  token: str | None = None, timeout: int = 7200,
-                 print_fn=print) -> str:
+                 print_fn=_fprint) -> str:
     """Pre-download a HuggingFace model to the Isambard cache via the login node.
 
     Uses huggingface_hub.snapshot_download() in the remote venv. Returns the

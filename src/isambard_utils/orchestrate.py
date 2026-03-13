@@ -14,8 +14,12 @@ from typing import Any
 
 import numpy as np
 
+from functools import partial
+
 from .config import IsambardConfig
 from .ssh import arun as async_ssh_run, _get_config, _run_sync
+
+_fprint = partial(print, flush=True)
 
 # %% nbs/isambard_utils/orchestrate.ipynb 3
 class TransferMode(str, Enum):
@@ -150,7 +154,7 @@ async def _upload_inputs(
     transfer_modes: dict[str, TransferMode],
     *,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> dict[str, str]:
     """Serialize and upload inputs to {cache_path}/inputs/{key}/. Returns manifest dict."""
     from .transfer import (
@@ -192,7 +196,7 @@ async def _submit_job(
     time: str,
     gpus: int = 1,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> "SlurmJob":
     """Write manifest and submit SBATCH job. Returns SlurmJob."""
     from .transfer import aupload_bytes
@@ -238,7 +242,7 @@ async def _submit_job(
 
 # %% nbs/isambard_utils/orchestrate.ipynb 16
 async def _poll_job(job_id: str, *, label: str, cache_path: str,
-                    config: IsambardConfig, print_fn=print) -> dict:
+                    config: IsambardConfig, print_fn=_fprint) -> dict:
     """Poll a Slurm job until it finishes, return sacct summary."""
     from .slurm import await_job, ajob_log
 
@@ -347,7 +351,7 @@ def clear_job_cache(job_hash: str, *, config: IsambardConfig | None = None) -> N
 # %% nbs/isambard_utils/orchestrate.ipynb 22
 _setup_done = False
 
-async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print,
+async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprint,
                         force: bool = False) -> None:
     """Ensure llm_runner is deployed on Isambard (idempotent, targeted).
 
@@ -415,7 +419,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print,
         ) from e
 
 # %% nbs/isambard_utils/orchestrate.ipynb 23
-def setup_runner(*, config: IsambardConfig | None = None, print_fn=print,
+def setup_runner(*, config: IsambardConfig | None = None, print_fn=_fprint,
                  force: bool = False) -> None:
     """Ensure llm_runner is deployed on Isambard (sync wrapper).
 
@@ -437,7 +441,7 @@ async def arun_remote(
     gpus: int = 1,
     required_models: list[str] | None = None,
     isambard_config: IsambardConfig | None = None,
-    print_fn=print,
+    print_fn=_fprint,
     cache: bool = True,
     upload_timeout: int = 600,
 ) -> dict[str, Any]:
@@ -541,7 +545,7 @@ async def _run_remote_cached(
     gpus: int = 1,
     upload_timeout: int,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> dict[str, Any]:
     """Idempotency state machine for content-addressed jobs."""
     import time as time_mod
@@ -733,7 +737,7 @@ async def _run_remote_uncached(
     time: str,
     gpus: int = 1,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> dict[str, Any]:
     """Run a job without caching, using a UUID-based temp dir (backward compat)."""
     from .transfer import (
@@ -850,7 +854,7 @@ def run_remote(
     gpus: int = 1,
     required_models: list[str] | None = None,
     isambard_config: IsambardConfig | None = None,
-    print_fn=print,
+    print_fn=_fprint,
     cache: bool = True,
     upload_timeout: int = 600,
 ) -> dict[str, Any]:

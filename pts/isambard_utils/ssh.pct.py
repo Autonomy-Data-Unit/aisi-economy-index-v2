@@ -19,8 +19,11 @@
 import asyncio
 import subprocess
 import shlex
+from functools import partial
 from pathlib import Path
 from isambard_utils.config import IsambardConfig
+
+_fprint = partial(print, flush=True)
 
 # %%
 #|export
@@ -101,7 +104,7 @@ _SSH_DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "10"))
 async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
                check: bool = True, capture: bool = True,
                retries: int = 0, ssh_retries: int = _SSH_DEFAULT_RETRIES,
-               print_fn=print) -> subprocess.CompletedProcess:
+               print_fn=_fprint) -> subprocess.CompletedProcess:
     """Run a command on the Isambard login node via SSH (async).
 
     Args:
@@ -160,7 +163,7 @@ def run(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
 # %%
 #|export
 async def acheck_connection(config: IsambardConfig | None = None, *,
-                            max_retries: int = 10, print_fn=print) -> bool:
+                            max_retries: int = 10, print_fn=_fprint) -> bool:
     """Test SSH connectivity with progressive timeout retries (async).
 
     Starts with a short timeout and increases it on each retry, up to
