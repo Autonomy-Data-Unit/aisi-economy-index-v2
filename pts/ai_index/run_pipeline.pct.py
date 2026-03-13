@@ -21,10 +21,12 @@ import asyncio
 import os
 import sys
 import tomllib
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
 from netrun.core import Net, NetConfig
+from netrun.logging._backends import JsonlEpochLogger, JsonlSimActionLogger
 
 # %%
 #|export
@@ -104,7 +106,7 @@ async def run_pipeline_async(
             loading from the default run_defs.toml file.
     """
     load_dotenv()
-    from ai_index.const import run_defs_path as default_run_defs_path, netrun_config_path
+    from ai_index.const import run_defs_path as default_run_defs_path, netrun_config_path, logs_path
 
     config_path = netrun_config_path
 
@@ -120,19 +122,32 @@ async def run_pipeline_async(
         node_vars=node_vars,
     )
     config.project_root_override = str(Path.cwd())
-    print(f"run_pipeline: using run definition {run_name!r}")
+    print(f"run_pipeline: using run definition {run_name!r}", flush=True)
 
-    async with Net(config) as net:
-        made_progress = True
-        while made_progress:
-            made_progress, _ = await net.run_until_blocked()
+    # Set up loggers
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run_logs_path = logs_path / run_name
+    run_logs_path.mkdir(parents=True, exist_ok=True)
+    epoch_log_file = run_logs_path / f"epochs_{ts}.jsonl"
+    actions_log_file = run_logs_path / f"actions_{ts}.jsonl"
 
-        results = net.flush_all_output_queues()
-        for queue_name, outputs in results.items():
-            print(f"\n=== Output queue: {queue_name} ({len(outputs)} packet(s)) ===")
-            for i, output in enumerate(outputs):
-                print(f"  [{i}] {output}")
+    with JsonlEpochLogger(epoch_log_file) as epoch_logger, \
+         JsonlSimActionLogger(actions_log_file) as action_logger:
+        async with Net(config) as net:
+            net.on_epoch_end(epoch_logger)
+            net.on_sim_actions(action_logger)
 
+            made_progress = True
+            while made_progress:
+                made_progress, _ = await net.run_until_blocked()
+
+            results = net.flush_all_output_queues()
+            for queue_name, outputs in results.items():
+                print(f"\n=== Output queue: {queue_name} ({len(outputs)} packet(s)) ===")
+                for i, output in enumerate(outputs):
+                    print(f"  [{i}] {output}")
+
+    print(f"run_pipeline: logs saved to {run_logs_path}", flush=True)
     return results
 
 # %%
