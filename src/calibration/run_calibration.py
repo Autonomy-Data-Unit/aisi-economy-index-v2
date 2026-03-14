@@ -17,13 +17,16 @@ EMBED_RESULTS_DIR = calibration_results_path / "embed"
 RUN_NAME = "calibration"
 
 # %% nbs/calibration/run_calibration.ipynb 3
-def _build_run_defs(llm_model_key: str, embedding_model_key: str) -> dict:
+def _build_run_defs(llm_model_key: str, embedding_model_key: str, run_name: str = RUN_NAME) -> dict:
     """Load run_defs.toml and inject dynamic model keys into the calibration run."""
     from ai_index.run_pipeline import _load_run_defs
 
     run_defs = _load_run_defs(run_defs_path)
-    run_defs["runs"][RUN_NAME]["llm_model"] = llm_model_key
-    run_defs["runs"][RUN_NAME]["embedding_model"] = embedding_model_key
+    # Clone calibration settings to target run name (may differ for parallel runs)
+    cal_config = dict(run_defs["runs"][RUN_NAME])
+    cal_config["llm_model"] = llm_model_key
+    cal_config["embedding_model"] = embedding_model_key
+    run_defs["runs"][run_name] = cal_config
     return run_defs
 
 # %% nbs/calibration/run_calibration.ipynb 4
@@ -110,32 +113,32 @@ def _print_timing(name: str, timing: dict) -> None:
         print(f"  {name}: {elapsed:.1f}s total ({source})")
 
 # %% nbs/calibration/run_calibration.ipynb 9
-async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
+async def run_calibration(llm_model_key: str, embedding_model_key: str, *, run_name: str = RUN_NAME) -> None:
     from ai_index.run_pipeline import run_pipeline_async
 
-    run_defs = _build_run_defs(llm_model_key, embedding_model_key)
+    run_defs = _build_run_defs(llm_model_key, embedding_model_key, run_name)
     # Effective sample_n: run-level override takes precedence over defaults
-    sample_n = run_defs["runs"][RUN_NAME].get("sample_n", run_defs["defaults"]["sample_n"])
+    sample_n = run_defs["runs"][run_name].get("sample_n", run_defs["defaults"]["sample_n"])
 
     # Clean previous calibration run to ensure fresh timing
-    calibration_store = pipeline_store_path / RUN_NAME
+    calibration_store = pipeline_store_path / run_name
     if calibration_store.exists():
         print(f"calibration: cleaning {calibration_store}")
         shutil.rmtree(calibration_store)
 
     print(f"calibration: llm_model={llm_model_key}, embedding_model={embedding_model_key}, sample_n={sample_n}")
-    await run_pipeline_async(RUN_NAME, run_defs=run_defs)
+    await run_pipeline_async(run_name, run_defs=run_defs)
 
     timestamp = datetime.now(timezone.utc).isoformat()
 
     # --- LLM results ---
     llm_nodes = {}
 
-    summarise_meta = _read_meta(RUN_NAME, "llm_summarise", "summary_meta.json")
+    summarise_meta = _read_meta(run_name, "llm_summarise", "summary_meta.json")
     if summarise_meta is not None:
         llm_nodes["llm_summarise"] = _extract_timing(summarise_meta, "n_total")
 
-    filter_meta = _read_meta(RUN_NAME, "llm_filter_candidates", "filter_meta.json")
+    filter_meta = _read_meta(run_name, "llm_filter_candidates", "filter_meta.json")
     if filter_meta is not None:
         llm_nodes["llm_filter_candidates"] = _extract_timing(filter_meta, "n_total")
 
@@ -150,11 +153,11 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
     # --- Embed results ---
     embed_nodes = {}
 
-    embed_ads_meta = _read_meta(RUN_NAME, "embed_ads", "embed_meta.json")
+    embed_ads_meta = _read_meta(run_name, "embed_ads", "embed_meta.json")
     if embed_ads_meta is not None:
         embed_nodes["embed_ads"] = _extract_timing(embed_ads_meta, "n_embedded")
 
-    embed_onet_meta = _read_meta(RUN_NAME, "embed_onet", "embed_meta.json")
+    embed_onet_meta = _read_meta(run_name, "embed_onet", "embed_meta.json")
     if embed_onet_meta is not None:
         embed_nodes["embed_onet"] = _extract_fixed_timing(embed_onet_meta)
 
@@ -177,12 +180,19 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str) -> None:
 
 # %% nbs/calibration/run_calibration.ipynb 10
 def main():
-    if len(sys.argv) != 3:
+    run_name = RUN_NAME
+    argv = sys.argv[1:]
+    # Extract --run-name option and its value
+    if "--run-name" in argv:
+        idx = argv.index("--run-name")
+        run_name = argv[idx + 1]
+        argv = argv[:idx] + argv[idx + 2:]
+    if len(argv) != 2:
         print(
-            "Usage: uv run run-calibration <llm_model_key> <embedding_model_key>",
+            "Usage: uv run run-calibration <llm_model_key> <embedding_model_key> [--run-name NAME]",
             file=sys.stderr,
         )
         sys.exit(1)
-    llm_model_key = sys.argv[1]
-    embedding_model_key = sys.argv[2]
-    asyncio.run(run_calibration(llm_model_key, embedding_model_key))
+    llm_model_key = argv[0]
+    embedding_model_key = argv[1]
+    asyncio.run(run_calibration(llm_model_key, embedding_model_key, run_name=run_name))

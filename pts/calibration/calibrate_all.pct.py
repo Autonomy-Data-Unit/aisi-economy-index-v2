@@ -12,7 +12,7 @@
 # Run calibrations for all sbatch models, skipping those already calibrated.
 #
 # Usage:
-#     uv run calibrate-all [--dry-run]
+#     uv run calibrate-all [--dry-run] [--sequential]
 #
 # Reads all sbatch models from embed_models.toml and llm_models.toml, checks
 # which already have results in store/calibration/results/{llm,embed}/, and pairs
@@ -28,13 +28,13 @@
 
 # %%
 #|export
+import asyncio
 import shutil
-import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
-from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path
+from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, pipeline_store_path
 
 LLM_RESULTS_DIR = calibration_results_path / "llm"
 EMBED_RESULTS_DIR = calibration_results_path / "embed"
@@ -96,8 +96,48 @@ def plan_runs(
 
 # %%
 #|export
+async def _run_all(pairs: list[tuple[str, str]], *, parallel: bool = True) -> list[tuple[str, str]]:
+    """Run calibration for all pairs as subprocesses. Returns list of failed (llm, embed) pairs.
+
+    Each calibration runs in a separate process to avoid in-process DuckDB
+    contention (DuckDB rejects concurrent connections with different
+    configurations within the same process). Cross-process, DuckDB uses file
+    locking which handles contention gracefully.
+    """
+    run_calibration_bin = shutil.which("run-calibration")
+    if run_calibration_bin is None:
+        print("ERROR: 'run-calibration' not found on PATH. Is the package installed?", file=sys.stderr)
+        sys.exit(1)
+
+    failures = []
+
+    async def _run_one(i: int, llm: str, embed: str):
+        run_name = f"_calibration_{i}" if parallel else "calibration"
+        print(f"\n{'=' * 70}")
+        print(f"Run {i}/{len(pairs)}: {llm} + {embed}")
+        print(f"{'=' * 70}", flush=True)
+        proc = await asyncio.create_subprocess_exec(
+            run_calibration_bin, llm, embed, "--run-name", run_name,
+        )
+        returncode = await proc.wait()
+        if returncode != 0:
+            print(f"\nERROR: calibration failed for {llm} + {embed} (exit code {returncode})")
+            failures.append((llm, embed))
+
+    tasks = [_run_one(i, llm, embed) for i, (llm, embed) in enumerate(pairs, 1)]
+    if parallel:
+        await asyncio.gather(*tasks)
+    else:
+        for task in tasks:
+            await task
+
+    return failures
+
+# %%
+#|export
 def main():
     dry_run = "--dry-run" in sys.argv
+    sequential = "--sequential" in sys.argv
 
     all_llm = _get_sbatch_keys(llm_models_config_path)
     all_embed = _get_sbatch_keys(embed_models_config_path)
@@ -118,7 +158,8 @@ def main():
         print("\nAll models already calibrated.")
         return
 
-    print(f"\nPlanned runs ({len(pairs)}):")
+    mode = "sequential" if sequential else "parallel"
+    print(f"\nPlanned runs ({len(pairs)}, {mode}):")
     for i, (llm, embed) in enumerate(pairs, 1):
         llm_new = "(new)" if llm not in done_llm else "(done)"
         embed_new = "(new)" if embed not in done_embed else "(done)"
@@ -128,29 +169,20 @@ def main():
         print("\n--dry-run: no calibrations executed.")
         return
 
-    run_calibration_bin = shutil.which("run-calibration")
-    if run_calibration_bin is None:
-        print("ERROR: 'run-calibration' not found on PATH. Is the package installed?", file=sys.stderr)
-        sys.exit(1)
-
     print()
-    failures = []
-    for i, (llm, embed) in enumerate(pairs, 1):
-        print(f"{'=' * 70}")
-        print(f"Run {i}/{len(pairs)}: {llm} + {embed}")
-        print(f"{'=' * 70}")
+    failures = asyncio.run(_run_all(pairs, parallel=not sequential))
 
-        result = subprocess.run([run_calibration_bin, llm, embed])
-        if result.returncode != 0:
-            print(f"\nERROR: run_calibration failed for {llm} + {embed} (exit code {result.returncode})")
-            failures.append((llm, embed, result.returncode))
-
-        print()
+    # Clean up temporary pipeline store directories from parallel runs
+    if not sequential:
+        for i in range(1, len(pairs) + 1):
+            tmp_store = pipeline_store_path / f"_calibration_{i}"
+            if tmp_store.exists():
+                shutil.rmtree(tmp_store)
 
     if failures:
         print(f"\n{len(failures)}/{len(pairs)} calibration runs failed:")
-        for llm, embed, code in failures:
-            print(f"  - {llm} + {embed} (exit code {code})")
+        for llm, embed in failures:
+            print(f"  - {llm} + {embed}")
         sys.exit(1)
 
     print(f"All {len(pairs)} calibration runs complete.")
