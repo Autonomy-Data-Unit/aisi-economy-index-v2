@@ -27,7 +27,7 @@ def load_matches(run_name: str, stage: str = "filtered") -> pd.DataFrame:
     """Load match results for a validation run.
 
     Args:
-        run_name: Validation run name (e.g. val__qwen-7b-sbatch__bge-large-sbatch).
+        run_name: Validation run name (e.g. val__validation__qwen-7b-sbatch__bge-large-sbatch).
         stage: 'filtered' for llm_filter output, 'cosine' for cosine_match output.
 
     Returns:
@@ -54,10 +54,13 @@ def _matches_to_ranked_lists(df: pd.DataFrame) -> dict[int, list[str]]:
     return result
 
 # %% nbs/validation/analyze.ipynb 6
-def _discover_completed_runs() -> list[tuple[str, str, str]]:
+def _discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str]]:
     """Scan store/pipeline/ for completed validation runs.
 
-    Returns list of (run_name, llm_key, embed_key) tuples.
+    Args:
+        run_def: If given, only return runs matching this run definition name.
+
+    Returns list of (run_name, run_def, llm_key, embed_key) tuples.
     """
     runs = []
     if not pipeline_store_path.exists():
@@ -69,11 +72,13 @@ def _discover_completed_runs() -> list[tuple[str, str, str]]:
         filtered = run_dir / "llm_filter_candidates" / "filtered_matches.parquet"
         if not filtered.exists():
             continue
-        parts = run_dir.name.split("__", 2)
-        if len(parts) != 3:
+        parts = run_dir.name.split("__", 3)
+        if len(parts) != 4:
             continue
-        _, llm, embed = parts
-        runs.append((run_dir.name, llm, embed))
+        _, rd, llm, embed = parts
+        if run_def is not None and rd != run_def:
+            continue
+        runs.append((run_dir.name, rd, llm, embed))
 
     return runs
 
@@ -270,16 +275,18 @@ def compute_pairwise(
 
 # %% nbs/validation/analyze.ipynb 17
 def build_arm_summary(
-    completed_runs: list[tuple[str, str, str]],
+    completed_runs: list[tuple[str, str, str, str]],
     config: dict,
+    run_def: str,
     stage: str = "filtered",
     rbo_p: float = 0.9,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Build summary tables for both arms of the crossed design.
 
     Args:
-        completed_runs: List of (run_name, llm, embed) from _discover_completed_runs().
+        completed_runs: List of (run_name, run_def, llm, embed) from _discover_completed_runs().
         config: Validation config dict.
+        run_def: Run definition name.
         stage: Which matching stage to compare.
         rbo_p: RBO persistence parameter.
 
@@ -289,10 +296,10 @@ def build_arm_summary(
     """
     fixed_embed = config["fixed_embedding"]
     fixed_llm = config["fixed_llm"]
-    ref_run = _make_run_name(fixed_llm, fixed_embed)
+    ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
 
     # Index completed runs
-    run_lookup = {(llm, embed): rn for rn, llm, embed in completed_runs}
+    run_lookup = {(llm, embed): rn for rn, _, llm, embed in completed_runs}
 
     # Arm 1: fix embedding, vary LLMs
     arm1_rows = []
@@ -334,8 +341,9 @@ def build_arm_summary(
 
 # %% nbs/validation/analyze.ipynb 18
 def per_stage_decomposition(
-    completed_runs: list[tuple[str, str, str]],
+    completed_runs: list[tuple[str, str, str, str]],
     config: dict,
+    run_def: str,
     rbo_p: float = 0.9,
 ) -> pd.DataFrame:
     """Compare cosine vs filtered stage agreement for each run vs reference.
@@ -345,12 +353,12 @@ def per_stage_decomposition(
     """
     fixed_embed = config["fixed_embedding"]
     fixed_llm = config["fixed_llm"]
-    ref_run = _make_run_name(fixed_llm, fixed_embed)
+    ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
 
-    run_lookup = {(llm, embed): rn for rn, llm, embed in completed_runs}
+    run_lookup = {(llm, embed): rn for rn, _, llm, embed in completed_runs}
     rows = []
 
-    for rn, llm, embed in completed_runs:
+    for rn, _, llm, embed in completed_runs:
         if rn == ref_run:
             continue
 
@@ -457,14 +465,14 @@ def plot_stage_decomposition(
 
 # %% nbs/validation/analyze.ipynb 23
 def plot_pairwise_heatmap(
-    completed_runs: list[tuple[str, str, str]], output_dir: Path
+    completed_runs: list[tuple[str, str, str, str]], output_dir: Path
 ) -> None:
     """Pairwise top-1 agreement heatmap across all completed runs."""
     if len(completed_runs) < 2:
         print("  Skipping heatmap (need >= 2 runs)")
         return
 
-    run_names = [rn for rn, _, _ in completed_runs]
+    run_names = [rn for rn, _, _, _ in completed_runs]
     n = len(run_names)
     matrix = np.ones((n, n))
 
@@ -572,8 +580,9 @@ def plot_kl_divergence_bars(
 
 # %% nbs/validation/analyze.ipynb 27
 def plot_all(
-    completed_runs: list[tuple[str, str, str]],
+    completed_runs: list[tuple[str, str, str, str]],
     config: dict,
+    run_def: str,
     output_dir: Path,
 ) -> None:
     """Generate and save all validation plots."""
@@ -583,13 +592,13 @@ def plot_all(
     print("\nGenerating plots...")
 
     # Arm summaries
-    arm1_df, arm2_df = build_arm_summary(completed_runs, config, "filtered", rbo_p)
+    arm1_df, arm2_df = build_arm_summary(completed_runs, config, run_def, "filtered", rbo_p)
 
     plot_arm_bars(arm1_df, "Vary LLM", figures_dir)
     plot_arm_bars(arm2_df, "Vary Embedding", figures_dir)
 
     # Stage decomposition
-    decomp = per_stage_decomposition(completed_runs, config, rbo_p)
+    decomp = per_stage_decomposition(completed_runs, config, run_def, rbo_p)
     if not decomp.empty:
         plot_stage_decomposition(decomp, "vary_llm", figures_dir)
         plot_stage_decomposition(decomp, "vary_embed", figures_dir)
@@ -604,11 +613,11 @@ def plot_all(
     # Stratified and O*NET distribution for a representative pair
     fixed_embed = config["fixed_embedding"]
     fixed_llm = config["fixed_llm"]
-    ref_run = _make_run_name(fixed_llm, fixed_embed)
+    ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
 
     # Pick first non-reference completed run for representative comparison
     representative = None
-    for rn, llm, embed in completed_runs:
+    for rn, _, llm, embed in completed_runs:
         if rn != ref_run:
             representative = (rn, llm, embed)
             break
@@ -660,32 +669,44 @@ def _print_arm_table(title: str, arm_df: pd.DataFrame) -> None:
 
 # %% nbs/validation/analyze.ipynb 30
 def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+
+    if len(args) != 1:
+        print(
+            "Usage: uv run analyze-validation <run_def_name>",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    run_def = args[0]
+
     with open(validation_config_path, "rb") as f:
         config = tomllib.load(f)
 
-    completed = _discover_completed_runs()
+    completed = _discover_completed_runs(run_def)
 
     if not completed:
-        print("No completed validation runs found.")
-        print("Run: uv run validate-all")
+        print(f"No completed validation runs found for run definition '{run_def}'.")
+        print(f"Run: uv run validate-all {run_def}")
         sys.exit(1)
 
     rbo_p = config["rbo_p"]
-    ref_run = _make_run_name(config["fixed_llm"], config["fixed_embedding"])
+    ref_run = _make_run_name(run_def, config["fixed_llm"], config["fixed_embedding"])
 
+    print(f"Run definition: {run_def}")
     print(f"Completed validation runs: {len(completed)}")
     print(f"Reference run: {ref_run}")
-    for rn, llm, embed in completed:
+    for rn, _, llm, embed in completed:
         marker = " (reference)" if rn == ref_run else ""
         print(f"  {rn}{marker}")
 
     # Build arm summaries
-    arm1_df, arm2_df = build_arm_summary(completed, config, "filtered", rbo_p)
+    arm1_df, arm2_df = build_arm_summary(completed, config, run_def, "filtered", rbo_p)
     _print_arm_table("Arm 1: Vary LLM (fixed embedding)", arm1_df)
     _print_arm_table("Arm 2: Vary Embedding (fixed LLM)", arm2_df)
 
     # Stage decomposition
-    decomp = per_stage_decomposition(completed, config, rbo_p)
+    decomp = per_stage_decomposition(completed, config, run_def, rbo_p)
     if not decomp.empty:
         print("\nPer-Stage Decomposition")
         print("=" * 90)
@@ -704,8 +725,8 @@ def main():
                 f"{row['filtered_jaccard']:>10.4f}"
             )
 
-    # Save CSVs
-    output_dir = validation_results_path
+    # Save CSVs per run_def
+    output_dir = validation_results_path / run_def
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not arm1_df.empty:
@@ -722,6 +743,6 @@ def main():
         print(f"Saved: {decomp_path}")
 
     # Generate plots
-    plot_all(completed, config, output_dir)
+    plot_all(completed, config, run_def, output_dir)
 
     print(f"\nAll results saved to {output_dir}")

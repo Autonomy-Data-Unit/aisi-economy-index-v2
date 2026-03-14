@@ -51,25 +51,37 @@ def plan_runs(config: dict) -> list[tuple[str, str]]:
     return pairs
 
 # %% nbs/validation/run_all.ipynb 5
-def _completed_runs(pairs: list[tuple[str, str]]) -> set[tuple[str, str]]:
+def _completed_runs(run_def: str, pairs: list[tuple[str, str]]) -> set[tuple[str, str]]:
     """Return the subset of pairs whose validation runs are already complete."""
     return {
         (llm, embed) for llm, embed in pairs
-        if _is_run_complete(_make_run_name(llm, embed))
+        if _is_run_complete(_make_run_name(run_def, llm, embed))
     }
 
 # %% nbs/validation/run_all.ipynb 6
 def main():
-    dry_run = "--dry-run" in sys.argv
-    force = "--force" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    dry_run = "--dry-run" in flags
+    force = "--force" in flags
+
+    if len(args) != 1:
+        print(
+            "Usage: uv run validate-all <run_def_name> [--dry-run] [--force]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    run_def = args[0]
 
     config = _load_validation_config()
     pairs = plan_runs(config)
-    done = _completed_runs(pairs)
+    done = _completed_runs(run_def, pairs)
 
+    print(f"Run definition: {run_def}")
     print(f"Validation runs: {len(pairs)} total, {len(done)} complete, {len(pairs) - len(done)} remaining")
     if done:
-        print(f"  Completed: {', '.join(_make_run_name(l, e) for l, e in sorted(done))}")
+        print(f"  Completed: {', '.join(_make_run_name(run_def, l, e) for l, e in sorted(done))}")
 
     remaining = [(l, e) for l, e in pairs if force or (l, e) not in done]
 
@@ -80,7 +92,7 @@ def main():
     print(f"\nPlanned runs ({len(remaining)}):")
     for i, (llm, embed) in enumerate(remaining, 1):
         status = "(done, --force)" if (llm, embed) in done else "(pending)"
-        print(f"  {i:>2}. {_make_run_name(llm, embed)} {status}")
+        print(f"  {i:>2}. {_make_run_name(run_def, llm, embed)} {status}")
 
     if dry_run:
         print("\n--dry-run: no validation runs executed.")
@@ -94,12 +106,12 @@ def main():
     print()
     failures = []
     for i, (llm, embed) in enumerate(remaining, 1):
-        run_name = _make_run_name(llm, embed)
+        run_name = _make_run_name(run_def, llm, embed)
         print(f"{'=' * 70}")
         print(f"Run {i}/{len(remaining)}: {run_name}")
         print(f"{'=' * 70}")
 
-        cmd = [run_validation_bin, llm, embed]
+        cmd = [run_validation_bin, run_def, llm, embed]
         if force:
             cmd.append("--force")
 
