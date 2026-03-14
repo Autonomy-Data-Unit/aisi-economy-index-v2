@@ -1,5 +1,5 @@
-fixed_embedding = "bge-large-sbatch"
-fixed_llm = "qwen-7b-sbatch"
+fixed_embeddings = ["bge-large-sbatch"]
+fixed_llms = ["qwen-7b-sbatch"]
 
 llm_models = [
     "qwen-7b-sbatch",

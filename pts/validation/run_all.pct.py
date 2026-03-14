@@ -22,9 +22,9 @@
 # Skips pairs that have already completed (unless --force).
 #
 # The crossed design:
-# - Arm 1: Fix embedding (bge-large-sbatch), vary all 11 calibrated LLMs
-# - Arm 2: Fix LLM (qwen-7b-sbatch), vary all 10 calibrated embeddings
-# - 20 unique runs (the reference pair appears in both arms, de-duplicated)
+# - Arm 1: For each fixed embedding, vary all calibrated LLMs
+# - Arm 2: For each fixed LLM, vary all calibrated embeddings
+# - De-duplicated across all arms
 
 # %%
 #|default_exp run_all
@@ -52,12 +52,12 @@ def _load_validation_config() -> dict:
 def plan_runs(config: dict) -> list[tuple[str, str]]:
     """Generate crossed (llm, embed) pairs from the validation config.
 
-    Arm 1: fix embedding, vary LLMs.
-    Arm 2: fix LLM, vary embeddings.
-    De-duplicates the reference pair that appears in both arms.
+    Arm 1: for each fixed embedding, vary LLMs.
+    Arm 2: for each fixed LLM, vary embeddings.
+    De-duplicates pairs that appear in multiple arms.
     """
-    fixed_embed = config["fixed_embedding"]
-    fixed_llm = config["fixed_llm"]
+    fixed_embeddings = config["fixed_embeddings"]
+    fixed_llms = config["fixed_llms"]
     llm_models = config["llm_models"]
     embed_models = config["embed_models"]
 
@@ -65,18 +65,20 @@ def plan_runs(config: dict) -> list[tuple[str, str]]:
     pairs = []
 
     # Arm 1: fix embedding, vary LLMs
-    for llm in llm_models:
-        key = (llm, fixed_embed)
-        if key not in seen:
-            seen.add(key)
-            pairs.append(key)
+    for fixed_embed in fixed_embeddings:
+        for llm in llm_models:
+            key = (llm, fixed_embed)
+            if key not in seen:
+                seen.add(key)
+                pairs.append(key)
 
     # Arm 2: fix LLM, vary embeddings
-    for embed in embed_models:
-        key = (fixed_llm, embed)
-        if key not in seen:
-            seen.add(key)
-            pairs.append(key)
+    for fixed_llm in fixed_llms:
+        for embed in embed_models:
+            key = (fixed_llm, embed)
+            if key not in seen:
+                seen.add(key)
+                pairs.append(key)
 
     return pairs
 

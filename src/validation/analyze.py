@@ -278,6 +278,8 @@ def build_arm_summary(
     completed_runs: list[tuple[str, str, str, str]],
     config: dict,
     run_def: str,
+    fixed_llm: str,
+    fixed_embed: str,
     stage: str = "filtered",
     rbo_p: float = 0.9,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -287,6 +289,8 @@ def build_arm_summary(
         completed_runs: List of (run_name, run_def, llm, embed) from _discover_completed_runs().
         config: Validation config dict.
         run_def: Run definition name.
+        fixed_llm: Reference LLM model key.
+        fixed_embed: Reference embedding model key.
         stage: Which matching stage to compare.
         rbo_p: RBO persistence parameter.
 
@@ -294,8 +298,6 @@ def build_arm_summary(
         (arm1_df, arm2_df): DataFrames with columns model, top1, jaccard, rbo, kl_divergence.
         arm1 = vary LLM (fixed embed), arm2 = vary embed (fixed LLM).
     """
-    fixed_embed = config["fixed_embedding"]
-    fixed_llm = config["fixed_llm"]
     ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
 
     # Index completed runs
@@ -344,6 +346,8 @@ def per_stage_decomposition(
     completed_runs: list[tuple[str, str, str, str]],
     config: dict,
     run_def: str,
+    fixed_llm: str,
+    fixed_embed: str,
     rbo_p: float = 0.9,
 ) -> pd.DataFrame:
     """Compare cosine vs filtered stage agreement for each run vs reference.
@@ -351,8 +355,6 @@ def per_stage_decomposition(
     Returns DataFrame with columns: run_name, llm, embed, arm,
     cosine_top1, filtered_top1, cosine_jaccard, filtered_jaccard.
     """
-    fixed_embed = config["fixed_embedding"]
-    fixed_llm = config["fixed_llm"]
     ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
 
     run_lookup = {(llm, embed): rn for rn, _, llm, embed in completed_runs}
@@ -583,22 +585,28 @@ def plot_all(
     completed_runs: list[tuple[str, str, str, str]],
     config: dict,
     run_def: str,
+    fixed_llm: str,
+    fixed_embed: str,
     output_dir: Path,
 ) -> None:
-    """Generate and save all validation plots."""
+    """Generate and save all validation plots for a given reference pair."""
     rbo_p = config["rbo_p"]
     figures_dir = output_dir / "figures"
 
     print("\nGenerating plots...")
 
     # Arm summaries
-    arm1_df, arm2_df = build_arm_summary(completed_runs, config, run_def, "filtered", rbo_p)
+    arm1_df, arm2_df = build_arm_summary(
+        completed_runs, config, run_def, fixed_llm, fixed_embed, "filtered", rbo_p,
+    )
 
-    plot_arm_bars(arm1_df, "Vary LLM", figures_dir)
-    plot_arm_bars(arm2_df, "Vary Embedding", figures_dir)
+    plot_arm_bars(arm1_df, f"Vary LLM (embed={fixed_embed})", figures_dir)
+    plot_arm_bars(arm2_df, f"Vary Embedding (llm={fixed_llm})", figures_dir)
 
     # Stage decomposition
-    decomp = per_stage_decomposition(completed_runs, config, run_def, rbo_p)
+    decomp = per_stage_decomposition(
+        completed_runs, config, run_def, fixed_llm, fixed_embed, rbo_p,
+    )
     if not decomp.empty:
         plot_stage_decomposition(decomp, "vary_llm", figures_dir)
         plot_stage_decomposition(decomp, "vary_embed", figures_dir)
@@ -607,12 +615,10 @@ def plot_all(
     plot_pairwise_heatmap(completed_runs, figures_dir)
 
     # KL divergence
-    plot_kl_divergence_bars(arm1_df, "Vary LLM", figures_dir)
-    plot_kl_divergence_bars(arm2_df, "Vary Embedding", figures_dir)
+    plot_kl_divergence_bars(arm1_df, f"Vary LLM (embed={fixed_embed})", figures_dir)
+    plot_kl_divergence_bars(arm2_df, f"Vary Embedding (llm={fixed_llm})", figures_dir)
 
     # Stratified and O*NET distribution for a representative pair
-    fixed_embed = config["fixed_embedding"]
-    fixed_llm = config["fixed_llm"]
     ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
 
     # Pick first non-reference completed run for representative comparison
@@ -668,6 +674,28 @@ def _print_arm_table(title: str, arm_df: pd.DataFrame) -> None:
         )
 
 # %% nbs/validation/analyze.ipynb 30
+def _print_decomposition(decomp: pd.DataFrame) -> None:
+    """Print per-stage decomposition table."""
+    if decomp.empty:
+        return
+    print("\nPer-Stage Decomposition")
+    print("=" * 90)
+    model_w = max(max(len(r) for r in decomp["llm"]), max(len(r) for r in decomp["embed"])) + 2
+    header = f"{'Model':<{model_w}} {'Arm':<12} {'Cos Top1':>10} {'Filt Top1':>10} {'Cos Jacc':>10} {'Filt Jacc':>10}"
+    print(header)
+    print("-" * len(header))
+    for _, row in decomp.iterrows():
+        model = row["llm"] if row["arm"] == "vary_llm" else row["embed"]
+        print(
+            f"{model:<{model_w}} "
+            f"{row['arm']:<12} "
+            f"{row['cosine_top1']:>10.4f} "
+            f"{row['filtered_top1']:>10.4f} "
+            f"{row['cosine_jaccard']:>10.4f} "
+            f"{row['filtered_jaccard']:>10.4f}"
+        )
+
+# %% nbs/validation/analyze.ipynb 31
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
 
@@ -691,58 +719,78 @@ def main():
         sys.exit(1)
 
     rbo_p = config["rbo_p"]
-    ref_run = _make_run_name(run_def, config["fixed_llm"], config["fixed_embedding"])
+    fixed_llms = config["fixed_llms"]
+    fixed_embeddings = config["fixed_embeddings"]
+    ref_runs = {
+        _make_run_name(run_def, fl, fe)
+        for fl in fixed_llms for fe in fixed_embeddings
+    }
 
     print(f"Run definition: {run_def}")
     print(f"Completed validation runs: {len(completed)}")
-    print(f"Reference run: {ref_run}")
     for rn, _, llm, embed in completed:
-        marker = " (reference)" if rn == ref_run else ""
+        marker = " (reference)" if rn in ref_runs else ""
         print(f"  {rn}{marker}")
 
-    # Build arm summaries
-    arm1_df, arm2_df = build_arm_summary(completed, config, run_def, "filtered", rbo_p)
-    _print_arm_table("Arm 1: Vary LLM (fixed embedding)", arm1_df)
-    _print_arm_table("Arm 2: Vary Embedding (fixed LLM)", arm2_df)
-
-    # Stage decomposition
-    decomp = per_stage_decomposition(completed, config, run_def, rbo_p)
-    if not decomp.empty:
-        print("\nPer-Stage Decomposition")
-        print("=" * 90)
-        model_w = max(max(len(r) for r in decomp["llm"]), max(len(r) for r in decomp["embed"])) + 2
-        header = f"{'Model':<{model_w}} {'Arm':<12} {'Cos Top1':>10} {'Filt Top1':>10} {'Cos Jacc':>10} {'Filt Jacc':>10}"
-        print(header)
-        print("-" * len(header))
-        for _, row in decomp.iterrows():
-            model = row["llm"] if row["arm"] == "vary_llm" else row["embed"]
-            print(
-                f"{model:<{model_w}} "
-                f"{row['arm']:<12} "
-                f"{row['cosine_top1']:>10.4f} "
-                f"{row['filtered_top1']:>10.4f} "
-                f"{row['cosine_jaccard']:>10.4f} "
-                f"{row['filtered_jaccard']:>10.4f}"
-            )
-
-    # Save CSVs per run_def
     output_dir = validation_results_path / run_def
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if not arm1_df.empty:
-        arm1_path = output_dir / "arm1_vary_llm.csv"
-        arm1_df.to_csv(arm1_path, index=False)
-        print(f"\nSaved: {arm1_path}")
-    if not arm2_df.empty:
-        arm2_path = output_dir / "arm2_vary_embed.csv"
-        arm2_df.to_csv(arm2_path, index=False)
-        print(f"Saved: {arm2_path}")
-    if not decomp.empty:
-        decomp_path = output_dir / "stage_decomposition.csv"
-        decomp.to_csv(decomp_path, index=False)
-        print(f"Saved: {decomp_path}")
+    all_arm1_dfs = []
+    all_arm2_dfs = []
+    all_decomp_dfs = []
 
-    # Generate plots
-    plot_all(completed, config, run_def, output_dir)
+    for fixed_llm in fixed_llms:
+        for fixed_embed in fixed_embeddings:
+            ref_run = _make_run_name(run_def, fixed_llm, fixed_embed)
+            print(f"\n{'#' * 70}")
+            print(f"Reference: {ref_run}")
+            print(f"{'#' * 70}")
+
+            arm1_df, arm2_df = build_arm_summary(
+                completed, config, run_def, fixed_llm, fixed_embed, "filtered", rbo_p,
+            )
+            _print_arm_table(f"Arm 1: Vary LLM (embed={fixed_embed})", arm1_df)
+            _print_arm_table(f"Arm 2: Vary Embedding (llm={fixed_llm})", arm2_df)
+
+            decomp = per_stage_decomposition(
+                completed, config, run_def, fixed_llm, fixed_embed, rbo_p,
+            )
+            _print_decomposition(decomp)
+
+            # Tag with reference info for CSV output
+            if not arm1_df.empty:
+                arm1_df = arm1_df.copy()
+                arm1_df["fixed_embed"] = fixed_embed
+                arm1_df["ref_llm"] = fixed_llm
+                all_arm1_dfs.append(arm1_df)
+            if not arm2_df.empty:
+                arm2_df = arm2_df.copy()
+                arm2_df["fixed_llm"] = fixed_llm
+                arm2_df["ref_embed"] = fixed_embed
+                all_arm2_dfs.append(arm2_df)
+            if not decomp.empty:
+                decomp = decomp.copy()
+                decomp["ref_llm"] = fixed_llm
+                decomp["ref_embed"] = fixed_embed
+                all_decomp_dfs.append(decomp)
+
+            # Generate plots per reference pair
+            plot_all(
+                completed, config, run_def, fixed_llm, fixed_embed, output_dir,
+            )
+
+    # Save combined CSVs
+    if all_arm1_dfs:
+        arm1_path = output_dir / "arm1_vary_llm.csv"
+        pd.concat(all_arm1_dfs, ignore_index=True).to_csv(arm1_path, index=False)
+        print(f"\nSaved: {arm1_path}")
+    if all_arm2_dfs:
+        arm2_path = output_dir / "arm2_vary_embed.csv"
+        pd.concat(all_arm2_dfs, ignore_index=True).to_csv(arm2_path, index=False)
+        print(f"Saved: {arm2_path}")
+    if all_decomp_dfs:
+        decomp_path = output_dir / "stage_decomposition.csv"
+        pd.concat(all_decomp_dfs, ignore_index=True).to_csv(decomp_path, index=False)
+        print(f"Saved: {decomp_path}")
 
     print(f"\nAll results saved to {output_dir}")
