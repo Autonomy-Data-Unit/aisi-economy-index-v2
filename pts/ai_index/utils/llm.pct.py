@@ -15,9 +15,41 @@
 # %%
 #|export
 import asyncio
+import json
 
 from ai_index.const import llm_models_config_path
-from ai_index.utils._model_config import _resolve_model_args, _split_remote_kwargs
+from ai_index.utils._model_config import _load_model_config, _resolve_model_args, _split_remote_kwargs
+
+
+def extract_json(text: str) -> dict | None:
+    """Extract a JSON object from text that may contain a reasoning prefix.
+
+    Reasoning models (DeepSeek-R1, GPT-OSS) emit thinking/analysis text before
+    the JSON payload. The JSON is assumed to be the last thing in the response,
+    running from some '{' to the end of the string. Tries each '{' position
+    from left to right until json.loads(text[i:]) succeeds.
+
+    Returns parsed dict, or None if no valid JSON found.
+    """
+    text = text.strip()
+    if not text.endswith("}"):
+        return None
+    pos = 0
+    while True:
+        idx = text.find("{", pos)
+        if idx == -1:
+            return None
+        try:
+            return json.loads(text[idx:])
+        except (json.JSONDecodeError, ValueError):
+            pass
+        pos = idx + 1
+
+
+def is_reasoning_model(model_key: str) -> bool:
+    """Check if a model emits a reasoning/thinking prefix before its answer."""
+    _, cfg = _load_model_config(llm_models_config_path, model_key)
+    return cfg["reasoning"]
 
 def llm_generate(
     prompts: list[str],

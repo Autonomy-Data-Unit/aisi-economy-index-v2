@@ -10,6 +10,7 @@ import tomllib
 from pathlib import Path
 
 from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, pipeline_store_path
+from .run_calibration import run_calibration
 
 LLM_RESULTS_DIR = calibration_results_path / "llm"
 EMBED_RESULTS_DIR = calibration_results_path / "embed"
@@ -68,18 +69,11 @@ def plan_runs(
 
 # %% nbs/calibration/calibrate_all.ipynb 6
 async def _run_all(pairs: list[tuple[str, str]], *, parallel: bool = True) -> list[tuple[str, str]]:
-    """Run calibration for all pairs as subprocesses. Returns list of failed (llm, embed) pairs.
+    """Run calibration for all pairs in-process. Returns list of failed (llm, embed) pairs.
 
-    Each calibration runs in a separate process to avoid in-process DuckDB
-    contention (DuckDB rejects concurrent connections with different
-    configurations within the same process). Cross-process, DuckDB uses file
-    locking which handles contention gracefully.
+    Concurrent access to the shared Adzuna DuckDB is serialized by a
+    readers-writer lock in get_adzuna_conn (see adzuna_store.py).
     """
-    run_calibration_bin = shutil.which("run-calibration")
-    if run_calibration_bin is None:
-        print("ERROR: 'run-calibration' not found on PATH. Is the package installed?", file=sys.stderr)
-        sys.exit(1)
-
     failures = []
 
     async def _run_one(i: int, llm: str, embed: str):
@@ -87,12 +81,10 @@ async def _run_all(pairs: list[tuple[str, str]], *, parallel: bool = True) -> li
         print(f"\n{'=' * 70}")
         print(f"Run {i}/{len(pairs)}: {llm} + {embed}")
         print(f"{'=' * 70}", flush=True)
-        proc = await asyncio.create_subprocess_exec(
-            run_calibration_bin, llm, embed, "--run-name", run_name,
-        )
-        returncode = await proc.wait()
-        if returncode != 0:
-            print(f"\nERROR: calibration failed for {llm} + {embed} (exit code {returncode})")
+        try:
+            await run_calibration(llm, embed, run_name=run_name)
+        except Exception as e:
+            print(f"\nERROR: calibration failed for {llm} + {embed}: {e}")
             failures.append((llm, embed))
 
     tasks = [_run_one(i, llm, embed) for i, (llm, embed) in enumerate(pairs, 1)]

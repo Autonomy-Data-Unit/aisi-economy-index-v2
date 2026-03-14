@@ -21,7 +21,7 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     import pandas as pd
     
     from ai_index import const
-    from ai_index.utils import ResultStore, run_batched, strict_format, load_prompt, allm_generate, get_adzuna_conn, get_all_ad_ids
+    from ai_index.utils import ResultStore, run_batched, strict_format, load_prompt, allm_generate, extract_json, is_reasoning_model, get_adzuna_conn, get_all_ad_ids
     def _validate_response(raw: str) -> str | None:
         """Validate an LLM response against JobInfoModel.
     
@@ -46,6 +46,8 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     raise_on_failure = ctx.vars["summarise_raise_on_failure"]
     max_concurrent = ctx.vars["llm_max_concurrent_batches"]
     duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
+    
+    _is_reasoning = is_reasoning_model(llm_model)
     
     SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
     USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
@@ -96,6 +98,12 @@ async def main(ctx, print, ad_ids: np.ndarray) -> {
     
         records = []
         for ad_id, response in zip(ids_ordered, responses):
+            if _is_reasoning:
+                parsed = extract_json(response)
+                if parsed is None:
+                    records.append({"id": ad_id, "data": response, "error": "Failed to extract JSON from reasoning model output"})
+                    continue
+                response = json.dumps(parsed)
             error = _validate_response(response)
             records.append({"id": ad_id, "data": response, "error": error})
         return pd.DataFrame(records)

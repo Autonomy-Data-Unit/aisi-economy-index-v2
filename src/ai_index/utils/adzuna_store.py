@@ -3,6 +3,8 @@
 __all__ = ['build_insert_from_parquet', 'duckdb_connect_retry', 'ensure_ads_table', 'get_ads_by_id', 'get_adzuna_conn', 'get_all_ad_ids', 'print_ads']
 
 # %% nbs/ai_index/utils/adzuna_store.ipynb 2
+import threading
+
 import duckdb
 import pyarrow as pa
 
@@ -58,6 +60,69 @@ import time
 from pathlib import Path
 
 
+class _ReadWriteLock:
+    """Writers-preference readers-writer lock for DuckDB connection serialization.
+
+    Allows multiple concurrent readers (read-only connections) but gives
+    exclusive access to writers (read-write connections). Writers take
+    priority over waiting readers to prevent writer starvation.
+    """
+
+    def __init__(self):
+        self._cond = threading.Condition(threading.Lock())
+        self._readers = 0
+        self._writers_waiting = 0
+        self._writer_active = False
+
+    def acquire_read(self):
+        with self._cond:
+            while self._writer_active or self._writers_waiting > 0:
+                self._cond.wait()
+            self._readers += 1
+
+    def release_read(self):
+        with self._cond:
+            self._readers -= 1
+            if self._readers == 0:
+                self._cond.notify_all()
+
+    def acquire_write(self):
+        with self._cond:
+            self._writers_waiting += 1
+            while self._readers > 0 or self._writer_active:
+                self._cond.wait()
+            self._writers_waiting -= 1
+            self._writer_active = True
+
+    def release_write(self):
+        with self._cond:
+            self._writer_active = False
+            self._cond.notify_all()
+
+
+class _LockedConnection:
+    """DuckDB connection wrapper that releases a read-write lock on close."""
+
+    def __init__(self, conn, release_fn):
+        self._conn = conn
+        self._release = release_fn
+        self._closed = False
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def close(self):
+        if not self._closed:
+            self._closed = True
+            try:
+                self._conn.close()
+            finally:
+                self._release()
+
+
+_adzuna_rwlock = _ReadWriteLock()
+
+
 def duckdb_connect_retry(
     db_path: str | Path,
     *,
@@ -89,9 +154,28 @@ def duckdb_connect_retry(
 def get_adzuna_conn(read_only: bool = False, *, memory_limit: str | None = None, timeout: float = 300, poll_interval: float = 2) -> duckdb.DuckDBPyConnection:
     """Open a DuckDB connection to the Adzuna database.
 
-    If the database is locked or has a configuration conflict, retries until timeout.
+    Serializes access with a readers-writer lock: multiple read-only connections
+    can coexist, but read-write connections get exclusive access. This prevents
+    DuckDB's in-process configuration conflict errors when concurrent pipelines
+    access the same database.
+
+    The returned connection wrapper releases the lock when close() is called.
+    Always close the connection when done.
     """
-    return duckdb_connect_retry(adzuna_db_path, read_only=read_only, memory_limit=memory_limit, timeout=timeout, poll_interval=poll_interval)
+    if read_only:
+        _adzuna_rwlock.acquire_read()
+        release_fn = _adzuna_rwlock.release_read
+    else:
+        _adzuna_rwlock.acquire_write()
+        release_fn = _adzuna_rwlock.release_write
+
+    try:
+        conn = duckdb_connect_retry(adzuna_db_path, read_only=read_only, memory_limit=memory_limit, timeout=timeout, poll_interval=poll_interval)
+    except Exception:
+        release_fn()
+        raise
+
+    return _LockedConnection(conn, release_fn)
 
 
 def ensure_ads_table(conn: duckdb.DuckDBPyConnection) -> None:

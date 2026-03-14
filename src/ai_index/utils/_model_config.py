@@ -34,6 +34,9 @@ _RUN_REMOTE_KEYS = {
     "cache", "upload_timeout", "gpus",
 }
 
+# Model metadata keys consumed by our pipeline code, not passed to any backend.
+_META_KEYS = {"reasoning"}
+
 def _strip_remote_kwargs(cfg):
     """Remove run_remote-only keys from cfg in-place (for api/local modes)."""
     for k in _RUN_REMOTE_KEYS:
@@ -44,10 +47,14 @@ def _resolve_model_args(config_path, model_key, kwargs):
 
     For non-sbatch modes, strips run_remote-only keys so the cfg can be
     passed directly to llm_runner / adulib without unexpected kwargs.
+    Meta keys (e.g. 'reasoning') are always stripped since they're consumed
+    by our pipeline code, not by backends.
     """
     mode, cfg = _load_model_config(config_path, model_key)
     cfg.update(kwargs)
     model_name = cfg.pop("model")
+    for k in _META_KEYS:
+        cfg.pop(k, None)
     if mode != "sbatch":
         _strip_remote_kwargs(cfg)
     return mode, model_name, cfg

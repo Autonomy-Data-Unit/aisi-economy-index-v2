@@ -1,5 +1,5 @@
 from ai_index.utils._model_config import _load_model_config, _resolve_model_args, _split_remote_kwargs
-from ai_index.utils.llm import llm_generate, allm_generate
+from ai_index.utils.llm import llm_generate, allm_generate, extract_json, is_reasoning_model
 from ai_index.utils.embed import embed, aembed
 from ai_index.utils.cosine import cosine_topk, acosine_topk
 from ai_index.utils.adzuna_store import (
