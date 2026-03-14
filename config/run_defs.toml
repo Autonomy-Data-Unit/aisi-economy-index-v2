@@ -104,7 +104,7 @@ sbatch_time = "00:30:00"
 # ----------------
 
 [runs.validation]
-sample_n = 100000
+sample_n = 5000
 sample_seed = 42
 sbatch_cache = true
 

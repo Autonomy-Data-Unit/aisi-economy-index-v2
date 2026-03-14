@@ -102,7 +102,12 @@ class ResultStore:
         self.conn.execute(f"DELETE FROM {self.table}")
 
     def close(self):
-        """Close the DuckDB connection and release the reference."""
+        """Close the DuckDB connection and release the reference.
+
+        CHECKPOINT flushes the WAL so that subsequent read-only connections
+        can open the database without a 'different configuration' conflict.
+        """
+        self.conn.execute("CHECKPOINT")
         self.conn.close()
         self.conn = None
 

@@ -106,9 +106,11 @@ reasoning = true
 
 # MoE (117B total, 5.1B active, 128 experts, top-4 routing).
 # Ships in native MXFP4 (~61 GB); vLLM auto-detects quantization.
+# Must override default fp8 dtype to avoid quantization conflict.
 [models.gpt-oss-120b-sbatch]
 mode = "sbatch"
 model = "openai/gpt-oss-120b"
+dtype = "bfloat16"
 gpus = 2
 reasoning = true
 
@@ -117,12 +119,6 @@ reasoning = true
 [models.llama-4-scout-sbatch]
 mode = "sbatch"
 model = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
-gpus = 2
-
-# Hybrid Mamba-2 + MoE + Attention (120B total, 12B active).
-[models.nemotron-super-120b-sbatch]
-mode = "sbatch"
-model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
 gpus = 2
 
 # Dense 123B. All 123B parameters active per token.
