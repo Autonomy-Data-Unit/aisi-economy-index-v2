@@ -25,6 +25,8 @@ nbs_validation -> pts_validation
 
 nbs_deploy -> lib_deploy
 nbs_deploy -> pts_deploy
+
+nbs_experiments -> pts_experiments
 """
 
 [cl.nbs]
@@ -139,3 +141,12 @@ format = "percent"
 [cl.lib_deploy]
 path = "src/deploy"
 format = "module"
+
+
+[cl.nbs_experiments]
+path = "nbs/experiments"
+format = "ipynb"
+
+[cl.pts_experiments]
+path = "pts/experiments"
+format = "percent"
