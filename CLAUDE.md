@@ -343,6 +343,18 @@ result = compute_something()
 result #|func_return_line   # BUG: this won't appear in the generated module!
 ```
 
+## Top-level await in notebooks
+
+Notebooks (`.ipynb` / `.pct.py` via nblite) run in an async context. You can use `await` directly at the top level without wrapping in `asyncio.run()`. In fact, `asyncio.run()` will **error** in a notebook because an event loop is already running. Always use bare `await` for async calls in notebook cells.
+
+```python
+# WRONG — RuntimeError: cannot run event loop while another loop is running
+result = asyncio.run(some_async_func())
+
+# RIGHT — top-level await works in notebooks
+result = await some_async_func()
+```
+
 ## Important: Suspected netrun bugs
 
 If you encounter behaviour that looks like a bug in **netrun itself** (not in our node code), **stop immediately and notify the user**. Do not try to work around it. We may need to fix netrun upstream before continuing.

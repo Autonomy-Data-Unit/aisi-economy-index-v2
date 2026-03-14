@@ -36,7 +36,7 @@ sbatch_time = "02:00:00"
 [defaults.llm_summarise]
 sbatch_time = "08:00:00"
 summarise_resume = true
-summarise_max_retries = 0
+summarise_max_retries = 3
 summarise_raise_on_failure = false
 system_prompt = "llm_summarise/main/system"
 user_prompt = "llm_summarise/main/user"
@@ -44,7 +44,7 @@ user_prompt = "llm_summarise/main/user"
 [defaults.llm_filter_candidates]
 sbatch_time = "08:00:00"
 filter_resume = true
-filter_max_retries = 0
+filter_max_retries = 3
 filter_raise_on_failure = false
 system_prompt = "llm_filter/main/system"
 user_prompt = "llm_filter/main/user"
@@ -99,36 +99,6 @@ sbatch_time = "00:30:00"
 #   Runs
 # --------
 
-# ----------------
-#   Validation
-# ----------------
-
-[runs.validation]
-sample_n = 5000
-sample_seed = 42
-sbatch_cache = true
-
-[runs.validation.llm_summarise]
-sbatch_time = "04:00:00"
-summarise_resume = true
-
-[runs.validation.llm_filter_candidates]
-sbatch_time = "04:00:00"
-filter_resume = true
-
-[runs.validation.embed_onet]
-sbatch_time = "01:00:00"
-
-[runs.validation.embed_ads]
-sbatch_time = "02:00:00"
-
-[runs.validation.cosine_match]
-sbatch_time = "01:00:00"
-
-[runs.validation.score_task_exposure]
-sbatch_time = "02:00:00"
-
-
 [runs.test_api]
 sample_n = 10
 embedding_model = "text-embedding-3-large"
@@ -149,3 +119,33 @@ llm_model = "qwen-7b-sbatch"
 sample_n = 10
 llm_model = "phi-4-sbatch"
 embedding_model = "gte-large-sbatch"
+
+
+# ----------------
+#   Validation
+# ----------------
+
+[runs.validation_5k]
+sample_n = 5000
+sample_seed = 42
+sbatch_cache = true
+
+[runs.validation_5k.llm_summarise]
+sbatch_time = "04:00:00"
+summarise_resume = true
+
+[runs.validation_5k.llm_filter_candidates]
+sbatch_time = "04:00:00"
+filter_resume = true
+
+[runs.validation_5k.embed_onet]
+sbatch_time = "01:00:00"
+
+[runs.validation_5k.embed_ads]
+sbatch_time = "02:00:00"
+
+[runs.validation_5k.cosine_match]
+sbatch_time = "01:00:00"
+
+[runs.validation_5k.score_task_exposure]
+sbatch_time = "02:00:00"
