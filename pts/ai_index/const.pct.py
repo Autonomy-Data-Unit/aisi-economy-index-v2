@@ -31,6 +31,7 @@ inputs_path = store_path / "inputs"
 
 llm_models_config_path = config_path / "llm_models.toml"
 embed_models_config_path = config_path / "embed_models.toml"
+rerank_models_config_path = config_path / "rerank_models.toml"
 netrun_config_path = config_path / "netrun.json"
 run_defs_path = config_path / "run_defs.toml"
 

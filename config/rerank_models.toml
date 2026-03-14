@@ -1,0 +1,33 @@
+# Reranking (cross-encoder) model configurations
+#
+# Each model entry has a `mode` (local/sbatch) and model-specific params.
+# Resolution follows the same pattern as embed_models.toml / llm_models.toml.
+
+# Defaults
+
+[defaults.local]
+device = "cuda"
+dtype = "float16"
+batch_size = 64
+
+[defaults.sbatch]
+device = "cuda"
+dtype = "float16"
+batch_size = 64
+gpus = 1
+job_name = "rerank"
+setup = true
+
+# Models
+
+[models.bge-reranker-v2-m3-local]
+mode = "local"
+model = "BAAI/bge-reranker-v2-m3"
+
+[models.bge-reranker-v2-m3-sbatch]
+mode = "sbatch"
+model = "BAAI/bge-reranker-v2-m3"
+
+[models.ms-marco-minilm-sbatch]
+mode = "sbatch"
+model = "cross-encoder/ms-marco-MiniLM-L-12-v2"

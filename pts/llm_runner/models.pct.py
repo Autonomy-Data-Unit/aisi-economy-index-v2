@@ -458,3 +458,33 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
         device=device,
         dtype=dtype,
     )
+
+# %% [markdown]
+# ## Cross-encoder reranking model
+
+# %%
+#|export
+def load_rerank_model(model_name: str = "BAAI/bge-reranker-v2-m3", *,
+                      device: str = "cuda",
+                      dtype: str = "float16") -> Any:
+    """Load a cross-encoder reranking model via sentence-transformers.
+
+    Args:
+        model_name: HuggingFace cross-encoder model ID.
+        device: Device to load onto ("cuda", "cpu").
+        dtype: Model precision ("float16", "bfloat16", "float32").
+
+    Returns:
+        sentence_transformers.CrossEncoder instance.
+    """
+    set_model_env(offline=(device != "cpu"))
+    import torch
+    from sentence_transformers import CrossEncoder
+
+    torch_dtype = _resolve_dtype(dtype)
+    model = CrossEncoder(
+        model_name,
+        device=device,
+        automodel_args={"torch_dtype": torch_dtype},
+    )
+    return model
