@@ -25,21 +25,16 @@ onet_top_n = 10
 sbatch_time = "01:00:00"
 
 [defaults.embed_ads]
-embed_chunk_size = 50000
 sbatch_time = "04:00:00"
+embed_task_prompt = ""
 
-[defaults.cosine_match]
-cosine_alpha = 0.4
-cosine_chunk_size = 50000
-sbatch_time = "02:00:00"
+[defaults.cosine_candidates]
+cosine_topk = 100
 
-[defaults.llm_summarise]
-sbatch_time = "08:00:00"
-summarise_resume = true
-summarise_max_retries = 3
-summarise_raise_on_failure = false
-system_prompt = "llm_summarise/main/system"
-user_prompt = "llm_summarise/main/user"
+[defaults.rerank_candidates]
+rerank_model = "qwen3-reranker-8b-sbatch"
+rerank_topk = 10
+sbatch_time = "04:00:00"
 
 [defaults.llm_filter_candidates]
 sbatch_time = "08:00:00"
@@ -74,10 +69,6 @@ user_prompt = "score_task_exposure/main/user"
 sample_n = 1000
 sbatch_cache = false
 
-[runs.calibration.llm_summarise]
-sbatch_time = "01:00:00"
-summarise_resume = false
-
 [runs.calibration.llm_filter_candidates]
 sbatch_time = "01:00:00"
 filter_resume = false
@@ -88,7 +79,7 @@ sbatch_time = "00:30:00"
 [runs.calibration.embed_ads]
 sbatch_time = "00:30:00"
 
-[runs.calibration.cosine_match]
+[runs.calibration.rerank_candidates]
 sbatch_time = "00:30:00"
 
 [runs.calibration.score_task_exposure]
@@ -130,10 +121,6 @@ sample_n = 5000
 sample_seed = 42
 sbatch_cache = true
 
-[runs.validation_5k.llm_summarise]
-sbatch_time = "04:00:00"
-summarise_resume = true
-
 [runs.validation_5k.llm_filter_candidates]
 sbatch_time = "04:00:00"
 filter_resume = true
@@ -144,8 +131,8 @@ sbatch_time = "01:00:00"
 [runs.validation_5k.embed_ads]
 sbatch_time = "02:00:00"
 
-[runs.validation_5k.cosine_match]
-sbatch_time = "01:00:00"
+[runs.validation_5k.rerank_candidates]
+sbatch_time = "02:00:00"
 
 [runs.validation_5k.score_task_exposure]
 sbatch_time = "02:00:00"
