@@ -44,9 +44,6 @@ filter_raise_on_failure = false
 system_prompt = "llm_filter/v2/system"
 user_prompt = "llm_filter/v2/user"
 
-[defaults.compute_job_ad_aspectt_vectors]
-aspectt_chunk_size = 50000
-
 [defaults.compute_job_ad_exposure]
 exposure_chunk_size = 50000
 
