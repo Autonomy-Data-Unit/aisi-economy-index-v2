@@ -242,8 +242,8 @@
           "source_path": "src/ai_index/nodes/llm_filter_candidates.py",
           "ui": {
             "position": {
-              "x": 1680,
-              "y": 180
+              "x": 1640,
+              "y": 220
             },
             "descriptionExpanded": true,
             "headerColor": "#0084ff"
@@ -277,64 +277,7 @@
         },
         "factory": "netrun.node_factories.broadcast",
         "factory_args": {
-          "num_outputs": 5
-        },
-        "type": "node"
-      },
-      {
-        "name": "build_aspectt_vectors",
-        "description": "Build ASPECTT numeric vectors from O*NET database tables.",
-        "execution_config": {
-          "enabled": false,
-          "signals": [
-            "epoch_finished"
-          ],
-          "controls": [
-            "start_epoch"
-          ]
-        },
-        "extra": {
-          "source_path": "src/ai_index/nodes/build_aspectt_vectors.py",
-          "ui": {
-            "position": {
-              "x": 1340,
-              "y": 520
-            },
-            "descriptionExpanded": true,
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.build_aspectt_vectors.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "compute_job_ad_aspectt_vectors",
-        "description": "Compute per-ad weighted ASPECTT vectors from filtered occupation matches.",
-        "execution_config": {
-          "enabled": false,
-          "node_vars": {
-            "aspectt_chunk_size": {
-              "type": "int"
-            }
-          }
-        },
-        "extra": {
-          "source_path": "src/ai_index/nodes/compute_job_ad_aspectt_vectors.py",
-          "ui": {
-            "position": {
-              "x": 1800,
-              "y": 500
-            },
-            "descriptionExpanded": true,
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.compute_job_ad_aspectt_vectors.main"
+          "num_outputs": 4
         },
         "type": "node"
       },
@@ -609,7 +552,8 @@
               "x": 540,
               "y": 80
             },
-            "headerColor": "#0084ff"
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -642,7 +586,8 @@
               "x": 560,
               "y": 320
             },
-            "headerColor": "#0084ff"
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -671,7 +616,8 @@
               "x": 940,
               "y": 160
             },
-            "headerColor": "#0084ff"
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -699,10 +645,11 @@
           "source_path": "src/ai_index/nodes/rerank_candidates.py",
           "ui": {
             "position": {
-              "x": 1340,
-              "y": 160
+              "x": 1300,
+              "y": 180
             },
-            "headerColor": "#0084ff"
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
           }
         },
         "factory": "netrun.node_factories.from_function",
@@ -735,13 +682,6 @@
         "dependency": false
       },
       {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_1",
-        "target_node": "build_aspectt_vectors",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
         "source_node": "llm_filter_candidates",
         "source_port": "successful_ad_ids",
         "target_node": "broadcast_filter_done",
@@ -750,37 +690,9 @@
       },
       {
         "source_node": "broadcast_filter_done",
-        "source_port": "out_0",
-        "target_node": "compute_job_ad_aspectt_vectors",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_filter_done",
         "source_port": "out_1",
         "target_node": "compute_job_ad_exposure",
         "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "build_aspectt_vectors",
-        "source_port": "out",
-        "target_node": "compute_job_ad_aspectt_vectors",
-        "target_port": "aspectt_done",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_2",
-        "target_node": "score_presence",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_3",
-        "target_node": "score_felten",
-        "target_port": "__control_start_epoch__",
         "dependency": false
       },
       {
@@ -871,6 +783,27 @@
         "source_node": "broadcast_onet_ready",
         "source_port": "out_0",
         "target_node": "embed_onet",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_1",
+        "target_node": "score_presence",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_2",
+        "target_node": "score_felten",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_3",
+        "target_node": "score_task_exposure",
         "target_port": "__control_start_epoch__",
         "dependency": false
       }
