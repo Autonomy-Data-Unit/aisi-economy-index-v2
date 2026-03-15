@@ -34,6 +34,9 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     onet_norms = np.linalg.norm(onet_embeds, axis=1, keepdims=True)
     onet_norms = np.maximum(onet_norms, 1e-10)
     onet_normed = onet_embeds / onet_norms
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    
     embed_db = const.pipeline_store_path / run_name / "embed_ads" / "embeddings.duckdb"
     embed_conn = duckdb.connect(str(embed_db), read_only=True)
     
@@ -43,7 +46,17 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     print(f"cosine_candidates: {n_ads} ads x {n_onet} occupations, topk={cosine_topk}")
     print(f"  processing in {n_chunks} chunks")
     
-    all_rows = []
+    candidates_schema = pa.schema([
+        ("ad_id", pa.int64()),
+        ("rank", pa.int32()),
+        ("onet_code", pa.string()),
+        ("onet_title", pa.string()),
+        ("cosine_score", pa.float32()),
+    ])
+    
+    output_path = output_dir / "candidates.parquet"
+    writer = pq.ParquetWriter(output_path, candidates_schema)
+    total_rows = 0
     
     for chunk_idx in range(n_chunks):
         start = chunk_idx * CHUNK_SIZE
@@ -76,10 +89,11 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
         top_indices = np.argsort(-sim_matrix, axis=1)[:, :topk_clamped]
         top_scores = np.take_along_axis(sim_matrix, top_indices, axis=1)
     
+        chunk_rows = []
         for i in range(len(chunk_ad_ids)):
             for rank in range(topk_clamped):
                 onet_idx = int(top_indices[i, rank])
-                all_rows.append({
+                chunk_rows.append({
                     "ad_id": int(chunk_ad_ids[i]),
                     "rank": rank,
                     "onet_code": onet_codes[onet_idx],
@@ -87,16 +101,13 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
                     "cosine_score": float(top_scores[i, rank]),
                 })
     
+        writer.write_table(pa.Table.from_pylist(chunk_rows, schema=candidates_schema))
+        total_rows += len(chunk_rows)
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads")
     
+    writer.close()
     embed_conn.close()
-    candidates_df = pd.DataFrame(all_rows)
-    output_path = output_dir / "candidates.parquet"
-    candidates_df.to_parquet(output_path, index=False)
-    
-    print(f"cosine_candidates: wrote {len(candidates_df)} candidate rows ({n_ads} ads x topk={cosine_topk})")
+    print(f"cosine_candidates: wrote {total_rows} candidate rows ({n_ads} ads x topk={cosine_topk})")
     print(f"  output: {output_path}")
-    if len(candidates_df) > 0:
-        print(f"  score range: {candidates_df['cosine_score'].min():.4f} - {candidates_df['cosine_score'].max():.4f}")
     
     return ad_ids

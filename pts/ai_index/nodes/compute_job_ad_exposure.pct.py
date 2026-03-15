@@ -93,7 +93,7 @@ print(f"compute_job_ad_exposure: {len(score_cols)} score columns: {score_cols}")
 
 # %%
 #|export
-filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
+filtered_path = const.pipeline_store_path / run_name / "rerank_candidates" / "reranked_matches.parquet"
 conn = duckdb.connect()
 
 n_ads = len(ad_ids)

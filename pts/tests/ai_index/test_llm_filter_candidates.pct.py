@@ -13,7 +13,7 @@
 # - FilterResponseModel validation
 # - Prompt construction from raw ad text (no LLM summaries)
 # - Drop logic (1-based indices, keeps at least 1)
-# - Output format (filtered_matches.parquet with rerank_score)
+# - Output format (filtered_matches.parquet with cosine_score)
 
 # %%
 #|default_exp ai_index.test_llm_filter_candidates
@@ -77,7 +77,7 @@ SAMPLE_MATCHES = pd.DataFrame({
                   "15-1252.00", "11-1011.00", "29-1141.00"],
     "onet_title": ["Chief Executives", "Software Developers", "Registered Nurses",
                    "Software Developers", "Chief Executives", "Registered Nurses"],
-    "rerank_score": [0.95, 0.85, 0.75, 0.90, 0.80, 0.70],
+    "cosine_score": [0.95, 0.85, 0.75, 0.90, 0.80, 0.70],
 })
 
 # Mock ads for the Adzuna connection
@@ -88,12 +88,12 @@ MOCK_ADS = {
 
 
 def _setup_matches(tmp_path, matches_df=None):
-    """Write reranked_matches.parquet."""
+    """Write candidates.parquet (cosine candidates input)."""
     if matches_df is None:
         matches_df = SAMPLE_MATCHES
-    match_dir = tmp_path / "pipeline" / "test_run" / "rerank_candidates"
+    match_dir = tmp_path / "pipeline" / "test_run" / "cosine_candidates"
     match_dir.mkdir(parents=True, exist_ok=True)
-    matches_df.to_parquet(match_dir / "reranked_matches.parquet")
+    matches_df.to_parquet(match_dir / "candidates.parquet")
 
 
 def _make_ctx(tmp_path, llm_responses=None):
@@ -228,17 +228,17 @@ class TestOutput:
         assert set(result) == {100, 200}
 
     def test_output_columns(self, tmp_path):
-        """Output should have rerank_score instead of combined_score."""
+        """Output should have cosine_score instead of combined_score."""
         _, df = _run_node(tmp_path)
-        assert set(df.columns) == {"ad_id", "rank", "onet_code", "onet_title", "rerank_score"}
+        assert set(df.columns) == {"ad_id", "rank", "onet_code", "onet_title", "cosine_score"}
 
-    def test_preserves_rerank_scores(self, tmp_path):
+    def test_preserves_cosine_scores(self, tmp_path):
         """Kept candidates should retain their original rerank scores."""
         _, df = _run_node(tmp_path, llm_responses=['{"drop": []}', '{"drop": []}'])
 
         ad100 = df[df["ad_id"] == 100].sort_values("rank")
-        assert abs(ad100.iloc[0]["rerank_score"] - 0.95) < 1e-5
-        assert abs(ad100.iloc[1]["rerank_score"] - 0.85) < 1e-5
+        assert abs(ad100.iloc[0]["cosine_score"] - 0.95) < 1e-5
+        assert abs(ad100.iloc[1]["cosine_score"] - 0.85) < 1e-5
 
     def test_writes_filter_results_db(self, tmp_path):
         """Should write filter_results.duckdb."""

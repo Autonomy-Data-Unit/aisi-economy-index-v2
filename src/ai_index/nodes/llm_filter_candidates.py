@@ -19,7 +19,7 @@ class FilterResponseModel(BaseModel):
 async def main(ctx, print, ad_ids: list[int]) -> {
     'successful_ad_ids': list[int]
 }:
-    """Run LLM negative selection to filter reranked candidates."""
+    """Run LLM negative selection to filter cosine candidates."""
     import duckdb
     import pandas as pd
     
@@ -51,7 +51,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     output_dir = const.pipeline_store_path / run_name / "llm_filter_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "filter_results.duckdb"
-    matches_path = const.pipeline_store_path / run_name / "rerank_candidates" / "reranked_matches.parquet"
+    matches_path = const.pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
     
     _matches_conn = duckdb.connect()  # in-memory, queries parquet directly
     _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
@@ -180,14 +180,39 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     with open(meta_path, "w") as f:
         json.dump(filter_meta, f, indent=2)
     print(f"llm_filter: wrote {const.rel(meta_path)}")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    
     filter_conn = duckdb.connect(str(db_path), read_only=True)
     filter_rows = filter_conn.execute(
         "SELECT id, data FROM results WHERE error IS NULL"
     ).fetchall()
     filter_conn.close()
     
+    filtered_schema = pa.schema([
+        ("ad_id", pa.int64()),
+        ("rank", pa.int32()),
+        ("onet_code", pa.string()),
+        ("onet_title", pa.string()),
+        ("cosine_score", pa.float32()),
+    ])
+    dropped_schema = pa.schema([
+        ("ad_id", pa.int64()),
+        ("onet_code", pa.string()),
+        ("onet_title", pa.string()),
+        ("cosine_score", pa.float32()),
+        ("original_rank", pa.int32()),
+    ])
+    
+    filtered_path = output_dir / "filtered_matches.parquet"
+    dropped_path = output_dir / "dropped_matches.parquet"
+    filtered_writer = pq.ParquetWriter(filtered_path, filtered_schema)
+    dropped_writer = pq.ParquetWriter(dropped_path, dropped_schema)
+    
+    total_kept = 0
+    total_dropped = 0
+    
     FILTER_CHUNK_SIZE = 5000
-    filtered_rows = []
     for chunk_start in range(0, len(filter_rows), FILTER_CHUNK_SIZE):
         chunk = filter_rows[chunk_start:chunk_start + FILTER_CHUNK_SIZE]
         chunk_ad_ids = [int(row[0]) for row in chunk]
@@ -201,6 +226,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         for ad_id, group in chunk_matches.groupby("ad_id"):
             matches_by_ad[int(ad_id)] = group.to_dict("records")
     
+        kept_rows = []
+        drop_rows = []
         for ad_id_raw, data_str in chunk:
             ad_id = int(ad_id_raw)
             if ad_id not in matches_by_ad:
@@ -208,28 +235,45 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             parsed = json.loads(data_str)
             drop_set = set(parsed["drop"])  # 1-based indices
             candidates = matches_by_ad[ad_id]
-            kept = [c for i, c in enumerate(candidates) if (i + 1) not in drop_set]
-            for rank, c in enumerate(kept):
-                filtered_rows.append({
-                    "ad_id": ad_id,
-                    "rank": rank,
-                    "onet_code": c["onet_code"],
-                    "onet_title": c["onet_title"],
-                    "rerank_score": c["rerank_score"],
-                })
     
+            rank = 0
+            for i, c in enumerate(candidates):
+                if (i + 1) in drop_set:
+                    drop_rows.append({
+                        "ad_id": ad_id,
+                        "onet_code": c["onet_code"],
+                        "onet_title": c["onet_title"],
+                        "cosine_score": float(c["cosine_score"]),
+                        "original_rank": i,
+                    })
+                else:
+                    kept_rows.append({
+                        "ad_id": ad_id,
+                        "rank": rank,
+                        "onet_code": c["onet_code"],
+                        "onet_title": c["onet_title"],
+                        "cosine_score": float(c["cosine_score"]),
+                    })
+                    rank += 1
+    
+        if kept_rows:
+            filtered_writer.write_table(pa.Table.from_pylist(kept_rows, schema=filtered_schema))
+            total_kept += len(kept_rows)
+        if drop_rows:
+            dropped_writer.write_table(pa.Table.from_pylist(drop_rows, schema=dropped_schema))
+            total_dropped += len(drop_rows)
+    
+    filtered_writer.close()
+    dropped_writer.close()
     _matches_conn.close()
     _ads_conn.close()
-    
-    filtered_df = pd.DataFrame(filtered_rows)
-    filtered_path = output_dir / "filtered_matches.parquet"
-    filtered_df.to_parquet(filtered_path, index=False)
     
     failed_set = set(filter_meta["failed_ids"])
     successful_ad_ids = [i for i in ad_ids if i not in failed_set]
     
-    print(f"llm_filter: {len(filtered_df)} filtered match rows for {len(successful_ad_ids)} ads")
-    print(f"  mean candidates kept: {len(filtered_df) / max(len(successful_ad_ids), 1):.1f}")
-    print(f"  output: {filtered_path}")
+    print(f"llm_filter: {total_kept} kept, {total_dropped} dropped for {len(successful_ad_ids)} ads")
+    print(f"  mean candidates kept: {total_kept / max(len(successful_ad_ids), 1):.1f}")
+    print(f"  filtered: {filtered_path}")
+    print(f"  dropped: {dropped_path}")
     
     return successful_ad_ids

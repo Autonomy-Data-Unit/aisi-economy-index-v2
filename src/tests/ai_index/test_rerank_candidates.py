@@ -42,15 +42,15 @@ SAMPLE_ADS_TABLE = pa.table({
 
 
 def _setup_candidates(tmp_path, candidates_df=None):
-    """Write candidates parquet to the expected location."""
+    """Write filtered_matches.parquet (input from llm_filter_candidates)."""
     if candidates_df is None:
         candidates_df = SAMPLE_CANDIDATES
-    cand_dir = tmp_path / "pipeline" / "test_run" / "cosine_candidates"
-    cand_dir.mkdir(parents=True, exist_ok=True)
-    candidates_df.to_parquet(cand_dir / "candidates.parquet")
+    filter_dir = tmp_path / "pipeline" / "test_run" / "llm_filter_candidates"
+    filter_dir.mkdir(parents=True, exist_ok=True)
+    candidates_df.to_parquet(filter_dir / "filtered_matches.parquet")
 
 
-def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker", rerank_topk=2,
+def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker",
               fake_rerank_fn=None):
     """Run rerank_candidates.main with mocks."""
     from ai_index.nodes.rerank_candidates import main
@@ -64,7 +64,6 @@ def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker", rerank_topk=2
     ctx.vars = {
         "run_name": "test_run",
         "rerank_model": rerank_model,
-        "rerank_topk": rerank_topk,
         "sbatch_time": "00:10:00",
     }
 
@@ -97,30 +96,22 @@ def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker", rerank_topk=2
 class TestReranking:
     """Test actual reranking with a mock reranker."""
 
-    def test_reranking_changes_order(self, tmp_path):
-        """Reranking should produce different order than cosine."""
-        result, df = _run_node(tmp_path, rerank_model="test-reranker", rerank_topk=2)
+    def test_reranking_scores_all_candidates(self, tmp_path):
+        """Should score all filtered candidates per ad (no narrowing)."""
+        result, df = _run_node(tmp_path, rerank_model="test-reranker")
 
-        # The mock reranker reverses the order, so the last cosine candidate
-        # should be first after reranking
-        ad100 = df[df["ad_id"] == 100].sort_values("rank")
-        assert ad100.iloc[0]["onet_code"] == "29-1141.00"  # was rank 2 in cosine
+        # 3 candidates per ad in sample data, all should be scored
+        for ad_id in [100, 200]:
+            assert len(df[df["ad_id"] == ad_id]) == 3
 
-    def test_reranking_filters_to_per_ad_candidates(self, tmp_path):
-        """Reranking should only return candidates that were in the ad's cosine set."""
-        result, df = _run_node(tmp_path, rerank_model="test-reranker", rerank_topk=3)
+    def test_reranking_preserves_candidate_set(self, tmp_path):
+        """All scored candidates should match the filtered input set."""
+        result, df = _run_node(tmp_path, rerank_model="test-reranker")
 
         for ad_id in [100, 200]:
             reranked_codes = set(df[df["ad_id"] == ad_id]["onet_code"])
-            cosine_codes = set(SAMPLE_CANDIDATES[SAMPLE_CANDIDATES["ad_id"] == ad_id]["onet_code"])
-            assert reranked_codes.issubset(cosine_codes)
-
-    def test_reranking_respects_topk(self, tmp_path):
-        """Should return exactly rerank_topk per ad."""
-        result, df = _run_node(tmp_path, rerank_model="test-reranker", rerank_topk=2)
-
-        for ad_id in [100, 200]:
-            assert len(df[df["ad_id"] == ad_id]) == 2
+            input_codes = set(SAMPLE_CANDIDATES[SAMPLE_CANDIDATES["ad_id"] == ad_id]["onet_code"])
+            assert reranked_codes == input_codes
 
 # %% nbs/tests/ai_index/test_rerank_candidates.ipynb 8
 class TestOutput:
@@ -137,16 +128,14 @@ class TestOutput:
         assert set(df.columns) == {"ad_id", "rank", "onet_code", "onet_title", "rerank_score"}
 
     def test_ranks_are_contiguous(self, tmp_path):
-        """Ranks should be 0, 1, ... for each ad."""
-        _, df = _run_node(tmp_path, rerank_topk=2)
+        """Ranks should be 0, 1, 2 for each ad."""
+        _, df = _run_node(tmp_path)
         for ad_id in [100, 200]:
-            ranks = df[df["ad_id"] == ad_id]["rank"].tolist()
-            assert ranks == [0, 1]
+            ranks = sorted(df[df["ad_id"] == ad_id]["rank"].tolist())
+            assert ranks == [0, 1, 2]
 
-    def test_scores_are_descending(self, tmp_path):
-        """Rerank scores should decrease with rank."""
-        _, df = _run_node(tmp_path, rerank_model="test-reranker", rerank_topk=3)
-        for ad_id in [100, 200]:
-            scores = df[df["ad_id"] == ad_id].sort_values("rank")["rerank_score"].tolist()
-            for i in range(len(scores) - 1):
-                assert scores[i] >= scores[i + 1]
+    def test_all_candidates_have_scores(self, tmp_path):
+        """Every candidate should have a rerank_score assigned."""
+        _, df = _run_node(tmp_path, rerank_model="test-reranker")
+        assert df["rerank_score"].notna().all()
+        assert len(df) == 6  # 3 candidates per ad x 2 ads

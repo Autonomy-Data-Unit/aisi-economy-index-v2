@@ -606,9 +606,6 @@
         "execution_config": {
           "node_vars": {
             "rerank_model": {},
-            "rerank_topk": {
-              "type": "int"
-            },
             "sbatch_time": {}
           },
           "signals": [
@@ -719,20 +716,6 @@
         "dependency": false
       },
       {
-        "source_node": "cosine_candidates",
-        "source_port": "ad_ids",
-        "target_node": "rerank_candidates",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "rerank_candidates",
-        "source_port": "ad_ids",
-        "target_node": "llm_filter_candidates",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
         "source_node": "broadcast_onet_ready",
         "source_port": "out_0",
         "target_node": "embed_onet",
@@ -761,11 +744,22 @@
         "dependency": false
       },
       {
+        "source_node": "cosine_candidates",
+        "source_port": "ad_ids",
+        "target_node": "llm_filter_candidates",
+        "target_port": "ad_ids"
+      },
+      {
         "source_node": "llm_filter_candidates",
         "source_port": "successful_ad_ids",
+        "target_node": "rerank_candidates",
+        "target_port": "ad_ids"
+      },
+      {
+        "source_node": "rerank_candidates",
+        "source_port": "ad_ids",
         "target_node": "compute_job_ad_exposure",
-        "target_port": "ad_ids",
-        "dependency": false
+        "target_port": "ad_ids"
       }
     ],
     "extra": {

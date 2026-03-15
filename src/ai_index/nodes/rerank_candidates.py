@@ -3,93 +3,131 @@
 async def main(ctx, print, ad_ids: list[int]) -> {
     'ad_ids': list[int]
 }:
-    """Rerank cosine candidates with a cross-encoder/generative reranker."""
+    """Score filtered candidates with a reranker to produce exposure weights."""
     import json
     
+    import duckdb
     import numpy as np
     import pandas as pd
+    import pyarrow as pa
+    import pyarrow.parquet as pq
     
     from ai_index import const
     from ai_index.utils import arerank, get_ads_by_id
     run_name = ctx.vars["run_name"]
     rerank_model = ctx.vars["rerank_model"]
-    rerank_topk = ctx.vars["rerank_topk"]
     sbatch_time = ctx.vars["sbatch_time"]
     
     output_dir = const.pipeline_store_path / run_name / "rerank_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
-    candidates_path = const.pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
-    candidates_df = pd.read_parquet(candidates_path)
+    filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
     
-    # Load O*NET titles and descriptions for reranker document text
     onet_targets = pd.read_parquet(const.onet_targets_path)
     onet_descs = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Description"]))
-    onet_titles = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
+    onet_titles_lookup = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
+    
+    matches_conn = duckdb.connect()  # in-memory, queries parquet directly
     
     n_ads = len(ad_ids)
-    n_candidates_per_ad = candidates_df.groupby("ad_id").size().iloc[0]
-    print(f"rerank_candidates: {n_ads} ads, {n_candidates_per_ad} candidates each")
+    print(f"rerank_candidates: {n_ads} ads")
     print(f"  rerank_model: {rerank_model}")
-    print(f"  rerank_topk: {rerank_topk}")
-    # Build unique O*NET document texts across all candidates
-    all_candidate_codes = candidates_df["onet_code"].unique().tolist()
-    doc_texts = [f"{onet_titles[code]}: {onet_descs[code][:300]}" for code in all_candidate_codes]
+    print(f"  reading from: {const.rel(filtered_path)}")
+    CHUNK_SIZE = 500  # ads per reranker batch
     
-    # Build query texts
-    print("rerank_candidates: loading ad texts...")
-    ads_table = get_ads_by_id(ad_ids, columns=["title", "description"])
-    ads_df = ads_table.to_pandas().set_index("id")
+    reranked_schema = pa.schema([
+        ("ad_id", pa.int64()),
+        ("rank", pa.int32()),
+        ("onet_code", pa.string()),
+        ("onet_title", pa.string()),
+        ("rerank_score", pa.float32()),
+    ])
     
-    query_texts = []
-    for ad_id in ad_ids:
-        row = ads_df.loc[ad_id]
-        query_texts.append(f"{row['title']}. {str(row['description'] or '')[:3000]}")
-    
-    # Call reranker: score all queries against all candidate documents
-    print(f"rerank_candidates: scoring {len(query_texts)} queries x {len(doc_texts)} documents...")
-    rerank_result = await arerank(
-        queries=query_texts,
-        documents=doc_texts,
-        top_k=len(doc_texts),  # get full ranking so we can filter to per-ad candidates
-        model=rerank_model,
-        time=sbatch_time,
-    )
-    rerank_indices = rerank_result["indices"]   # (n_ads, n_docs)
-    rerank_scores = rerank_result["scores"]     # (n_ads, n_docs)
-    
-    # For each ad, filter to its cosine candidates and take top-K
-    reranked_rows = []
-    for qi, ad_id in enumerate(ad_ids):
-        ad_candidates = set(
-            candidates_df[candidates_df["ad_id"] == ad_id]["onet_code"].tolist()
-        )
-    
-        filtered = []
-        for j in range(rerank_indices.shape[1]):
-            doc_idx = int(rerank_indices[qi, j])
-            code = all_candidate_codes[doc_idx]
-            if code in ad_candidates:
-                filtered.append({
-                    "ad_id": int(ad_id),
-                    "onet_code": code,
-                    "onet_title": onet_titles[code],
-                    "rerank_score": float(rerank_scores[qi, j]),
-                })
-            if len(filtered) >= rerank_topk:
-                break
-    
-        for rank, row in enumerate(filtered):
-            row["rank"] = rank
-            reranked_rows.append(row)
-    
-    print(f"rerank_candidates: reranking complete")
-    reranked_df = pd.DataFrame(reranked_rows)
     output_path = output_dir / "reranked_matches.parquet"
-    reranked_df.to_parquet(output_path, index=False)
+    writer = pq.ParquetWriter(output_path, reranked_schema)
     
-    print(f"rerank_candidates: wrote {len(reranked_df)} match rows ({n_ads} ads x topk={rerank_topk})")
+    n_chunks = (n_ads + CHUNK_SIZE - 1) // CHUNK_SIZE
+    total_scored = 0
+    
+    for chunk_idx in range(n_chunks):
+        chunk_start = chunk_idx * CHUNK_SIZE
+        chunk_end = min(chunk_start + CHUNK_SIZE, n_ads)
+        chunk_ad_ids = ad_ids[chunk_start:chunk_end]
+    
+        # Load filtered candidates for this chunk
+        id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
+        chunk_matches = matches_conn.execute(
+            f"SELECT ad_id, onet_code, onet_title, cosine_score "
+            f"FROM read_parquet('{filtered_path}') "
+            f"WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+        ).fetchdf()
+    
+        if chunk_matches.empty:
+            print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
+            continue
+    
+        # Group candidates by ad
+        candidates_by_ad = {}
+        for ad_id, group in chunk_matches.groupby("ad_id"):
+            candidates_by_ad[int(ad_id)] = group.to_dict("records")
+    
+        # Build document texts: unique O*NET codes in this chunk
+        chunk_codes = chunk_matches["onet_code"].unique().tolist()
+        doc_texts = [f"{onet_titles_lookup[code]}: {onet_descs[code][:300]}" for code in chunk_codes]
+        code_to_doc_idx = {code: i for i, code in enumerate(chunk_codes)}
+    
+        # Build query texts
+        ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_by_ad]
+        if not ads_with_candidates:
+            continue
+        ads_table = get_ads_by_id(ads_with_candidates, columns=["title", "description"])
+        ads_df = ads_table.to_pandas().set_index("id")
+    
+        query_texts = []
+        for ad_id in ads_with_candidates:
+            row = ads_df.loc[ad_id]
+            query_texts.append(f"{row['title']}. {str(row['description'] or '')[:3000]}")
+    
+        # Call reranker: score queries against this chunk's unique documents
+        rerank_result = await arerank(
+            queries=query_texts,
+            documents=doc_texts,
+            top_k=len(doc_texts),
+            model=rerank_model,
+            time=sbatch_time,
+        )
+        rerank_indices = rerank_result["indices"]
+        rerank_scores = rerank_result["scores"]
+    
+        # Build scored rows: for each ad, look up its candidates' scores
+        chunk_rows = []
+        for qi, ad_id in enumerate(ads_with_candidates):
+            candidates = candidates_by_ad[ad_id]
+            # Build score lookup from reranker output
+            score_by_doc_idx = {}
+            for j in range(rerank_indices.shape[1]):
+                score_by_doc_idx[int(rerank_indices[qi, j])] = float(rerank_scores[qi, j])
+    
+            for rank, c in enumerate(candidates):
+                doc_idx = code_to_doc_idx[c["onet_code"]]
+                chunk_rows.append({
+                    "ad_id": ad_id,
+                    "rank": rank,
+                    "onet_code": c["onet_code"],
+                    "onet_title": c["onet_title"],
+                    "rerank_score": score_by_doc_idx.get(doc_idx, 0.0),
+                })
+    
+        if chunk_rows:
+            writer.write_table(pa.Table.from_pylist(chunk_rows, schema=reranked_schema))
+            total_scored += len(chunk_rows)
+    
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(ads_with_candidates)} ads, "
+              f"{len(chunk_codes)} unique codes, {len(chunk_rows)} scored")
+    
+    writer.close()
+    matches_conn.close()
+    
+    print(f"rerank_candidates: scored {total_scored} candidate rows for {n_ads} ads")
     print(f"  output: {output_path}")
-    if len(reranked_df) > 0:
-        print(f"  score range: {reranked_df['rerank_score'].min():.4f} - {reranked_df['rerank_score'].max():.4f}")
     
     return ad_ids

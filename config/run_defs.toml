@@ -29,11 +29,10 @@ sbatch_time = "04:00:00"
 embed_task_prompt = ""
 
 [defaults.cosine_candidates]
-cosine_topk = 100
+cosine_topk = 20
 
 [defaults.rerank_candidates]
 rerank_model = "qwen3-reranker-8b-sbatch"
-rerank_topk = 10
 sbatch_time = "04:00:00"
 
 [defaults.llm_filter_candidates]

@@ -9,7 +9,7 @@ There are {n_candidates} candidates (1-based).
 - When in doubt, KEEP rather than DROP if functionally plausible.
 
 RANKING NOTE
-Candidates are ranked by a reranker model (rank 1 = highest reranker score). This is a moderate prior but not infallible.
+Candidates are ranked by embedding similarity (rank 1 = highest similarity). This is a weak prior. Do NOT assume rank 1 is correct.
 
 JOB ADVERTISEMENT
 Title: {job_ad_title}

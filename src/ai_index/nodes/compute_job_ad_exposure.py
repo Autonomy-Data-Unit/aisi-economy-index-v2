@@ -16,7 +16,7 @@ def main(ctx, print, ad_ids: list[int], exposure_scores: "pd.DataFrame") -> {
     output_dir.mkdir(parents=True, exist_ok=True)
     score_cols = [c for c in exposure_scores.columns if c != "onet_code"]
     print(f"compute_job_ad_exposure: {len(score_cols)} score columns: {score_cols}")
-    filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
+    filtered_path = const.pipeline_store_path / run_name / "rerank_candidates" / "reranked_matches.parquet"
     conn = duckdb.connect()
     
     n_ads = len(ad_ids)

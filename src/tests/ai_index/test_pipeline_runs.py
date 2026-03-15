@@ -53,7 +53,14 @@ async def test_pipeline_run(run_name):
 
     # Verify filtered matches have the expected columns
     filtered = pd.read_parquet(run_store / "llm_filter_candidates" / "filtered_matches.parquet")
-    assert "rerank_score" in filtered.columns, "filtered_matches missing rerank_score column"
+    assert "cosine_score" in filtered.columns, "filtered_matches missing cosine_score column"
+
+    # Verify dropped matches are saved
+    assert (run_store / "llm_filter_candidates" / "dropped_matches.parquet").exists(), "dropped_matches output missing"
+
+    # Verify reranked matches have scores
+    reranked = pd.read_parquet(run_store / "rerank_candidates" / "reranked_matches.parquet")
+    assert "rerank_score" in reranked.columns, "reranked_matches missing rerank_score column"
     assert "ad_id" in filtered.columns
     assert len(filtered) > 0, "filtered_matches is empty"
 
