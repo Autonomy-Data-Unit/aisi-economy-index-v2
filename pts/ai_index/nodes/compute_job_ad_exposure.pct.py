@@ -113,7 +113,7 @@ for chunk_idx in range(n_chunks):
     # Load filtered matches for this chunk
     id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
     chunk_matches = conn.execute(
-        f"SELECT ad_id, onet_code, combined_score "
+        f"SELECT ad_id, onet_code, rerank_score "
         f"FROM read_parquet('{filtered_path}') "
         f"WHERE ad_id IN ({id_list}) ORDER BY ad_id"
     ).fetchdf()
@@ -129,9 +129,9 @@ for chunk_idx in range(n_chunks):
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no scores)")
         continue
 
-    # Normalize combined_score to per-ad weights
-    weight_sums = merged.groupby("ad_id")["combined_score"].transform("sum")
-    merged["_weight"] = merged["combined_score"] / weight_sums
+    # Normalize rerank_score to per-ad weights
+    weight_sums = merged.groupby("ad_id")["rerank_score"].transform("sum")
+    merged["_weight"] = merged["rerank_score"] / weight_sums
 
     # Multiply score columns by weight, then sum per ad
     for col in score_cols:
