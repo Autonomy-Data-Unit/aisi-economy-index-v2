@@ -32,7 +32,7 @@ code_locations = [
     "nbs_ai_index",
 ]
 exclude_patterns = [
-    "**/*_v1.ipynb"
+    "**/*_v1.ipynb",
 ]
 
 [cl.nbs_ai_index]
