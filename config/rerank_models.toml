@@ -76,7 +76,7 @@ mode = "sbatch"
 model = "nvidia/llama-nemotron-rerank-1b-v2"
 
 # Qwen3 rerankers converted to CrossEncoder format (no vLLM needed)
-[models.qwen3-reranker-0.6b-ce-sbatch]
+[models."qwen3-reranker-0.6b-ce-sbatch"]
 mode = "sbatch"
 model = "tomaarsen/Qwen3-Reranker-0.6B-seq-cls"
 

@@ -29,7 +29,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, pipeline_store_path
+from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, rerank_models_config_path, pipeline_store_path
 from calibration.run_calibration import run_calibration, RESULTS_DIR
 
 # %%
@@ -45,67 +45,100 @@ def _get_sbatch_keys(config_path: Path) -> list[str]:
 
 # %%
 #|export
-def _calibrated_keys(results_dir: Path) -> tuple[set[str], set[str]]:
-    """Return (llm_keys, embed_keys) that already have calibration results."""
+def _calibrated_keys(results_dir: Path) -> tuple[set[str], set[str], set[str]]:
+    """Return (llm_keys, embed_keys, rerank_keys) that already have calibration results."""
     done_llm = set()
     done_embed = set()
+    done_rerank = set()
     if not results_dir.exists():
-        return done_llm, done_embed
+        return done_llm, done_embed, done_rerank
     for path in results_dir.glob("*.json"):
         import json
         with open(path) as f:
             r = json.load(f)
         done_llm.add(r["llm_model"])
         done_embed.add(r["embedding_model"])
-    return done_llm, done_embed
+        if r.get("rerank_model"):
+            done_rerank.add(r["rerank_model"])
+    return done_llm, done_embed, done_rerank
 
 # %%
 #|export
 def plan_runs(
     all_llm: list[str],
     all_embed: list[str],
+    all_rerank: list[str],
     done_llm: set[str],
     done_embed: set[str],
-) -> list[tuple[str, str]]:
-    """Plan (llm_key, embed_key) pairs to cover all uncalibrated models."""
+    done_rerank: set[str],
+) -> list[tuple[str, str, str | None]]:
+    """Plan (llm_key, embed_key, rerank_key) triples to cover all uncalibrated models.
+
+    Pairs uncalibrated LLM, embed, and rerank models together to minimise
+    the number of pipeline runs. Each run calibrates one model from each
+    category. When one category runs out, the remaining models use a
+    fallback (an already-calibrated key or the first key).
+    """
     need_llm = [k for k in all_llm if k not in done_llm]
     need_embed = [k for k in all_embed if k not in done_embed]
+    need_rerank = [k for k in all_rerank if k not in done_rerank]
 
-    pairs = []
+    triples = []
 
+    # Zip all three lists together as far as they go
+    while need_llm and need_embed and need_rerank:
+        triples.append((need_llm.pop(0), need_embed.pop(0), need_rerank.pop(0)))
+
+    # Two lists remaining
     while need_llm and need_embed:
-        pairs.append((need_llm.pop(0), need_embed.pop(0)))
+        triples.append((need_llm.pop(0), need_embed.pop(0), None))
 
+    while need_llm and need_rerank:
+        fallback_embed = next(iter(done_embed), all_embed[0])
+        triples.append((need_llm.pop(0), fallback_embed, need_rerank.pop(0)))
+
+    while need_embed and need_rerank:
+        fallback_llm = next(iter(done_llm), all_llm[0])
+        triples.append((fallback_llm, need_embed.pop(0), need_rerank.pop(0)))
+
+    # One list remaining
     if need_llm:
         fallback_embed = next(iter(done_embed), all_embed[0])
         for llm_key in need_llm:
-            pairs.append((llm_key, fallback_embed))
+            triples.append((llm_key, fallback_embed, None))
 
     if need_embed:
         fallback_llm = next(iter(done_llm), all_llm[0])
         for embed_key in need_embed:
-            pairs.append((fallback_llm, embed_key))
+            triples.append((fallback_llm, embed_key, None))
 
-    return pairs
+    if need_rerank:
+        fallback_llm = next(iter(done_llm), all_llm[0])
+        fallback_embed = next(iter(done_embed), all_embed[0])
+        for rerank_key in need_rerank:
+            triples.append((fallback_llm, fallback_embed, rerank_key))
+
+    return triples
 
 # %%
 #|export
-async def _run_all(pairs: list[tuple[str, str]], *, parallel: bool = True) -> list[tuple[str, str]]:
-    """Run calibration for all pairs. Returns list of failed pairs."""
+async def _run_all(triples: list[tuple[str, str, str | None]], *, parallel: bool = True) -> list[tuple[str, str, str | None]]:
+    """Run calibration for all triples. Returns list of failed triples."""
     failures = []
 
-    async def _run_one(i: int, llm: str, embed: str):
+    async def _run_one(i: int, llm: str, embed: str, rerank: str | None):
         run_name = f"_calibration_{i}" if parallel else "calibration"
+        rerank_label = rerank or "(default)"
         print(f"\n{'=' * 70}")
-        print(f"Run {i}/{len(pairs)}: {llm} + {embed}")
+        print(f"Run {i}/{len(triples)}: {llm} + {embed} + {rerank_label}")
         print(f"{'=' * 70}", flush=True)
         try:
-            await run_calibration(llm, embed, run_name=run_name)
+            await run_calibration(llm, embed, rerank, run_name=run_name)
         except Exception as e:
-            print(f"\nERROR: calibration failed for {llm} + {embed}: {e}")
-            failures.append((llm, embed))
+            print(f"\nERROR: calibration failed for {llm} + {embed} + {rerank_label}: {e}")
+            failures.append((llm, embed, rerank))
 
-    tasks = [_run_one(i, llm, embed) for i, (llm, embed) in enumerate(pairs, 1)]
+    tasks = [_run_one(i, llm, embed, rerank) for i, (llm, embed, rerank) in enumerate(triples, 1)]
     if parallel:
         await asyncio.gather(*tasks)
     else:
@@ -122,41 +155,45 @@ def main():
 
     all_llm = _get_sbatch_keys(llm_models_config_path)
     all_embed = _get_sbatch_keys(embed_models_config_path)
-    done_llm, done_embed = _calibrated_keys(RESULTS_DIR)
+    all_rerank = _get_sbatch_keys(rerank_models_config_path)
+    done_llm, done_embed, done_rerank = _calibrated_keys(RESULTS_DIR)
 
-    print(f"LLM models:   {len(all_llm)} total, {len(done_llm)} calibrated, {len(all_llm) - len(done_llm)} remaining")
-    print(f"Embed models: {len(all_embed)} total, {len(done_embed)} calibrated, {len(all_embed) - len(done_embed)} remaining")
+    print(f"LLM models:    {len(all_llm)} total, {len(done_llm)} calibrated, {len(all_llm) - len(done_llm)} remaining")
+    print(f"Embed models:  {len(all_embed)} total, {len(done_embed)} calibrated, {len(all_embed) - len(done_embed)} remaining")
+    print(f"Rerank models: {len(all_rerank)} total, {len(done_rerank)} calibrated, {len(all_rerank) - len(done_rerank)} remaining")
 
-    pairs = plan_runs(all_llm, all_embed, done_llm, done_embed)
+    triples = plan_runs(all_llm, all_embed, all_rerank, done_llm, done_embed, done_rerank)
 
-    if not pairs:
+    if not triples:
         print("\nAll models already calibrated.")
         return
 
     mode = "sequential" if sequential else "parallel"
-    print(f"\nPlanned runs ({len(pairs)}, {mode}):")
-    for i, (llm, embed) in enumerate(pairs, 1):
-        llm_new = "(new)" if llm not in done_llm else "(done)"
-        embed_new = "(new)" if embed not in done_embed else "(done)"
-        print(f"  {i:>2}. {llm} {llm_new}  +  {embed} {embed_new}")
+    print(f"\nPlanned runs ({len(triples)}, {mode}):")
+    for i, (llm, embed, rerank) in enumerate(triples, 1):
+        llm_tag = "(new)" if llm not in done_llm else "(done)"
+        embed_tag = "(new)" if embed not in done_embed else "(done)"
+        rerank_label = rerank or "(default)"
+        rerank_tag = "(new)" if rerank and rerank not in done_rerank else "(done)" if rerank else ""
+        print(f"  {i:>2}. {llm} {llm_tag}  +  {embed} {embed_tag}  +  {rerank_label} {rerank_tag}")
 
     if dry_run:
         print("\n--dry-run: no calibrations executed.")
         return
 
     print()
-    failures = asyncio.run(_run_all(pairs, parallel=not sequential))
+    failures = asyncio.run(_run_all(triples, parallel=not sequential))
 
     if not sequential:
-        for i in range(1, len(pairs) + 1):
+        for i in range(1, len(triples) + 1):
             tmp_store = pipeline_store_path / f"_calibration_{i}"
             if tmp_store.exists():
                 shutil.rmtree(tmp_store)
 
     if failures:
-        print(f"\n{len(failures)}/{len(pairs)} calibration runs failed:")
-        for llm, embed in failures:
-            print(f"  - {llm} + {embed}")
+        print(f"\n{len(failures)}/{len(triples)} calibration runs failed:")
+        for llm, embed, rerank in failures:
+            print(f"  - {llm} + {embed} + {rerank or '(default)'}")
         sys.exit(1)
 
-    print(f"All {len(pairs)} calibration runs complete.")
+    print(f"All {len(triples)} calibration runs complete.")
