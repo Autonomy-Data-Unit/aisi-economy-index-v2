@@ -127,7 +127,7 @@ db_path = output_dir / "filter_results.duckdb"
 matches_path = const.pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
 
 _matches_conn = duckdb.connect()  # in-memory
-_matches_conn.execute(f"CREATE TABLE candidates AS SELECT * FROM read_parquet('{matches_path}')")
+_matches_conn.execute(f"CREATE VIEW candidates AS SELECT * FROM read_parquet('{matches_path}')")
 _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
 
 print(f"llm_filter: {len(ad_ids)} ads to process")

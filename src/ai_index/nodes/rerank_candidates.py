@@ -28,7 +28,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     onet_titles_lookup = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
     
     matches_conn = duckdb.connect()  # in-memory
-    matches_conn.execute(f"CREATE TABLE filtered AS SELECT * FROM read_parquet('{filtered_path}')")
+    matches_conn.execute(f"CREATE VIEW filtered AS SELECT * FROM read_parquet('{filtered_path}')")
     
     n_ads = len(ad_ids)
     print(f"rerank_candidates: {n_ads} ads")
