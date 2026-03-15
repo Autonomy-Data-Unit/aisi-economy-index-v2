@@ -35,7 +35,14 @@ _RUN_REMOTE_KEYS = {
 }
 
 # Model metadata keys consumed by our pipeline code, not passed to any backend.
-_META_KEYS = {"reasoning"}
+# Includes prompt support fields from embed_models.toml (query_prefix, etc.)
+# which are read by pipeline nodes, not by run_embeddings/run_rerank.
+_META_KEYS = {
+    "reasoning",
+    "query_prefix", "document_prefix",
+    "query_prompt_name", "document_prompt_name",
+    "supports_prompt",
+}
 
 def _strip_remote_kwargs(cfg):
     """Remove run_remote-only keys from cfg in-place (for api/local modes)."""
