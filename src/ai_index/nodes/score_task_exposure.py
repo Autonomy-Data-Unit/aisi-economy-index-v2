@@ -135,9 +135,12 @@ async def main(ctx, print) -> "pd.DataFrame":
         "task_exposure_importance_weighted": (imp_weighted / 2.0).clip(0, 1).values,
     })
     
-    # Ensure all valid codes are present
+    # Ensure all valid codes are present (occupations with no tasks get NaN, not 0.0)
     all_codes = pd.DataFrame({"onet_code": sorted(valid_codes)})
-    scores = all_codes.merge(scores, on="onet_code", how="left").fillna(0.0)
+    scores = all_codes.merge(scores, on="onet_code", how="left")
+    n_missing = int(scores["task_exposure_mean"].isna().sum())
+    if n_missing > 0:
+        print(f"  warning: {n_missing} occupations have no tasks (scores will be NaN)")
     
     print(f"score_task_exposure: {len(scores)} occupations")
     print(f"  task_exposure_mean: mean={scores['task_exposure_mean'].mean():.4f}")
