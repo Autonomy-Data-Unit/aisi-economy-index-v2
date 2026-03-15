@@ -343,17 +343,60 @@ plt.show()
 # %% [markdown]
 # ## 9. Conclusions
 #
-# ### Can the full pipeline run without API dependencies?
+# ### Results
 #
-# Compare the two full pipelines:
-# - **API pipeline**: text-embedding-3-large + Qwen3-Reranker-8B
-# - **OSS pipeline**: Qwen3-Embedding-8B + Qwen3-Reranker-8B (fully on Isambard)
+# | Pipeline | Mean top-1 | Mean best-in-10 | **Top-10 has 4+** | Top-10 has 5 |
+# |----------|-----------|----------------|-------------------|-------------|
+# | API flat (text-emb-3-large) | 3.67 | 4.75 | 95.5% | 81.0% |
+# | **OSS flat (Qwen3-Embed-8B)** | 3.80 | 4.83 | **97.5%** | 85.5% |
+# | API + Qwen3-Reranker-8B | 4.30 | 4.82 | 97.5% | 85.0% |
+# | **OSS + Qwen3-Reranker-8B** | **4.34** | **4.86** | **99.0%** | **87.0%** |
 #
-# If the OSS pipeline matches or exceeds the API pipeline, the entire matching
-# stage can run on Isambard with no API costs for embedding.
+# ### The full open-source pipeline is the best option
 #
-# ### Cost implications at 30M ads
+# Qwen3-Embedding-8B + Qwen3-Reranker-8B achieves the highest recall (99.0%)
+# and highest top-1 quality (4.34) of any configuration tested across all
+# experiments. It outperforms the API embedding on every metric, even without
+# the reranker.
 #
-# - **API embedding**: ~30M x 2K tokens x $0.13/M tokens = ~$7,800
-# - **OSS embedding on Isambard**: GPU-hours only (~0.25 NHR/GPU-hour)
-# - **Reranking**: same cost either way (Qwen3-Reranker-8B on Isambard)
+# ### Qwen3-Embedding-8B beats text-embedding-3-large
+#
+# The open-source embedding model outperforms the API model at every level:
+# - Flat (no reranking): 97.5% vs 95.5% recall
+# - With reranker: 99.0% vs 97.5% recall
+# - OSS flat alone (97.5%) matches API+reranker (97.5%)
+#
+# The bi-encoder top-100 overlap between the two models is only 60.6/100,
+# meaning they find quite different candidates. Qwen3-Embedding-8B's candidates
+# are simply better quality for this task.
+#
+# ### The pipeline can run entirely on Isambard
+#
+# No API dependencies are needed for the matching stage:
+# 1. Qwen3-Embedding-8B (sbatch): embed raw ad text + O\*NET occupations
+# 2. Cosine top-100 (sbatch or local): cheap similarity computation
+# 3. Qwen3-Reranker-8B (sbatch): score top-100 candidates, take top-10
+# 4. LLM filter (sbatch): final selection from top-10
+#
+# ### Cost comparison at 30M ads
+#
+# **Current pipeline** (API embedding + LLM summarise + LLM filter):
+# - API embedding: ~$7,800 (text-embedding-3-large)
+# - LLM summarise: 30M sbatch LLM calls
+# - LLM filter: 30M sbatch LLM calls
+# - Total: $7,800 + 2x LLM GPU cost
+#
+# **Proposed pipeline** (all on Isambard):
+# - Qwen3-Embedding-8B: ~50-100 GPU-hours (single batch job)
+# - Cosine top-100: ~10 GPU-hours
+# - Qwen3-Reranker-8B: needs calibration, but ~200 queries/min on GH200
+# - LLM filter: 30M sbatch LLM calls (same as before)
+# - Total: GPU-hours only, no API cost. Drops LLM summarise entirely.
+#
+# ### Next steps
+#
+# 1. Calibrate GPU-hours for Qwen3-Embedding-8B and Qwen3-Reranker-8B at
+#    30M-ad scale
+# 2. Integrate into the netrun pipeline as new nodes
+# 3. Test with task-specific embedding instructions (Qwen3-Embedding supports
+#    `prompt` parameter for instruction-following, not yet used in this experiment)
