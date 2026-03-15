@@ -696,13 +696,6 @@
         "dependency": false
       },
       {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_4",
-        "target_node": "score_task_exposure",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
         "source_node": "score_presence",
         "source_port": "out",
         "target_node": "join_scores",
