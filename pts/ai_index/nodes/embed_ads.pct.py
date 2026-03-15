@@ -74,6 +74,7 @@ embedding_model = ctx.vars["embedding_model"]
 sbatch_cache = ctx.vars["sbatch_cache"]
 sbatch_time = ctx.vars["sbatch_time"]
 embed_task_prompt = ctx.vars["embed_task_prompt"]
+chunk_size = ctx.vars["chunk_size"]
 duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
 
 output_dir = const.pipeline_store_path / run_name / "embed_ads"
@@ -137,7 +138,7 @@ if n_total > 0:
 
 # %%
 #|export
-CHUNK_SIZE = 5000
+CHUNK_SIZE = chunk_size
 
 db_path = output_dir / "embeddings.duckdb"
 store = ResultStore(db_path, {

@@ -65,6 +65,7 @@ def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker",
         "run_name": "test_run",
         "rerank_model": rerank_model,
         "sbatch_time": "00:10:00",
+        "chunk_size": 500,
     }
 
     async def _default_rerank_pairs(items, *, model, **kwargs):

@@ -14,6 +14,7 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     from ai_index import const
     run_name = ctx.vars["run_name"]
     cosine_topk = ctx.vars["cosine_topk"]
+    chunk_size = ctx.vars["chunk_size"]
     
     output_dir = const.pipeline_store_path / run_name / "cosine_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -42,7 +43,7 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     embed_conn = duckdb.connect(str(embed_db), read_only=True)
     
     n_ads = len(ad_ids)
-    CHUNK_SIZE = 10000
+    CHUNK_SIZE = chunk_size
     n_chunks = (n_ads + CHUNK_SIZE - 1) // CHUNK_SIZE
     print(f"cosine_candidates: {n_ads} ads x {n_onet} occupations, topk={cosine_topk}")
     print(f"  processing in {n_chunks} chunks")

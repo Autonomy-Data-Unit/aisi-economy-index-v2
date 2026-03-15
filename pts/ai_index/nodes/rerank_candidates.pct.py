@@ -70,6 +70,7 @@ from ai_index.utils import arerank_pairs, get_ads_by_id
 run_name = ctx.vars["run_name"]
 rerank_model = ctx.vars["rerank_model"]
 sbatch_time = ctx.vars["sbatch_time"]
+chunk_size = ctx.vars["chunk_size"]
 
 output_dir = const.pipeline_store_path / run_name / "rerank_candidates"
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -102,7 +103,7 @@ print(f"  reading from: {const.rel(filtered_path)}")
 
 # %%
 #|export
-CHUNK_SIZE = 500  # ads per reranker batch
+CHUNK_SIZE = chunk_size
 
 reranked_schema = pa.schema([
     ("ad_id", pa.int64()),

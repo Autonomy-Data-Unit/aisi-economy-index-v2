@@ -83,6 +83,7 @@ def _run_node(tmp_path, ad_ids=None, cosine_topk=3, ad_embeddings=None,
     ctx.vars = {
         "run_name": "test_run",
         "cosine_topk": cosine_topk,
+        "chunk_size": 10000,
     }
 
     with patch("ai_index.const.pipeline_store_path", tmp_path / "pipeline"), \

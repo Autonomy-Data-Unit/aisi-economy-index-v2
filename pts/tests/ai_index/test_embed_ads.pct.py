@@ -73,6 +73,7 @@ def _run_node(tmp_path, ads, embedding_model="text-embedding-3-large",
         "sbatch_cache": False,
         "sbatch_time": "00:10:00",
         "embed_task_prompt": embed_task_prompt,
+        "chunk_size": 5000,
         "duckdb_memory_limit": "256MB",
     }
 

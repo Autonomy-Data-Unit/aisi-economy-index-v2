@@ -513,7 +513,10 @@
               "inherit": true
             },
             "sbatch_time": {},
-            "embed_task_prompt": {}
+            "embed_task_prompt": {},
+            "chunk_size": {
+              "type": "int"
+            }
           },
           "signals": [
             "epoch_finished"
@@ -577,6 +580,9 @@
           "node_vars": {
             "cosine_topk": {
               "type": "int"
+            },
+            "chunk_size": {
+              "type": "int"
             }
           },
           "signals": [
@@ -606,7 +612,10 @@
         "execution_config": {
           "node_vars": {
             "rerank_model": {},
-            "sbatch_time": {}
+            "sbatch_time": {},
+            "chunk_size": {
+              "type": "int"
+            }
           },
           "signals": [
             "epoch_finished"

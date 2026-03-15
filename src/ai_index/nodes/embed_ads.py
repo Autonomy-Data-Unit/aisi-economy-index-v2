@@ -19,6 +19,7 @@ async def main(ctx, print, ad_ids: "np.ndarray") -> {
     sbatch_cache = ctx.vars["sbatch_cache"]
     sbatch_time = ctx.vars["sbatch_time"]
     embed_task_prompt = ctx.vars["embed_task_prompt"]
+    chunk_size = ctx.vars["chunk_size"]
     duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     output_dir = const.pipeline_store_path / run_name / "embed_ads"
@@ -61,7 +62,7 @@ async def main(ctx, print, ad_ids: "np.ndarray") -> {
     if n_total > 0:
         sample = ordered_texts[0][:120]
         print(f"  sample: {sample}...")
-    CHUNK_SIZE = 5000
+    CHUNK_SIZE = chunk_size
     
     db_path = output_dir / "embeddings.duckdb"
     store = ResultStore(db_path, {

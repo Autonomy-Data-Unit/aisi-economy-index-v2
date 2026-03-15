@@ -18,6 +18,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     run_name = ctx.vars["run_name"]
     rerank_model = ctx.vars["rerank_model"]
     sbatch_time = ctx.vars["sbatch_time"]
+    chunk_size = ctx.vars["chunk_size"]
     
     output_dir = const.pipeline_store_path / run_name / "rerank_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -34,7 +35,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     print(f"rerank_candidates: {n_ads} ads")
     print(f"  rerank_model: {rerank_model}")
     print(f"  reading from: {const.rel(filtered_path)}")
-    CHUNK_SIZE = 500  # ads per reranker batch
+    CHUNK_SIZE = chunk_size
     
     reranked_schema = pa.schema([
         ("ad_id", pa.int64()),
