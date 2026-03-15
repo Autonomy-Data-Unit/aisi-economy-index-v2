@@ -69,6 +69,78 @@ def _rerank_cross_encoder(
 
 # %%
 #|export
+def _init_vllm_reranker(model_name, tokenizer, tensor_parallel_size, dtype, vllm_prompt_style, max_model_len):
+    """Initialise vLLM engine and scoring parameters for a reranker model."""
+    from vllm import LLM, SamplingParams
+
+    engine = LLM(
+        model=model_name,
+        tensor_parallel_size=tensor_parallel_size,
+        max_model_len=max_model_len,
+        enable_prefix_caching=True,
+        gpu_memory_utilization=0.9,
+        enforce_eager=True,
+        dtype="half" if dtype == "float16" else dtype,
+    )
+
+    if vllm_prompt_style == "qwen":
+        true_token = tokenizer("yes", add_special_tokens=False).input_ids[0]
+        false_token = tokenizer("no", add_special_tokens=False).input_ids[0]
+        suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+        suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
+        sampling_params = SamplingParams(
+            temperature=0, max_tokens=1, logprobs=20,
+            allowed_token_ids=[true_token, false_token],
+        )
+    elif vllm_prompt_style == "bge-gemma":
+        true_token = tokenizer("Yes", add_special_tokens=False).input_ids[0]
+        false_token = None
+        suffix_tokens = []
+        sampling_params = SamplingParams(
+            temperature=0, max_tokens=1, logprobs=20,
+        )
+    else:
+        raise ValueError(f"Unknown vllm_prompt_style: {vllm_prompt_style!r}")
+
+    return engine, sampling_params, true_token, false_token, suffix_tokens
+
+
+def _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, suffix_tokens, max_model_len):
+    """Build a single tokenised prompt for a (query, doc) pair."""
+    from vllm.inputs.data import TokensPrompt
+
+    if vllm_prompt_style == "qwen":
+        messages = [
+            {"role": "system", "content": "Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\"."},
+            {"role": "user", "content": f"<Instruct>: {instruction}\n\n<Query>: {query}\n\n<Document>: {doc}"},
+        ]
+        token_ids = tokenizer.apply_chat_template(
+            messages, tokenize=True, add_generation_prompt=False, enable_thinking=False
+        )
+        max_prompt_len = max_model_len - len(suffix_tokens)
+        token_ids = token_ids[:max_prompt_len] + suffix_tokens
+    elif vllm_prompt_style == "bge-gemma":
+        text = f"A: {query}\nB: {doc}\n{instruction}"
+        token_ids = [tokenizer.bos_token_id] + tokenizer.encode(text, add_special_tokens=False)
+        token_ids = token_ids[:max_model_len]
+
+    return TokensPrompt(prompt_token_ids=token_ids)
+
+
+def _extract_vllm_score(output, true_token, false_token, vllm_prompt_style):
+    """Extract a relevance score from a vLLM generation output."""
+    logprobs = output.outputs[0].logprobs[-1]
+
+    if vllm_prompt_style == "qwen":
+        true_logit = logprobs[true_token].logprob if true_token in logprobs else -10
+        false_logit = logprobs[false_token].logprob if false_token in logprobs else -10
+        true_score = math.exp(true_logit)
+        false_score = math.exp(false_logit)
+        return true_score / (true_score + false_score)
+    elif vllm_prompt_style == "bge-gemma":
+        return math.exp(logprobs[true_token].logprob) if true_token in logprobs else 0.0
+
+
 def _rerank_vllm(
     queries: list[str],
     documents: list[str],
@@ -80,44 +152,24 @@ def _rerank_vllm(
     batch_size: int,
     instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
     tensor_parallel_size: int = 1,
+    vllm_prompt_style: str = "qwen",
+    max_model_len: int = 8192,
 ) -> dict:
-    """Rerank using a generative reranker via vLLM (e.g. Qwen3-Reranker).
+    """Rerank using a generative reranker via vLLM.
 
-    Scores each (query, document) pair by prompting the model to judge relevance
-    and extracting the probability of 'yes' vs 'no' from logprobs.
+    Supports multiple prompt styles:
+    - "qwen": Qwen3-Reranker (chat template, yes/no logprob ratio)
+    - "bge-gemma": BGE Gemma reranker (raw text A:/B: format, Yes logprob)
     """
     from llm_runner.models import set_model_env
     set_model_env()
-    from vllm import LLM, SamplingParams
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = "left"
 
-    engine = LLM(
-        model=model_name,
-        tensor_parallel_size=tensor_parallel_size,
-        max_model_len=8192,
-        enable_prefix_caching=True,
-        gpu_memory_utilization=0.9,
-        enforce_eager=True,
-        dtype="half" if dtype == "float16" else dtype,
-    )
-
-    # Token IDs for yes/no
-    true_token = tokenizer("yes", add_special_tokens=False).input_ids[0]
-    false_token = tokenizer("no", add_special_tokens=False).input_ids[0]
-
-    # Build suffix (assistant response prefix with empty think block)
-    suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-    suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
-    max_prompt_len = 8192 - len(suffix_tokens)
-
-    sampling_params = SamplingParams(
-        temperature=0,
-        max_tokens=1,
-        logprobs=20,
-        allowed_token_ids=[true_token, false_token],
+    engine, sampling_params, true_token, false_token, suffix_tokens = _init_vllm_reranker(
+        model_name, tokenizer, tensor_parallel_size, dtype, vllm_prompt_style, max_model_len,
     )
 
     n_queries = len(queries)
@@ -128,37 +180,17 @@ def _rerank_vllm(
     all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
 
     for qi in range(n_queries):
-        # Build prompts for this query against all documents
-        messages_batch = []
-        for doc in documents:
-            messages = [
-                {"role": "system", "content": "Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\"."},
-                {"role": "user", "content": f"<Instruct>: {instruction}\n\n<Query>: {queries[qi]}\n\n<Document>: {doc}"},
-            ]
-            messages_batch.append(messages)
+        token_prompts = [
+            _build_vllm_prompt(queries[qi], doc, tokenizer, instruction, vllm_prompt_style, suffix_tokens, max_model_len)
+            for doc in documents
+        ]
 
-        # Tokenize with chat template
-        from vllm.inputs.data import TokensPrompt
-        token_prompts = []
-        for msgs in messages_batch:
-            token_ids = tokenizer.apply_chat_template(
-                msgs, tokenize=True, add_generation_prompt=False, enable_thinking=False
-            )
-            token_ids = token_ids[:max_prompt_len] + suffix_tokens
-            token_prompts.append(TokensPrompt(prompt_token_ids=token_ids))
-
-        # Score in batches
         scores = []
         for i in range(0, len(token_prompts), batch_size):
             batch = token_prompts[i:i + batch_size]
             outputs = engine.generate(batch, sampling_params, use_tqdm=False)
             for output in outputs:
-                logprobs = output.outputs[0].logprobs[-1]
-                true_logit = logprobs[true_token].logprob if true_token in logprobs else -10
-                false_logit = logprobs[false_token].logprob if false_token in logprobs else -10
-                true_score = math.exp(true_logit)
-                false_score = math.exp(false_logit)
-                scores.append(true_score / (true_score + false_score))
+                scores.append(_extract_vllm_score(output, true_token, false_token, vllm_prompt_style))
 
         scores = np.array(scores, dtype=np.float32)
         top_idx = np.argsort(-scores)[:top_k]
@@ -166,7 +198,7 @@ def _rerank_vllm(
         all_scores[qi] = scores[top_idx]
 
         if (qi + 1) % 10 == 0 or qi == n_queries - 1:
-            print(f"  rerank [vllm]: {qi + 1}/{n_queries} queries done")
+            print(f"  rerank [vllm/{vllm_prompt_style}]: {qi + 1}/{n_queries} queries done")
 
     return {"indices": all_indices, "scores": all_scores}
 
@@ -184,6 +216,8 @@ def run_rerank(
     backend: str = "cross-encoder",
     instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
     tensor_parallel_size: int = 1,
+    vllm_prompt_style: str = "qwen",
+    max_model_len: int = 8192,
 ) -> dict:
     """Rerank documents for each query using a cross-encoder or generative reranker.
 
@@ -218,6 +252,7 @@ def run_rerank(
             queries, documents, top_k,
             model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
             instruction=instruction, tensor_parallel_size=tensor_parallel_size,
+            vllm_prompt_style=vllm_prompt_style, max_model_len=max_model_len,
         )
     else:
         raise ValueError(f"Unknown backend: {backend!r}. Use 'cross-encoder' or 'vllm'.")
@@ -276,6 +311,8 @@ def _rerank_pairs_vllm(
     batch_size: int,
     instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
     tensor_parallel_size: int = 1,
+    vllm_prompt_style: str = "qwen",
+    max_model_len: int = 8192,
 ) -> list[list[float]]:
     """Score pre-paired (query, documents) items using vLLM.
 
@@ -284,57 +321,27 @@ def _rerank_pairs_vllm(
     """
     from llm_runner.models import set_model_env
     set_model_env()
-    from vllm import LLM, SamplingParams
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = "left"
 
-    engine = LLM(
-        model=model_name,
-        tensor_parallel_size=tensor_parallel_size,
-        max_model_len=8192,
-        enable_prefix_caching=True,
-        gpu_memory_utilization=0.9,
-        enforce_eager=True,
-        dtype="half" if dtype == "float16" else dtype,
-    )
-
-    # Token IDs for yes/no
-    true_token = tokenizer("yes", add_special_tokens=False).input_ids[0]
-    false_token = tokenizer("no", add_special_tokens=False).input_ids[0]
-
-    # Build suffix (assistant response prefix with empty think block)
-    suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-    suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
-    max_prompt_len = 8192 - len(suffix_tokens)
-
-    sampling_params = SamplingParams(
-        temperature=0,
-        max_tokens=1,
-        logprobs=20,
-        allowed_token_ids=[true_token, false_token],
+    engine, sampling_params, true_token, false_token, suffix_tokens = _init_vllm_reranker(
+        model_name, tokenizer, tensor_parallel_size, dtype, vllm_prompt_style, max_model_len,
     )
 
     # Build all prompts, tracking group boundaries
-    from vllm.inputs.data import TokensPrompt
     all_prompts = []
     boundaries = [0]
     for item in items:
         query, docs = item[0], item[1]
         for doc in docs:
-            messages = [
-                {"role": "system", "content": "Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\"."},
-                {"role": "user", "content": f"<Instruct>: {instruction}\n\n<Query>: {query}\n\n<Document>: {doc}"},
-            ]
-            token_ids = tokenizer.apply_chat_template(
-                messages, tokenize=True, add_generation_prompt=False, enable_thinking=False
+            all_prompts.append(
+                _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, suffix_tokens, max_model_len)
             )
-            token_ids = token_ids[:max_prompt_len] + suffix_tokens
-            all_prompts.append(TokensPrompt(prompt_token_ids=token_ids))
         boundaries.append(len(all_prompts))
 
-    print(f"  rerank_pairs [vllm]: {len(items)} items, {len(all_prompts)} total pairs")
+    print(f"  rerank_pairs [vllm/{vllm_prompt_style}]: {len(items)} items, {len(all_prompts)} total pairs")
 
     # Score all pairs in batches
     all_scores = []
@@ -342,12 +349,7 @@ def _rerank_pairs_vllm(
         batch = all_prompts[i:i + batch_size]
         outputs = engine.generate(batch, sampling_params, use_tqdm=False)
         for output in outputs:
-            logprobs = output.outputs[0].logprobs[-1]
-            true_logit = logprobs[true_token].logprob if true_token in logprobs else -10
-            false_logit = logprobs[false_token].logprob if false_token in logprobs else -10
-            true_score = math.exp(true_logit)
-            false_score = math.exp(false_logit)
-            all_scores.append(true_score / (true_score + false_score))
+            all_scores.append(_extract_vllm_score(output, true_token, false_token, vllm_prompt_style))
 
     # Split back by group
     return [
@@ -367,6 +369,8 @@ def run_rerank_pairs(
     backend: str = "cross-encoder",
     instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
     tensor_parallel_size: int = 1,
+    vllm_prompt_style: str = "qwen",
+    max_model_len: int = 8192,
 ) -> list[list[float]]:
     """Score grouped (query, documents) pairs efficiently in a single batch.
 
@@ -385,6 +389,9 @@ def run_rerank_pairs(
         backend: "cross-encoder" or "vllm".
         instruction: Task instruction for vllm backend.
         tensor_parallel_size: Number of GPUs for vLLM.
+        vllm_prompt_style: "qwen" (chat template, yes/no ratio) or
+                           "bge-gemma" (raw A:/B: text, Yes logprob).
+        max_model_len: Maximum sequence length for vLLM.
 
     Returns:
         list[list[float]]: Scores per item, matching document order in each item.
@@ -397,6 +404,7 @@ def run_rerank_pairs(
         return _rerank_pairs_vllm(
             items, model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
             instruction=instruction, tensor_parallel_size=tensor_parallel_size,
+            vllm_prompt_style=vllm_prompt_style, max_model_len=max_model_len,
         )
     else:
         raise ValueError(f"Unknown backend: {backend!r}. Use 'cross-encoder' or 'vllm'.")

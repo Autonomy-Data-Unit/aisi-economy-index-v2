@@ -92,6 +92,16 @@ model = "tomaarsen/Qwen3-Reranker-8B-seq-cls"
 # Sbatch models (generative, vLLM backend)
 # ----------------------------------------
 
+# BGE Gemma reranker (Gemma-2B base, yes/no logit scoring)
+[models.bge-reranker-v2-gemma-sbatch]
+mode = "sbatch"
+model = "BAAI/bge-reranker-v2-gemma"
+backend = "vllm"
+vllm_prompt_style = "bge-gemma"
+max_model_len = 1024
+batch_size = 128
+instruction = "Given a query A and a passage B, determine whether the passage contains an answer to the query by providing a prediction of either 'Yes' or 'No'."
+
 [models."qwen3-reranker-0.6b-sbatch"]
 mode = "sbatch"
 model = "Qwen/Qwen3-Reranker-0.6B"
