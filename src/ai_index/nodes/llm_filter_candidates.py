@@ -6,14 +6,16 @@ from typing import List
 from pydantic import BaseModel, field_validator
 
 class FilterResponseModel(BaseModel):
-    drop: List[int]
+    keep: List[int]
 
-    @field_validator("drop")
+    @field_validator("keep")
     @classmethod
-    def drop_indices_positive(cls, v):
+    def keep_indices_positive(cls, v):
+        if len(v) < 1:
+            raise ValueError("must keep at least 1 candidate")
         for idx in v:
             if idx < 1:
-                raise ValueError(f"drop indices must be 1-based positive integers, got {idx}")
+                raise ValueError(f"keep indices must be 1-based positive integers, got {idx}")
         return v
 
 async def main(ctx, print, ad_ids: list[int]) -> {
@@ -102,13 +104,9 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         try:
             parsed = FilterResponseModel.model_validate_json(raw)
             # Check indices are in valid range
-            for idx in parsed.drop:
+            for idx in parsed.keep:
                 if idx < 1 or idx > n_candidates:
-                    return f"drop index {idx} out of range [1, {n_candidates}]"
-            # Check at least 1 candidate is kept
-            n_kept = n_candidates - len(set(parsed.drop))
-            if n_kept < 1:
-                return f"would drop all candidates ({n_candidates} dropped, 0 kept)"
+                    return f"keep index {idx} out of range [1, {n_candidates}]"
             return None
         except Exception as e:
             return f"{type(e).__name__}: {e}"
@@ -233,20 +231,12 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             if ad_id not in matches_by_ad:
                 continue
             parsed = json.loads(data_str)
-            drop_set = set(parsed["drop"])  # 1-based indices
+            keep_set = set(parsed["keep"])  # 1-based indices
             candidates = matches_by_ad[ad_id]
     
             rank = 0
             for i, c in enumerate(candidates):
-                if (i + 1) in drop_set:
-                    drop_rows.append({
-                        "ad_id": ad_id,
-                        "onet_code": c["onet_code"],
-                        "onet_title": c["onet_title"],
-                        "cosine_score": float(c["cosine_score"]),
-                        "original_rank": i,
-                    })
-                else:
+                if (i + 1) in keep_set:
                     kept_rows.append({
                         "ad_id": ad_id,
                         "rank": rank,
@@ -255,6 +245,14 @@ async def main(ctx, print, ad_ids: list[int]) -> {
                         "cosine_score": float(c["cosine_score"]),
                     })
                     rank += 1
+                else:
+                    drop_rows.append({
+                        "ad_id": ad_id,
+                        "onet_code": c["onet_code"],
+                        "onet_title": c["onet_title"],
+                        "cosine_score": float(c["cosine_score"]),
+                        "original_rank": i,
+                    })
     
         if kept_rows:
             filtered_writer.write_table(pa.Table.from_pylist(kept_rows, schema=filtered_schema))

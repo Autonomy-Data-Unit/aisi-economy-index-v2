@@ -1,1 +1,1 @@
-You audit occupation matches for job advertisements. You identify which candidate occupations to DROP because they are not functional matches for the job.
+You audit occupation matches for job advertisements. You select which candidate occupations are functional matches for the job.

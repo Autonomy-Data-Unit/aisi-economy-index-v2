@@ -40,30 +40,30 @@ from ai_index.nodes.llm_filter_candidates import FilterResponseModel
 class TestFilterResponseModel:
     """Test the pydantic model for LLM filter responses."""
 
-    def test_valid_drop(self):
-        """Valid drop indices should parse."""
-        resp = FilterResponseModel.model_validate_json('{"drop": [1, 3]}')
-        assert resp.drop == [1, 3]
+    def test_valid_keep(self):
+        """Valid keep indices should parse."""
+        resp = FilterResponseModel.model_validate_json('{"keep": [1, 3]}')
+        assert resp.keep == [1, 3]
 
-    def test_empty_drop(self):
-        """Empty drop list means keep all."""
-        resp = FilterResponseModel.model_validate_json('{"drop": []}')
-        assert resp.drop == []
+    def test_rejects_empty_keep(self):
+        """Empty keep list should fail (must keep at least 1)."""
+        with pytest.raises(Exception):
+            FilterResponseModel.model_validate_json('{"keep": []}')
 
     def test_rejects_zero_index(self):
-        """Drop indices must be 1-based (positive)."""
+        """Keep indices must be 1-based (positive)."""
         with pytest.raises(Exception):
-            FilterResponseModel.model_validate_json('{"drop": [0]}')
+            FilterResponseModel.model_validate_json('{"keep": [0]}')
 
     def test_rejects_negative_index(self):
         """Negative indices should fail."""
         with pytest.raises(Exception):
-            FilterResponseModel.model_validate_json('{"drop": [-1]}')
+            FilterResponseModel.model_validate_json('{"keep": [-1]}')
 
-    def test_rejects_missing_drop(self):
-        """Missing drop field should fail."""
+    def test_rejects_missing_keep(self):
+        """Missing keep field should fail."""
         with pytest.raises(Exception):
-            FilterResponseModel.model_validate_json('{"keep": [1]}')
+            FilterResponseModel.model_validate_json('{"drop": [1]}')
 
 # %% [markdown]
 # ## Helpers for full node tests
@@ -144,8 +144,8 @@ def _run_node(tmp_path, ad_ids=None, llm_responses=None, matches_df=None):
     if ad_ids is None:
         ad_ids = [100, 200]
     if llm_responses is None:
-        # Default: drop candidate 2 for each ad
-        llm_responses = ['{"drop": [2]}'] * len(ad_ids)
+        # Default: keep candidates 1 and 3 for each ad
+        llm_responses = ['{"keep": [1, 3]}'] * len(ad_ids)
 
     _setup_matches(tmp_path, matches_df)
     ctx = _make_ctx(tmp_path)
@@ -178,12 +178,12 @@ def _run_node(tmp_path, ad_ids=None, llm_responses=None, matches_df=None):
 
 # %%
 #|export
-class TestDropLogic:
-    """Test that drop indices correctly filter candidates."""
+class TestKeepLogic:
+    """Test that keep indices correctly filter candidates."""
 
-    def test_drop_one_candidate(self, tmp_path):
-        """Dropping candidate 2 should keep candidates 1 and 3."""
-        result, df = _run_node(tmp_path, llm_responses=['{"drop": [2]}', '{"drop": [2]}'])
+    def test_keep_two_candidates(self, tmp_path):
+        """Keeping candidates 1 and 3 should exclude candidate 2."""
+        result, df = _run_node(tmp_path, llm_responses=['{"keep": [1, 3]}', '{"keep": [1, 3]}'])
 
         ad100 = df[df["ad_id"] == 100]
         kept_codes = ad100["onet_code"].tolist()
@@ -191,24 +191,24 @@ class TestDropLogic:
         assert "15-1252.00" not in kept_codes  # candidate 2 dropped
         assert "29-1141.00" in kept_codes  # candidate 3 kept
 
-    def test_drop_multiple_candidates(self, tmp_path):
-        """Dropping candidates 1 and 3 should keep only candidate 2."""
-        result, df = _run_node(tmp_path, llm_responses=['{"drop": [1, 3]}', '{"drop": [1, 3]}'])
+    def test_keep_one_candidate(self, tmp_path):
+        """Keeping only candidate 2."""
+        result, df = _run_node(tmp_path, llm_responses=['{"keep": [2]}', '{"keep": [2]}'])
 
         ad100 = df[df["ad_id"] == 100]
         assert len(ad100) == 1
         assert ad100.iloc[0]["onet_code"] == "15-1252.00"
 
-    def test_drop_none(self, tmp_path):
-        """Empty drop list should keep all candidates."""
-        result, df = _run_node(tmp_path, llm_responses=['{"drop": []}', '{"drop": []}'])
+    def test_keep_all(self, tmp_path):
+        """Keeping all candidates."""
+        result, df = _run_node(tmp_path, llm_responses=['{"keep": [1, 2, 3]}', '{"keep": [1, 2, 3]}'])
 
         for ad_id in [100, 200]:
             assert len(df[df["ad_id"] == ad_id]) == 3
 
     def test_ranks_are_reassigned(self, tmp_path):
-        """After dropping, ranks should be contiguous starting from 0."""
-        result, df = _run_node(tmp_path, llm_responses=['{"drop": [2]}', '{"drop": [2]}'])
+        """Kept candidates should have contiguous ranks starting from 0."""
+        result, df = _run_node(tmp_path, llm_responses=['{"keep": [1, 3]}', '{"keep": [1, 3]}'])
 
         for ad_id in [100, 200]:
             ranks = df[df["ad_id"] == ad_id].sort_values("rank")["rank"].tolist()
@@ -233,8 +233,8 @@ class TestOutput:
         assert set(df.columns) == {"ad_id", "rank", "onet_code", "onet_title", "cosine_score"}
 
     def test_preserves_cosine_scores(self, tmp_path):
-        """Kept candidates should retain their original rerank scores."""
-        _, df = _run_node(tmp_path, llm_responses=['{"drop": []}', '{"drop": []}'])
+        """Kept candidates should retain their original cosine scores."""
+        _, df = _run_node(tmp_path, llm_responses=['{"keep": [1, 2, 3]}', '{"keep": [1, 2, 3]}'])
 
         ad100 = df[df["ad_id"] == 100].sort_values("rank")
         assert abs(ad100.iloc[0]["cosine_score"] - 0.95) < 1e-5
@@ -264,16 +264,16 @@ class TestErrorHandling:
 
     def test_invalid_json_is_error(self, tmp_path):
         """Invalid JSON should be recorded as error, not crash."""
-        result, df = _run_node(tmp_path, llm_responses=['not json', '{"drop": [2]}'])
+        result, df = _run_node(tmp_path, llm_responses=['not json', '{"keep": [1, 3]}'])
 
         # Ad 100 should fail, ad 200 should succeed
         assert 200 in result
         ad200 = df[df["ad_id"] == 200]
-        assert len(ad200) == 2  # dropped 1 of 3
+        assert len(ad200) == 2  # kept 2 of 3
 
     def test_out_of_range_index_is_error(self, tmp_path):
-        """Drop index > n_candidates should be recorded as error."""
-        result, df = _run_node(tmp_path, llm_responses=['{"drop": [99]}', '{"drop": [1]}'])
+        """Keep index > n_candidates should be recorded as error."""
+        result, df = _run_node(tmp_path, llm_responses=['{"keep": [99]}', '{"keep": [2, 3]}'])
 
         # Ad 100 should fail (index 99 out of range), ad 200 succeeds
         assert 200 in result
