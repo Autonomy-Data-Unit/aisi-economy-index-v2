@@ -15,13 +15,8 @@
 #     uv run calibrate-all [--dry-run] [--sequential]
 #
 # Reads all sbatch models from embed_models.toml and llm_models.toml, checks
-# which already have results in store/calibration/results/{llm,embed}/, and pairs
-# uncalibrated models into the minimum number of pipeline runs. Each run
-# calibrates one LLM model and one embedding model simultaneously.
-#
-# When one model type has more uncalibrated entries than the other, the excess
-# are paired with an already-calibrated model (or the first model of the other
-# type if none are calibrated yet).
+# which already have results in store/calibration/results/, and pairs
+# uncalibrated models into the minimum number of pipeline runs.
 
 # %%
 #|default_exp calibrate_all
@@ -35,10 +30,7 @@ import tomllib
 from pathlib import Path
 
 from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, pipeline_store_path
-from calibration.run_calibration import run_calibration
-
-LLM_RESULTS_DIR = calibration_results_path / "llm"
-EMBED_RESULTS_DIR = calibration_results_path / "embed"
+from calibration.run_calibration import run_calibration, RESULTS_DIR
 
 # %%
 #|export
@@ -53,11 +45,19 @@ def _get_sbatch_keys(config_path: Path) -> list[str]:
 
 # %%
 #|export
-def _calibrated_keys(results_dir: Path) -> set[str]:
-    """Return model keys that already have calibration result files."""
+def _calibrated_keys(results_dir: Path) -> tuple[set[str], set[str]]:
+    """Return (llm_keys, embed_keys) that already have calibration results."""
+    done_llm = set()
+    done_embed = set()
     if not results_dir.exists():
-        return set()
-    return {p.stem for p in results_dir.glob("*.json")}
+        return done_llm, done_embed
+    for path in results_dir.glob("*.json"):
+        import json
+        with open(path) as f:
+            r = json.load(f)
+        done_llm.add(r["llm_model"])
+        done_embed.add(r["embedding_model"])
+    return done_llm, done_embed
 
 # %%
 #|export
@@ -67,27 +67,20 @@ def plan_runs(
     done_llm: set[str],
     done_embed: set[str],
 ) -> list[tuple[str, str]]:
-    """Plan (llm_key, embed_key) pairs to cover all uncalibrated models.
-
-    Pairs uncalibrated LLMs with uncalibrated embeds first, then pairs any
-    remaining with an already-calibrated model from the other type.
-    """
+    """Plan (llm_key, embed_key) pairs to cover all uncalibrated models."""
     need_llm = [k for k in all_llm if k not in done_llm]
     need_embed = [k for k in all_embed if k not in done_embed]
 
     pairs = []
 
-    # Pair uncalibrated LLMs with uncalibrated embeds
     while need_llm and need_embed:
         pairs.append((need_llm.pop(0), need_embed.pop(0)))
 
-    # Remaining uncalibrated LLMs: pair with a calibrated embed (or first embed)
     if need_llm:
         fallback_embed = next(iter(done_embed), all_embed[0])
         for llm_key in need_llm:
             pairs.append((llm_key, fallback_embed))
 
-    # Remaining uncalibrated embeds: pair with a calibrated LLM (or first LLM)
     if need_embed:
         fallback_llm = next(iter(done_llm), all_llm[0])
         for embed_key in need_embed:
@@ -98,11 +91,7 @@ def plan_runs(
 # %%
 #|export
 async def _run_all(pairs: list[tuple[str, str]], *, parallel: bool = True) -> list[tuple[str, str]]:
-    """Run calibration for all pairs in-process. Returns list of failed (llm, embed) pairs.
-
-    Concurrent access to the shared Adzuna DuckDB is serialized by a
-    readers-writer lock in get_adzuna_conn (see adzuna_store.py).
-    """
+    """Run calibration for all pairs. Returns list of failed pairs."""
     failures = []
 
     async def _run_one(i: int, llm: str, embed: str):
@@ -133,16 +122,10 @@ def main():
 
     all_llm = _get_sbatch_keys(llm_models_config_path)
     all_embed = _get_sbatch_keys(embed_models_config_path)
-    done_llm = _calibrated_keys(LLM_RESULTS_DIR)
-    done_embed = _calibrated_keys(EMBED_RESULTS_DIR)
+    done_llm, done_embed = _calibrated_keys(RESULTS_DIR)
 
     print(f"LLM models:   {len(all_llm)} total, {len(done_llm)} calibrated, {len(all_llm) - len(done_llm)} remaining")
     print(f"Embed models: {len(all_embed)} total, {len(done_embed)} calibrated, {len(all_embed) - len(done_embed)} remaining")
-
-    if done_llm:
-        print(f"  LLM done:   {', '.join(sorted(done_llm))}")
-    if done_embed:
-        print(f"  Embed done: {', '.join(sorted(done_embed))}")
 
     pairs = plan_runs(all_llm, all_embed, done_llm, done_embed)
 
@@ -164,7 +147,6 @@ def main():
     print()
     failures = asyncio.run(_run_all(pairs, parallel=not sequential))
 
-    # Clean up temporary pipeline store directories from parallel runs
     if not sequential:
         for i in range(1, len(pairs) + 1):
             tmp_store = pipeline_store_path / f"_calibration_{i}"

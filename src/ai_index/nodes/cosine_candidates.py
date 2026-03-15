@@ -5,6 +5,7 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
 }:
     """Cosine similarity top-N candidates for reranking."""
     import json
+    import time
     
     import duckdb
     import numpy as np
@@ -57,6 +58,7 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     output_path = output_dir / "candidates.parquet"
     writer = pq.ParquetWriter(output_path, candidates_schema)
     total_rows = 0
+    started_at = time.time()
     
     for chunk_idx in range(n_chunks):
         start = chunk_idx * CHUNK_SIZE
@@ -107,7 +109,20 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     
     writer.close()
     embed_conn.close()
+    ended_at = time.time()
     print(f"cosine_candidates: wrote {total_rows} candidate rows ({n_ads} ads x topk={cosine_topk})")
     print(f"  output: {output_path}")
+    
+    cosine_meta = {
+        "n_total": n_ads,
+        "cosine_topk": cosine_topk,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "elapsed_seconds": ended_at - started_at,
+    }
+    meta_path = output_dir / "cosine_meta.json"
+    with open(meta_path, "w") as f:
+        json.dump(cosine_meta, f, indent=2)
+    print(f"  meta: {const.rel(meta_path)}")
     
     return ad_ids

@@ -5,6 +5,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
 }:
     """Score filtered candidates with a reranker to produce exposure weights."""
     import json
+    import time
     
     import duckdb
     import numpy as np
@@ -47,6 +48,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     
     n_chunks = (n_ads + CHUNK_SIZE - 1) // CHUNK_SIZE
     total_scored = 0
+    slurm_jobs = []
+    started_at = time.time()
     
     for chunk_idx in range(n_chunks):
         chunk_start = chunk_idx * CHUNK_SIZE
@@ -88,13 +91,17 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             query_texts.append(f"{row['title']}. {str(row['description'] or '')[:3000]}")
     
         # Call reranker: score queries against this chunk's unique documents
+        _sa = {}
         rerank_result = await arerank(
             queries=query_texts,
             documents=doc_texts,
             top_k=len(doc_texts),
             model=rerank_model,
             time=sbatch_time,
+            slurm_accounting=_sa,
         )
+        if _sa:
+            slurm_jobs.append(_sa)
         rerank_indices = rerank_result["indices"]
         rerank_scores = rerank_result["scores"]
     
@@ -127,7 +134,22 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     writer.close()
     matches_conn.close()
     
+    ended_at = time.time()
     print(f"rerank_candidates: scored {total_scored} candidate rows for {n_ads} ads")
     print(f"  output: {output_path}")
+    
+    rerank_meta = {
+        "n_total": n_ads,
+        "n_scored": total_scored,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "elapsed_seconds": ended_at - started_at,
+        "slurm_jobs": slurm_jobs,
+        "slurm_total_seconds": sum(j.get("elapsed_seconds", 0) for j in slurm_jobs),
+    }
+    meta_path = output_dir / "rerank_meta.json"
+    with open(meta_path, "w") as f:
+        json.dump(rerank_meta, f, indent=2)
+    print(f"  meta: {const.rel(meta_path)}")
     
     return ad_ids
