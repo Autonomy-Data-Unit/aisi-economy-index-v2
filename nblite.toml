@@ -12,7 +12,7 @@ nbs_isambard -> pts_isambard
 nbs_dev -> lib_dev
 nbs_dev -> pts_dev
 
-nbs_examples -> pts_examples
+nbs_scratch -> pts_scratch
 
 nbs_runner -> lib_runner
 nbs_runner -> pts_runner
@@ -25,8 +25,6 @@ nbs_validation -> pts_validation
 
 nbs_deploy -> lib_deploy
 nbs_deploy -> pts_deploy
-
-nbs_experiments -> pts_experiments
 """
 
 [cl.nbs]
@@ -82,12 +80,12 @@ path = "src/dev_utils"
 format = "module"
 
 
-[cl.nbs_examples]
-path = "nbs/examples"
+[cl.nbs_scratch]
+path = "nbs/scratch"
 format = "ipynb"
 
-[cl.pts_examples]
-path = "pts/examples"
+[cl.pts_scratch]
+path = "pts/scratch"
 format = "percent"
 
 
@@ -141,12 +139,3 @@ format = "percent"
 [cl.lib_deploy]
 path = "src/deploy"
 format = "module"
-
-
-[cl.nbs_experiments]
-path = "nbs/experiments"
-format = "ipynb"
-
-[cl.pts_experiments]
-path = "pts/experiments"
-format = "percent"
