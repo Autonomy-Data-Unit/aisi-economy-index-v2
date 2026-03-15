@@ -596,9 +596,7 @@
               "inherit": true
             },
             "sbatch_time": {},
-            "embed_task_prompt": {
-              "type": "str"
-            }
+            "embed_task_prompt": {}
           },
           "signals": [
             "epoch_finished"
@@ -687,9 +685,7 @@
         "description": "Rerank cosine candidates with Qwen3-Reranker on GPU.",
         "execution_config": {
           "node_vars": {
-            "rerank_model": {
-              "type": "str"
-            },
+            "rerank_model": {},
             "rerank_topk": {
               "type": "int"
             },
