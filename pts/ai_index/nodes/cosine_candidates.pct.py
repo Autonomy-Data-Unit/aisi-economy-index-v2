@@ -143,6 +143,13 @@ for chunk_idx in range(n_chunks):
 
     ad_embeds = np.stack([np.frombuffer(r[0], dtype=np.float32) for r in rows])
 
+    if ad_embeds.shape[1] != onet_embeds.shape[1]:
+        raise ValueError(
+            f"Embedding dimension mismatch: ads have {ad_embeds.shape[1]}-dim "
+            f"but O*NET has {onet_embeds.shape[1]}-dim. "
+            f"Check that embed_ads and embed_onet use the same model."
+        )
+
     # Normalize ad embeddings
     ad_norms = np.linalg.norm(ad_embeds, axis=1, keepdims=True)
     ad_norms = np.maximum(ad_norms, 1e-10)

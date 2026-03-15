@@ -20,6 +20,15 @@ def main(ctx, print, ad_ids: list[int], exposure_scores: "pd.DataFrame") -> {
     conn = duckdb.connect()
     conn.execute(f"CREATE VIEW reranked AS SELECT * FROM read_parquet('{filtered_path}')")
     
+    # Validate rerank scores are in [0, 1]
+    score_stats = conn.execute("SELECT MIN(rerank_score), MAX(rerank_score) FROM reranked").fetchone()
+    score_min, score_max = score_stats
+    if score_min < 0.0 or score_max > 1.0:
+        raise ValueError(
+            f"Rerank scores out of [0, 1] range: min={score_min:.4f}, max={score_max:.4f}. "
+            f"Check the reranker output."
+        )
+    
     n_ads = len(ad_ids)
     n_scores = len(score_cols)
     n_chunks = (n_ads + chunk_size - 1) // chunk_size

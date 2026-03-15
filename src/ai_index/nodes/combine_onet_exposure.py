@@ -17,8 +17,24 @@ def main(ctx, print, score_dfs: dict) -> "pd.DataFrame":
         score_cols = [c for c in df.columns if c != "onet_code"]
         print(f"  {name}: {len(df)} rows, columns={score_cols}")
     
+    # Validate all score nodes cover the same occupations
+    onet_sets = {name: set(df["onet_code"]) for name, df in sorted(score_dfs.items())}
+    all_names = list(onet_sets.keys())
+    ref_name = all_names[0]
+    ref_codes = onet_sets[ref_name]
+    for name in all_names[1:]:
+        if onet_sets[name] != ref_codes:
+            missing = ref_codes - onet_sets[name]
+            extra = onet_sets[name] - ref_codes
+            parts = []
+            if missing:
+                parts.append(f"{len(missing)} codes in {ref_name} but not {name}")
+            if extra:
+                parts.append(f"{len(extra)} codes in {name} but not {ref_name}")
+            raise ValueError(f"Occupation set mismatch between score nodes: {'; '.join(parts)}")
+    
     combined = functools.reduce(
-        lambda left, right: left.merge(right, on="onet_code", how="outer"),
+        lambda left, right: left.merge(right, on="onet_code", how="inner"),
         dfs,
     )
     print(f"combine_onet_exposure: {len(combined)} occupations, "
