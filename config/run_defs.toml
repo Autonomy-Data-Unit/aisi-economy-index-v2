@@ -46,8 +46,8 @@ sbatch_time = "08:00:00"
 filter_resume = true
 filter_max_retries = 3
 filter_raise_on_failure = false
-system_prompt = "llm_filter/main/system"
-user_prompt = "llm_filter/main/user"
+system_prompt = "llm_filter/v2/system"
+user_prompt = "llm_filter/v2/user"
 
 [defaults.compute_job_ad_aspectt_vectors]
 aspectt_chunk_size = 50000
