@@ -15,6 +15,7 @@ _OPERATIONS = {
     "llm_generate": "llm_runner.llm:run_llm_generate",
     "cosine_topk": "llm_runner.cosine:run_cosine_topk",
     "rerank": "llm_runner.rerank:run_rerank",
+    "rerank_pairs": "llm_runner.rerank:run_rerank_pairs",
 }
 
 # %% nbs/llm_runner/cli.ipynb 4
@@ -45,7 +46,7 @@ def _run_operation(op_name: str, inputs: dict, config: dict) -> dict:
     from .embed import run_embeddings
     from .llm import run_llm_generate
     from .cosine import run_cosine_topk
-    from .rerank import run_rerank
+    from .rerank import run_rerank, run_rerank_pairs
 
     if op_name == "embed":
         result = run_embeddings(**inputs, **config)
@@ -59,6 +60,9 @@ def _run_operation(op_name: str, inputs: dict, config: dict) -> dict:
     elif op_name == "rerank":
         result = run_rerank(**inputs, **config)
         return result  # Already a dict with "indices" and "scores"
+    elif op_name == "rerank_pairs":
+        result = run_rerank_pairs(**inputs, **config)
+        return {"scores": result}
     else:
         raise ValueError(f"Unknown operation: {op_name!r}")
 
@@ -67,7 +71,7 @@ def main(argv: list[str] | None = None) -> None:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="llm_runner",
-        description="Run inference operations (embed, llm_generate, cosine_topk, rerank)",
+        description="Run inference operations (embed, llm_generate, cosine_topk, rerank, rerank_pairs)",
     )
     parser.add_argument("operation", choices=list(_OPERATIONS.keys()),
                         help="Operation to run")

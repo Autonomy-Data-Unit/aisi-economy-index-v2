@@ -221,3 +221,182 @@ def run_rerank(
         )
     else:
         raise ValueError(f"Unknown backend: {backend!r}. Use 'cross-encoder' or 'vllm'.")
+
+# %%
+#|export
+def _rerank_pairs_cross_encoder(
+    items,
+    *,
+    model_name: str,
+    device: str,
+    dtype: str,
+    batch_size: int,
+) -> list[list[float]]:
+    """Score pre-paired (query, documents) items using a cross-encoder.
+
+    Flattens all pairs into a single batch for efficient scoring, then splits
+    scores back by group boundaries.
+    """
+    from llm_runner.models import load_rerank_model
+
+    model = load_rerank_model(model_name, device=device, dtype=dtype)
+
+    # Flatten all (query, doc) pairs, tracking group boundaries
+    pairs = []
+    boundaries = [0]
+    for item in items:
+        query, docs = item[0], item[1]
+        for doc in docs:
+            pairs.append((query, doc))
+        boundaries.append(len(pairs))
+
+    print(f"  rerank_pairs [cross-encoder]: {len(items)} items, {len(pairs)} total pairs")
+
+    # Score all pairs in batches
+    all_scores = []
+    for i in range(0, len(pairs), batch_size):
+        batch = pairs[i:i + batch_size]
+        batch_scores = model.predict(batch, batch_size=batch_size)
+        all_scores.extend(batch_scores)
+
+    # Split back by group
+    return [
+        [float(s) for s in all_scores[boundaries[i]:boundaries[i + 1]]]
+        for i in range(len(items))
+    ]
+
+# %%
+#|export
+def _rerank_pairs_vllm(
+    items,
+    *,
+    model_name: str,
+    device: str,
+    dtype: str,
+    batch_size: int,
+    instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
+    tensor_parallel_size: int = 1,
+) -> list[list[float]]:
+    """Score pre-paired (query, documents) items using vLLM.
+
+    Flattens all pairs into a single batch for efficient scoring, then splits
+    scores back by group boundaries.
+    """
+    from llm_runner.models import set_model_env
+    set_model_env()
+    from vllm import LLM, SamplingParams
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.padding_side = "left"
+
+    engine = LLM(
+        model=model_name,
+        tensor_parallel_size=tensor_parallel_size,
+        max_model_len=8192,
+        enable_prefix_caching=True,
+        gpu_memory_utilization=0.9,
+        enforce_eager=True,
+        dtype="half" if dtype == "float16" else dtype,
+    )
+
+    # Token IDs for yes/no
+    true_token = tokenizer("yes", add_special_tokens=False).input_ids[0]
+    false_token = tokenizer("no", add_special_tokens=False).input_ids[0]
+
+    # Build suffix (assistant response prefix with empty think block)
+    suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
+    max_prompt_len = 8192 - len(suffix_tokens)
+
+    sampling_params = SamplingParams(
+        temperature=0,
+        max_tokens=1,
+        logprobs=20,
+        allowed_token_ids=[true_token, false_token],
+    )
+
+    # Build all prompts, tracking group boundaries
+    from vllm.inputs.data import TokensPrompt
+    all_prompts = []
+    boundaries = [0]
+    for item in items:
+        query, docs = item[0], item[1]
+        for doc in docs:
+            messages = [
+                {"role": "system", "content": "Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\"."},
+                {"role": "user", "content": f"<Instruct>: {instruction}\n\n<Query>: {query}\n\n<Document>: {doc}"},
+            ]
+            token_ids = tokenizer.apply_chat_template(
+                messages, tokenize=True, add_generation_prompt=False, enable_thinking=False
+            )
+            token_ids = token_ids[:max_prompt_len] + suffix_tokens
+            all_prompts.append(TokensPrompt(prompt_token_ids=token_ids))
+        boundaries.append(len(all_prompts))
+
+    print(f"  rerank_pairs [vllm]: {len(items)} items, {len(all_prompts)} total pairs")
+
+    # Score all pairs in batches
+    all_scores = []
+    for i in range(0, len(all_prompts), batch_size):
+        batch = all_prompts[i:i + batch_size]
+        outputs = engine.generate(batch, sampling_params, use_tqdm=False)
+        for output in outputs:
+            logprobs = output.outputs[0].logprobs[-1]
+            true_logit = logprobs[true_token].logprob if true_token in logprobs else -10
+            false_logit = logprobs[false_token].logprob if false_token in logprobs else -10
+            true_score = math.exp(true_logit)
+            false_score = math.exp(false_logit)
+            all_scores.append(true_score / (true_score + false_score))
+
+    # Split back by group
+    return [
+        all_scores[boundaries[i]:boundaries[i + 1]]
+        for i in range(len(items))
+    ]
+
+# %%
+#|export
+def run_rerank_pairs(
+    items,
+    *,
+    model_name: str = "BAAI/bge-reranker-v2-m3",
+    device: str = "cuda",
+    dtype: str = "float16",
+    batch_size: int = 64,
+    backend: str = "cross-encoder",
+    instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
+    tensor_parallel_size: int = 1,
+) -> list[list[float]]:
+    """Score grouped (query, documents) pairs efficiently in a single batch.
+
+    Unlike run_rerank which computes the full cross-product of queries x documents,
+    this function scores only the specified per-query candidate documents. This avoids
+    redundant pairs and allows batching all items into a single GPU call.
+
+    Args:
+        items: List of (query, documents) pairs. Each element is a tuple/list where
+               item[0] is the query text and item[1] is a list of document texts.
+               JSON-safe (tuples round-trip to lists).
+        model_name: HuggingFace model ID.
+        device: Device ("cuda", "cpu").
+        dtype: Model precision ("float16", "bfloat16", "float32").
+        batch_size: Batch size for scoring pairs.
+        backend: "cross-encoder" or "vllm".
+        instruction: Task instruction for vllm backend.
+        tensor_parallel_size: Number of GPUs for vLLM.
+
+    Returns:
+        list[list[float]]: Scores per item, matching document order in each item.
+    """
+    if backend == "cross-encoder":
+        return _rerank_pairs_cross_encoder(
+            items, model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
+        )
+    elif backend == "vllm":
+        return _rerank_pairs_vllm(
+            items, model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
+            instruction=instruction, tensor_parallel_size=tensor_parallel_size,
+        )
+    else:
+        raise ValueError(f"Unknown backend: {backend!r}. Use 'cross-encoder' or 'vllm'.")

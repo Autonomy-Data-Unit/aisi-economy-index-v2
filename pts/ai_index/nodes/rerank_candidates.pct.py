@@ -63,7 +63,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from ai_index import const
-from ai_index.utils import arerank, get_ads_by_id
+from ai_index.utils import arerank_pairs, get_ads_by_id
 
 # %%
 #|export
@@ -148,41 +148,37 @@ for chunk_idx in range(n_chunks):
     ads_table = get_ads_by_id(ads_with_candidates, columns=["title", "description"])
     ads_df = ads_table.to_pandas().set_index("id")
 
-    # Score per-ad: each ad is scored against only its own candidates.
-    # With ~4 candidates per ad, each arerank call is 1 query x ~4 docs.
-    # We batch all ads' pairs into one arerank call by giving each ad
-    # its own query, and using the ad's candidates as documents. Since
-    # arerank computes queries x documents (cross-product), we call it
-    # once per ad to avoid scoring unrelated pairs.
-    chunk_rows = []
+    # Build (query, documents) items for all ads in the chunk, then score
+    # them in a single arerank_pairs call. This sends one sbatch job per
+    # chunk (~500 ads) instead of one per ad.
+    items = []
     for ad_id in ads_with_candidates:
         candidates = candidates_by_ad[ad_id]
         query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:3000]}"
         doc_texts = [f"{onet_titles_lookup[c['onet_code']]}: {onet_descs[c['onet_code']][:300]}" for c in candidates]
+        items.append((query, doc_texts))
 
-        _sa = {}
-        result = await arerank(
-            queries=[query],
-            documents=doc_texts,
-            top_k=len(doc_texts),
-            model=rerank_model,
-            time=sbatch_time,
-            slurm_accounting=_sa,
-        )
-        if _sa:
-            slurm_jobs.append(_sa)
+    _sa = {}
+    scores_per_ad = await arerank_pairs(
+        items,
+        model=rerank_model,
+        time=sbatch_time,
+        slurm_accounting=_sa,
+    )
+    if _sa:
+        slurm_jobs.append(_sa)
 
-        indices = result["indices"][0]
-        scores = result["scores"][0]
-        score_by_doc_idx = {int(indices[j]): float(scores[j]) for j in range(len(indices))}
-
+    chunk_rows = []
+    for i, ad_id in enumerate(ads_with_candidates):
+        candidates = candidates_by_ad[ad_id]
+        ad_scores = scores_per_ad[i]
         for rank, c in enumerate(candidates):
             chunk_rows.append({
                 "ad_id": ad_id,
                 "rank": rank,
                 "onet_code": c["onet_code"],
                 "onet_title": c["onet_title"],
-                "rerank_score": score_by_doc_idx.get(rank, 0.0),
+                "rerank_score": float(ad_scores[rank]),
             })
 
     if chunk_rows:

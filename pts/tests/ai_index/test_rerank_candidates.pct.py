@@ -71,7 +71,7 @@ def _setup_candidates(tmp_path, candidates_df=None):
 
 
 def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker",
-              fake_rerank_fn=None):
+              fake_rerank_pairs_fn=None):
     """Run rerank_candidates.main with mocks."""
     from ai_index.nodes.rerank_candidates import main
 
@@ -87,21 +87,20 @@ def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker",
         "sbatch_time": "00:10:00",
     }
 
-    async def _default_rerank(queries, documents, top_k, *, model, **kwargs):
-        # Return indices in reverse order (worst cosine first) to verify reranking changes order
-        n_q = len(queries)
-        n_d = len(documents)
-        indices = np.tile(np.arange(n_d - 1, -1, -1), (n_q, 1))
-        scores = np.tile(np.linspace(1.0, 0.0, n_d), (n_q, 1))
-        return {"indices": indices.astype(np.int64), "scores": scores.astype(np.float32)}
+    async def _default_rerank_pairs(items, *, model, **kwargs):
+        # Return descending scores for each item's documents (reverses order vs cosine)
+        return [
+            [float(v) for v in np.linspace(1.0, 0.0, len(item[1]))]
+            for item in items
+        ]
 
-    rerank_fn = fake_rerank_fn or _default_rerank
+    rerank_pairs_fn = fake_rerank_pairs_fn or _default_rerank_pairs
 
     with patch("ai_index.const.pipeline_store_path", tmp_path / "pipeline"), \
          patch("ai_index.const.onet_targets_path", tmp_path / "onet_targets.parquet"), \
          patch("ai_index.const.rel", lambda p: p), \
-         patch("ai_index.utils.rerank.arerank", side_effect=rerank_fn), \
-         patch("ai_index.utils.arerank", side_effect=rerank_fn), \
+         patch("ai_index.utils.rerank.arerank_pairs", side_effect=rerank_pairs_fn), \
+         patch("ai_index.utils.arerank_pairs", side_effect=rerank_pairs_fn), \
          patch("ai_index.utils.adzuna_store.get_ads_by_id", return_value=SAMPLE_ADS_TABLE), \
          patch("ai_index.utils.get_ads_by_id", return_value=SAMPLE_ADS_TABLE):
         ONET_TARGETS.to_parquet(tmp_path / "onet_targets.parquet")
