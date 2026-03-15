@@ -33,7 +33,7 @@
 # %%
 #|set_func_signature
 async def main(ctx, print, ad_ids: "np.ndarray") -> {
-    'ad_ids': list
+    'ad_ids': list[int]
 }:
     """Embed raw job ad text directly."""
     ...

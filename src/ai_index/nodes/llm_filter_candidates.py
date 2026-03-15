@@ -16,8 +16,8 @@ class FilterResponseModel(BaseModel):
                 raise ValueError(f"drop indices must be 1-based positive integers, got {idx}")
         return v
 
-async def main(ctx, print, ad_ids: list) -> {
-    'successful_ad_ids': list
+async def main(ctx, print, ad_ids: list[int]) -> {
+    'successful_ad_ids': list[int]
 }:
     """Run LLM negative selection to filter reranked candidates."""
     import duckdb

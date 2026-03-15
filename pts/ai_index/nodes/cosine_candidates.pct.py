@@ -27,8 +27,8 @@
 
 # %%
 #|set_func_signature
-async def main(ctx, print, ad_ids: list, onet_done: bool) -> {
-    'ad_ids': list
+async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
+    'ad_ids': list[int]
 }:
     """Cosine similarity top-N candidates for reranking."""
     ...
