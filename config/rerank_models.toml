@@ -67,9 +67,16 @@ model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 mode = "sbatch"
 model = "Alibaba-NLP/gte-reranker-modernbert-base"
 
+# Gemma2 9B base, same yes/no scoring as v2-gemma but larger and with layer compression.
+# Note: FlagEmbedding's cutoff_layers/compress_ratio features are not supported in
+# our vLLM backend -- this runs the full model without compression.
 [models.bge-reranker-v2-gemma2-sbatch]
 mode = "sbatch"
 model = "BAAI/bge-reranker-v2.5-gemma2-lightweight"
+backend = "vllm"
+vllm_prompt_style = "bge-gemma"
+max_model_len = 1024
+batch_size = 32
 
 [models.nemotron-rerank-1b-sbatch]
 mode = "sbatch"
