@@ -141,11 +141,6 @@ for chunk_idx in range(n_chunks):
     for ad_id, group in chunk_matches.groupby("ad_id"):
         candidates_by_ad[int(ad_id)] = group.to_dict("records")
 
-    # Build document texts: unique O*NET codes in this chunk
-    chunk_codes = chunk_matches["onet_code"].unique().tolist()
-    doc_texts = [f"{onet_titles_lookup[code]}: {onet_descs[code][:300]}" for code in chunk_codes]
-    code_to_doc_idx = {code: i for i, code in enumerate(chunk_codes)}
-
     # Build query texts
     ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_by_ad]
     if not ads_with_candidates:
@@ -153,51 +148,48 @@ for chunk_idx in range(n_chunks):
     ads_table = get_ads_by_id(ads_with_candidates, columns=["title", "description"])
     ads_df = ads_table.to_pandas().set_index("id")
 
-    query_texts = []
-    for ad_id in ads_with_candidates:
-        row = ads_df.loc[ad_id]
-        query_texts.append(f"{row['title']}. {str(row['description'] or '')[:3000]}")
-
-    # Call reranker: score queries against this chunk's unique documents
-    _sa = {}
-    rerank_result = await arerank(
-        queries=query_texts,
-        documents=doc_texts,
-        top_k=len(doc_texts),
-        model=rerank_model,
-        time=sbatch_time,
-        slurm_accounting=_sa,
-    )
-    if _sa:
-        slurm_jobs.append(_sa)
-    rerank_indices = rerank_result["indices"]
-    rerank_scores = rerank_result["scores"]
-
-    # Build scored rows: for each ad, look up its candidates' scores
+    # Score per-ad: each ad is scored against only its own candidates.
+    # With ~4 candidates per ad, each arerank call is 1 query x ~4 docs.
+    # We batch all ads' pairs into one arerank call by giving each ad
+    # its own query, and using the ad's candidates as documents. Since
+    # arerank computes queries x documents (cross-product), we call it
+    # once per ad to avoid scoring unrelated pairs.
     chunk_rows = []
-    for qi, ad_id in enumerate(ads_with_candidates):
+    for ad_id in ads_with_candidates:
         candidates = candidates_by_ad[ad_id]
-        # Build score lookup from reranker output
-        score_by_doc_idx = {}
-        for j in range(rerank_indices.shape[1]):
-            score_by_doc_idx[int(rerank_indices[qi, j])] = float(rerank_scores[qi, j])
+        query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:3000]}"
+        doc_texts = [f"{onet_titles_lookup[c['onet_code']]}: {onet_descs[c['onet_code']][:300]}" for c in candidates]
+
+        _sa = {}
+        result = await arerank(
+            queries=[query],
+            documents=doc_texts,
+            top_k=len(doc_texts),
+            model=rerank_model,
+            time=sbatch_time,
+            slurm_accounting=_sa,
+        )
+        if _sa:
+            slurm_jobs.append(_sa)
+
+        indices = result["indices"][0]
+        scores = result["scores"][0]
+        score_by_doc_idx = {int(indices[j]): float(scores[j]) for j in range(len(indices))}
 
         for rank, c in enumerate(candidates):
-            doc_idx = code_to_doc_idx[c["onet_code"]]
             chunk_rows.append({
                 "ad_id": ad_id,
                 "rank": rank,
                 "onet_code": c["onet_code"],
                 "onet_title": c["onet_title"],
-                "rerank_score": score_by_doc_idx.get(doc_idx, 0.0),
+                "rerank_score": score_by_doc_idx.get(rank, 0.0),
             })
 
     if chunk_rows:
         writer.write_table(pa.Table.from_pylist(chunk_rows, schema=reranked_schema))
         total_scored += len(chunk_rows)
 
-    print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(ads_with_candidates)} ads, "
-          f"{len(chunk_codes)} unique codes, {len(chunk_rows)} scored")
+    print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(ads_with_candidates)} ads, {len(chunk_rows)} scored")
 
 writer.close()
 matches_conn.close()
