@@ -27,43 +27,60 @@ from ..utils._model_config import _resolve_model_args, _split_remote_kwargs
 def _rerank_api(queries, documents, top_k, model_name):
     """Rerank using a hosted API (e.g. Voyage, Cohere) via litellm."""
     import litellm
+    import time
 
     n_queries = len(queries)
     all_indices = np.zeros((n_queries, top_k), dtype=np.int64)
     all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
 
     for qi in range(n_queries):
-        result = litellm.rerank(
-            model=model_name, query=queries[qi],
-            documents=documents, top_n=top_k,
-        )
-        for rank, r in enumerate(result.results[:top_k]):
-            all_indices[qi, rank] = r["index"]
-            all_scores[qi, rank] = r["relevance_score"]
+        for attempt in range(5):
+            try:
+                result = litellm.rerank(
+                    model=model_name, query=queries[qi],
+                    documents=documents, top_n=top_k,
+                )
+                for rank, r in enumerate(result.results[:top_k]):
+                    all_indices[qi, rank] = r["index"]
+                    all_scores[qi, rank] = r["relevance_score"]
+                break
+            except Exception as e:
+                if "429" in str(e) or "rate" in str(e).lower():
+                    wait = 15 * (attempt + 1)
+                    time.sleep(wait)
+                else:
+                    raise
 
     return {"indices": all_indices, "scores": all_scores}
 
 
 async def _arerank_api(queries, documents, top_k, model_name):
-    """Async API reranking, one query at a time with concurrency."""
+    """Async API reranking, one query at a time with rate limit pacing."""
     import litellm
+    import time
 
     n_queries = len(queries)
     all_indices = np.zeros((n_queries, top_k), dtype=np.int64)
     all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
 
-    sem = asyncio.Semaphore(5)
-    async def _one(qi):
-        async with sem:
-            result = await litellm.arerank(
-                model=model_name, query=queries[qi],
-                documents=documents, top_n=top_k,
-            )
-            for rank, r in enumerate(result.results[:top_k]):
-                all_indices[qi, rank] = r["index"]
-                all_scores[qi, rank] = r["relevance_score"]
+    for qi in range(n_queries):
+        for attempt in range(5):
+            try:
+                result = await litellm.arerank(
+                    model=model_name, query=queries[qi],
+                    documents=documents, top_n=top_k,
+                )
+                for rank, r in enumerate(result.results[:top_k]):
+                    all_indices[qi, rank] = r["index"]
+                    all_scores[qi, rank] = r["relevance_score"]
+                break
+            except Exception as e:
+                if "429" in str(e) or "rate" in str(e).lower():
+                    wait = 15 * (attempt + 1)
+                    await asyncio.sleep(wait)
+                else:
+                    raise
 
-    await asyncio.gather(*[_one(qi) for qi in range(n_queries)])
     return {"indices": all_indices, "scores": all_scores}
 
 

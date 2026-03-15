@@ -1,0 +1,84 @@
+# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# %% [markdown]
+# # Tests: end-to-end pipeline runs
+#
+# Runs each `test_*` run definition from `run_defs.toml` through the full
+# pipeline and verifies the outputs exist.
+
+# %%
+#|default_exp ai_index.test_pipeline_runs
+
+# %%
+#|export
+import shutil
+import tomllib
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from ai_index.const import run_defs_path, pipeline_store_path, outputs_path
+from ai_index.run_pipeline import run_pipeline_async, _load_run_defs
+
+# %%
+#|export
+def _discover_test_runs():
+    """Find all run names starting with 'test_' in run_defs.toml."""
+    run_defs = _load_run_defs(run_defs_path)
+    return sorted(k for k in run_defs["runs"] if k.startswith("test_"))
+
+
+def _clean_run(run_name):
+    """Remove pipeline store and outputs for a run to ensure a fresh start."""
+    run_store = pipeline_store_path / run_name
+    run_outputs = outputs_path / run_name
+    if run_store.exists():
+        shutil.rmtree(run_store)
+    if run_outputs.exists():
+        shutil.rmtree(run_outputs)
+
+# %%
+#|export
+@pytest.mark.parametrize("run_name", _discover_test_runs())
+@pytest.mark.asyncio
+async def test_pipeline_run(run_name):
+    """Run the full pipeline for a test_* run definition and verify outputs."""
+    _clean_run(run_name)
+
+    await run_pipeline_async(run_name)
+
+    run_store = pipeline_store_path / run_name
+
+    # Verify matching pipeline outputs
+    assert (run_store / "embed_ads" / "embeddings.duckdb").exists(), "embed_ads output missing"
+    assert (run_store / "embed_onet" / "onet_embeddings.npy").exists(), "embed_onet output missing"
+    assert (run_store / "embed_onet" / "onet_codes.json").exists(), "embed_onet codes missing"
+    assert (run_store / "cosine_candidates" / "candidates.parquet").exists(), "cosine_candidates output missing"
+    assert (run_store / "rerank_candidates" / "reranked_matches.parquet").exists(), "rerank_candidates output missing"
+    assert (run_store / "llm_filter_candidates" / "filtered_matches.parquet").exists(), "llm_filter output missing"
+
+    # Verify downstream outputs
+    assert (run_store / "compute_job_ad_exposure" / "ad_exposure.parquet").exists(), "ad_exposure output missing"
+
+    # Verify filtered matches have the expected columns
+    filtered = pd.read_parquet(run_store / "llm_filter_candidates" / "filtered_matches.parquet")
+    assert "rerank_score" in filtered.columns, "filtered_matches missing rerank_score column"
+    assert "ad_id" in filtered.columns
+    assert len(filtered) > 0, "filtered_matches is empty"
+
+    # Verify ad exposure has scores
+    exposure = pd.read_parquet(run_store / "compute_job_ad_exposure" / "ad_exposure.parquet")
+    assert "ad_id" in exposure.columns
+    assert len(exposure) > 0, "ad_exposure is empty"
+
+    # Verify geo aggregation ran (outputs go to store/outputs/{run_name}/)
+    run_outputs = outputs_path / run_name
+    geo_path = run_outputs / "geo_lad.csv"
+    assert geo_path.exists(), "geo_lad.csv output missing"
