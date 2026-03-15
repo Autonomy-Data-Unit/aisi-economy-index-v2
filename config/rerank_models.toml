@@ -1,7 +1,10 @@
-# Reranking (cross-encoder) model configurations
+# Reranking model configurations
 #
-# Each model entry has a `mode` (local/sbatch) and model-specific params.
-# Resolution follows the same pattern as embed_models.toml / llm_models.toml.
+# Two backends supported:
+# - cross-encoder: Classic cross-encoder via sentence-transformers CrossEncoder
+# - vllm: Generative reranker via vLLM (e.g. Qwen3-Reranker)
+#
+# For vllm backend, set backend = "vllm" and optionally instruction/tensor_parallel_size.
 
 # Defaults
 
@@ -9,6 +12,7 @@
 device = "cuda"
 dtype = "float16"
 batch_size = 64
+backend = "cross-encoder"
 
 [defaults.sbatch]
 device = "cuda"
@@ -17,8 +21,11 @@ batch_size = 64
 gpus = 1
 job_name = "rerank"
 setup = true
+backend = "cross-encoder"
 
-# Models
+# ----------------------------------------
+# Cross-encoder models (sentence-transformers)
+# ----------------------------------------
 
 [models.bge-reranker-v2-m3-local]
 mode = "local"
@@ -31,3 +38,36 @@ model = "BAAI/bge-reranker-v2-m3"
 [models.ms-marco-minilm-sbatch]
 mode = "sbatch"
 model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
+
+[models.gte-reranker-modernbert-sbatch]
+mode = "sbatch"
+model = "Alibaba-NLP/gte-reranker-modernbert-base"
+
+[models.bge-reranker-v2-gemma2-sbatch]
+mode = "sbatch"
+model = "BAAI/bge-reranker-v2.5-gemma2-lightweight"
+
+# ----------------------------------------
+# Generative rerankers (vLLM backend)
+# ----------------------------------------
+
+[models."qwen3-reranker-0.6b-sbatch"]
+mode = "sbatch"
+model = "Qwen/Qwen3-Reranker-0.6B"
+backend = "vllm"
+batch_size = 128
+instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"
+
+[models.qwen3-reranker-4b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-Reranker-4B"
+backend = "vllm"
+batch_size = 64
+instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"
+
+[models.qwen3-reranker-8b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-Reranker-8B"
+backend = "vllm"
+batch_size = 32
+instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"

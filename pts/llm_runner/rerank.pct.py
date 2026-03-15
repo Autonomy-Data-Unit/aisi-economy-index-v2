@@ -11,62 +11,46 @@
 #
 # Run cross-encoder reranking: given queries and candidate documents, score
 # each (query, document) pair and return top-K indices and scores per query.
+#
+# Supports two backends:
+# - `cross-encoder`: Classic cross-encoder via sentence-transformers CrossEncoder
+# - `vllm`: Generative reranker via vLLM (e.g. Qwen3-Reranker). Scores pairs by
+#   extracting yes/no logprobs from the model's output.
 
 # %%
 #|default_exp rerank
 
 # %%
 #|export
-import numpy as np
+import math
 
-from llm_runner.models import load_rerank_model
+import numpy as np
 
 # %%
 #|export
-def run_rerank(
+def _rerank_cross_encoder(
     queries: list[str],
     documents: list[str],
-    top_k: int = 10,
+    top_k: int,
     *,
-    model_name: str = "BAAI/bge-reranker-v2-m3",
-    device: str = "cuda",
-    dtype: str = "float16",
-    batch_size: int = 64,
+    model_name: str,
+    device: str,
+    dtype: str,
+    batch_size: int,
 ) -> dict:
-    """Rerank documents for each query using a cross-encoder model.
+    """Rerank using a classic cross-encoder (sentence-transformers)."""
+    from llm_runner.models import load_rerank_model
 
-    Each query is scored against all documents. Returns the top-K document
-    indices and scores per query, sorted by descending score.
-
-    Args:
-        queries: List of query texts (e.g. job ad texts).
-        documents: List of document texts (e.g. O*NET occupation descriptions).
-        top_k: Number of top documents to return per query.
-        model_name: HuggingFace cross-encoder model ID.
-        device: Device ("cuda", "cpu").
-        dtype: Model precision ("float16", "bfloat16", "float32").
-        batch_size: Batch size for scoring pairs.
-
-    Returns:
-        Dict with:
-        - "indices": np.ndarray of shape (n_queries, top_k), int64
-        - "scores": np.ndarray of shape (n_queries, top_k), float32
-    """
     model = load_rerank_model(model_name, device=device, dtype=dtype)
-
     n_queries = len(queries)
     n_docs = len(documents)
     top_k = min(top_k, n_docs)
 
-    # Build all (query, document) pairs
-    # Process one query at a time to keep memory bounded
     all_indices = np.zeros((n_queries, top_k), dtype=np.int64)
     all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
 
     for qi in range(n_queries):
         pairs = [(queries[qi], doc) for doc in documents]
-
-        # Score in batches
         scores = []
         for i in range(0, len(pairs), batch_size):
             batch = pairs[i:i + batch_size]
@@ -79,6 +63,161 @@ def run_rerank(
         all_scores[qi] = scores[top_idx]
 
         if (qi + 1) % 100 == 0 or qi == n_queries - 1:
-            print(f"  rerank: {qi + 1}/{n_queries} queries done")
+            print(f"  rerank [cross-encoder]: {qi + 1}/{n_queries} queries done")
 
     return {"indices": all_indices, "scores": all_scores}
+
+# %%
+#|export
+def _rerank_vllm(
+    queries: list[str],
+    documents: list[str],
+    top_k: int,
+    *,
+    model_name: str,
+    device: str,
+    dtype: str,
+    batch_size: int,
+    instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
+    tensor_parallel_size: int = 1,
+) -> dict:
+    """Rerank using a generative reranker via vLLM (e.g. Qwen3-Reranker).
+
+    Scores each (query, document) pair by prompting the model to judge relevance
+    and extracting the probability of 'yes' vs 'no' from logprobs.
+    """
+    from llm_runner.models import set_model_env
+    set_model_env()
+    from vllm import LLM, SamplingParams
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.padding_side = "left"
+
+    engine = LLM(
+        model=model_name,
+        tensor_parallel_size=tensor_parallel_size,
+        max_model_len=8192,
+        enable_prefix_caching=True,
+        gpu_memory_utilization=0.9,
+        enforce_eager=True,
+        dtype="half" if dtype == "float16" else dtype,
+    )
+
+    # Token IDs for yes/no
+    true_token = tokenizer("yes", add_special_tokens=False).input_ids[0]
+    false_token = tokenizer("no", add_special_tokens=False).input_ids[0]
+
+    # Build suffix (assistant response prefix with empty think block)
+    suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+    suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
+    max_prompt_len = 8192 - len(suffix_tokens)
+
+    sampling_params = SamplingParams(
+        temperature=0,
+        max_tokens=1,
+        logprobs=20,
+        allowed_token_ids=[true_token, false_token],
+    )
+
+    n_queries = len(queries)
+    n_docs = len(documents)
+    top_k = min(top_k, n_docs)
+
+    all_indices = np.zeros((n_queries, top_k), dtype=np.int64)
+    all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
+
+    for qi in range(n_queries):
+        # Build prompts for this query against all documents
+        messages_batch = []
+        for doc in documents:
+            messages = [
+                {"role": "system", "content": "Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\"."},
+                {"role": "user", "content": f"<Instruct>: {instruction}\n\n<Query>: {queries[qi]}\n\n<Document>: {doc}"},
+            ]
+            messages_batch.append(messages)
+
+        # Tokenize with chat template
+        from vllm.inputs.data import TokensPrompt
+        token_prompts = []
+        for msgs in messages_batch:
+            token_ids = tokenizer.apply_chat_template(
+                msgs, tokenize=True, add_generation_prompt=False, enable_thinking=False
+            )
+            token_ids = token_ids[:max_prompt_len] + suffix_tokens
+            token_prompts.append(TokensPrompt(prompt_token_ids=token_ids))
+
+        # Score in batches
+        scores = []
+        for i in range(0, len(token_prompts), batch_size):
+            batch = token_prompts[i:i + batch_size]
+            outputs = engine.generate(batch, sampling_params, use_tqdm=False)
+            for output in outputs:
+                logprobs = output.outputs[0].logprobs[-1]
+                true_logit = logprobs[true_token].logprob if true_token in logprobs else -10
+                false_logit = logprobs[false_token].logprob if false_token in logprobs else -10
+                true_score = math.exp(true_logit)
+                false_score = math.exp(false_logit)
+                scores.append(true_score / (true_score + false_score))
+
+        scores = np.array(scores, dtype=np.float32)
+        top_idx = np.argsort(-scores)[:top_k]
+        all_indices[qi] = top_idx
+        all_scores[qi] = scores[top_idx]
+
+        if (qi + 1) % 10 == 0 or qi == n_queries - 1:
+            print(f"  rerank [vllm]: {qi + 1}/{n_queries} queries done")
+
+    return {"indices": all_indices, "scores": all_scores}
+
+# %%
+#|export
+def run_rerank(
+    queries: list[str],
+    documents: list[str],
+    top_k: int = 10,
+    *,
+    model_name: str = "BAAI/bge-reranker-v2-m3",
+    device: str = "cuda",
+    dtype: str = "float16",
+    batch_size: int = 64,
+    backend: str = "cross-encoder",
+    instruction: str = "Given a web search query, retrieve relevant passages that answer the query",
+    tensor_parallel_size: int = 1,
+) -> dict:
+    """Rerank documents for each query using a cross-encoder or generative reranker.
+
+    Each query is scored against all documents. Returns the top-K document
+    indices and scores per query, sorted by descending score.
+
+    Args:
+        queries: List of query texts (e.g. job ad texts).
+        documents: List of document texts (e.g. O*NET occupation descriptions).
+        top_k: Number of top documents to return per query.
+        model_name: HuggingFace model ID.
+        device: Device ("cuda", "cpu").
+        dtype: Model precision ("float16", "bfloat16", "float32").
+        batch_size: Batch size for scoring pairs.
+        backend: "cross-encoder" for sentence-transformers CrossEncoder,
+                 "vllm" for generative reranker (e.g. Qwen3-Reranker).
+        instruction: Task instruction for generative rerankers (vllm backend only).
+        tensor_parallel_size: Number of GPUs for vLLM (vllm backend only).
+
+    Returns:
+        Dict with:
+        - "indices": np.ndarray of shape (n_queries, top_k), int64
+        - "scores": np.ndarray of shape (n_queries, top_k), float32
+    """
+    if backend == "cross-encoder":
+        return _rerank_cross_encoder(
+            queries, documents, top_k,
+            model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
+        )
+    elif backend == "vllm":
+        return _rerank_vllm(
+            queries, documents, top_k,
+            model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
+            instruction=instruction, tensor_parallel_size=tensor_parallel_size,
+        )
+    else:
+        raise ValueError(f"Unknown backend: {backend!r}. Use 'cross-encoder' or 'vllm'.")
