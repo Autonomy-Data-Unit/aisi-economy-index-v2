@@ -639,8 +639,8 @@
           "source_path": "src/ai_index/nodes/embed_onet.py",
           "ui": {
             "position": {
-              "x": 540,
-              "y": 360
+              "x": 560,
+              "y": 320
             },
             "headerColor": "#0084ff"
           }

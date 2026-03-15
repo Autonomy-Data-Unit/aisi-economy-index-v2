@@ -2294,7 +2294,7 @@ wheels = [
 
 [[package]]
 name = "nblite"
-version = "1.2.0"
+version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
@@ -2306,9 +2306,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/80/bb4374bfd98c9a8f4071ff415eae07c48fb57d686e74bf9835cd57196ff9/nblite-1.2.0.tar.gz", hash = "sha256:71514c9eea2737f5397def1a64663a3363477176eb8d512390fe096d1a7e673f", size = 324937, upload-time = "2026-02-20T11:41:03.101Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/a5/e7a91b57e1dc17d0e546e95500388b957320588a563c20c053eb593b3353/nblite-1.2.1.tar.gz", hash = "sha256:0f5b129d93069f0f7502ddcc1f8d960af78eefb9d097b1b85bad088ec1618cbb", size = 325768, upload-time = "2026-03-15T10:50:07.001Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/69/e7496d03514ecbe0b0ed176179e02453364b379aa1aca818a423890a1f7f/nblite-1.2.0-py3-none-any.whl", hash = "sha256:50509ca9d07a78cc356029565ac24150232b7b71530ca2efbef220f6f9f3521a", size = 104733, upload-time = "2026-02-20T11:41:01.371Z" },
+    { url = "https://files.pythonhosted.org/packages/27/4d/471d79351bab69bf96f12d3b689d430342857138bb45fb82cb08a19125d1/nblite-1.2.1-py3-none-any.whl", hash = "sha256:04083f525229f8d8445c08dc192286491ec63e730806c84faf226b9d33b35ca0", size = 105264, upload-time = "2026-03-15T10:50:05.235Z" },
 ]
 
 [[package]]
