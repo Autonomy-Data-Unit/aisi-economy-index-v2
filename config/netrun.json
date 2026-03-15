@@ -208,177 +208,8 @@
         "type": "node"
       },
       {
-        "name": "llm_summarise",
-        "description": "Run LLM to extract structured summaries from job ads.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {},
-            "temperature": {
-              "inherit": true
-            },
-            "top_p": {
-              "inherit": true
-            },
-            "top_k": {
-              "inherit": true
-            },
-            "summarise_resume": {
-              "type": "bool"
-            },
-            "summarise_max_retries": {
-              "type": "int"
-            },
-            "summarise_raise_on_failure": {
-              "type": "bool"
-            },
-            "system_prompt": {},
-            "user_prompt": {}
-          }
-        },
-        "extra": {
-          "source_path": "src/ai_index/nodes/llm_summarise.py",
-          "ui": {
-            "position": {
-              "x": 540,
-              "y": 80
-            },
-            "descriptionExpanded": true,
-            "dimensions": {
-              "width": 320,
-              "height": 140
-            },
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.llm_summarise.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "embed_ads",
-        "description": "Build text descriptions from LLM summaries and embed them.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {},
-            "embed_chunk_size": {
-              "type": "int"
-            }
-          },
-          "signals": [
-            "epoch_finished"
-          ]
-        },
-        "extra": {
-          "source_path": "src/ai_index/nodes/embed_ads.py",
-          "ui": {
-            "position": {
-              "x": 940,
-              "y": 120
-            },
-            "descriptionExpanded": true,
-            "dimensions": {
-              "width": 325,
-              "height": 180
-            },
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.embed_ads.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "embed_onet",
-        "description": "Embed O*NET occupation text descriptions.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {}
-          },
-          "signals": [
-            "epoch_finished"
-          ],
-          "controls": [
-            "start_epoch"
-          ]
-        },
-        "extra": {
-          "source_path": "src/ai_index/nodes/embed_onet.py",
-          "ui": {
-            "position": {
-              "x": 880,
-              "y": 360
-            },
-            "descriptionExpanded": true,
-            "dimensions": {
-              "width": 338,
-              "height": 190
-            },
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.embed_onet.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "cosine_match",
-        "description": "Weighted dual cosine similarity matching between ads and O*NET.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {},
-            "cosine_alpha": {
-              "type": "float"
-            },
-            "cosine_chunk_size": {
-              "type": "int"
-            }
-          },
-          "signals": [
-            "epoch_finished"
-          ]
-        },
-        "extra": {
-          "source_path": "src/ai_index/nodes/cosine_match.py",
-          "ui": {
-            "position": {
-              "x": 1340,
-              "y": 160
-            },
-            "descriptionExpanded": true,
-            "headerColor": "#0084ff",
-            "dimensions": {
-              "width": 282,
-              "height": 240
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.cosine_match.main"
-        },
-        "type": "node"
-      },
-      {
         "name": "llm_filter_candidates",
-        "description": "Run LLM negative selection to filter cosine match candidates.",
+        "description": "LLM negative selection on reranked candidates.",
         "execution_config": {
           "node_vars": {
             "sbatch_cache": {
@@ -755,6 +586,134 @@
           "func": "ai_index.nodes.aggregate_geo.main"
         },
         "type": "node"
+      },
+      {
+        "name": "embed_ads",
+        "description": "Embed raw job ad text directly (no LLM summarisation).",
+        "execution_config": {
+          "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
+            "sbatch_time": {},
+            "embed_task_prompt": {
+              "type": "str"
+            }
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/embed_ads.py",
+          "ui": {
+            "position": {
+              "x": 540,
+              "y": 80
+            },
+            "headerColor": "#0084ff"
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_ads.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "embed_onet",
+        "description": "Embed O*NET occupations as single rich documents.",
+        "execution_config": {
+          "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
+            "sbatch_time": {}
+          },
+          "signals": [
+            "epoch_finished"
+          ],
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/embed_onet.py",
+          "ui": {
+            "position": {
+              "x": 540,
+              "y": 360
+            },
+            "headerColor": "#0084ff"
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_onet.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "cosine_candidates",
+        "description": "Cosine similarity top-100 candidates for reranking.",
+        "execution_config": {
+          "node_vars": {
+            "cosine_topk": {
+              "type": "int"
+            }
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/cosine_candidates.py",
+          "ui": {
+            "position": {
+              "x": 940,
+              "y": 160
+            },
+            "headerColor": "#0084ff"
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.cosine_candidates.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "rerank_candidates",
+        "description": "Rerank cosine candidates with Qwen3-Reranker on GPU.",
+        "execution_config": {
+          "node_vars": {
+            "rerank_model": {
+              "type": "str"
+            },
+            "rerank_topk": {
+              "type": "int"
+            },
+            "sbatch_time": {}
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/rerank_candidates.py",
+          "ui": {
+            "position": {
+              "x": 1340,
+              "y": 160
+            },
+            "headerColor": "#0084ff"
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.rerank_candidates.main"
+        },
+        "type": "node"
       }
     ],
     "edges": [
@@ -773,20 +732,6 @@
         "dependency": false
       },
       {
-        "source_node": "sample_ads",
-        "source_port": "ad_ids",
-        "target_node": "llm_summarise",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "llm_summarise",
-        "source_port": "successful_ad_ids",
-        "target_node": "embed_ads",
-        "target_port": "successful_ad_ids",
-        "dependency": false
-      },
-      {
         "source_node": "prepare_onet_targets",
         "source_port": "__signal_epoch_finished__",
         "target_node": "broadcast_onet_ready",
@@ -795,37 +740,9 @@
       },
       {
         "source_node": "broadcast_onet_ready",
-        "source_port": "out_0",
-        "target_node": "embed_onet",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
         "source_port": "out_1",
         "target_node": "build_aspectt_vectors",
         "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "embed_ads",
-        "source_port": "ad_ids",
-        "target_node": "cosine_match",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "embed_onet",
-        "source_port": "out",
-        "target_node": "cosine_match",
-        "target_port": "onet_done",
-        "dependency": false
-      },
-      {
-        "source_node": "cosine_match",
-        "source_port": "ad_ids",
-        "target_node": "llm_filter_candidates",
-        "target_port": "ad_ids",
         "dependency": false
       },
       {
@@ -917,6 +834,48 @@
         "source_port": "ad_ids",
         "target_node": "aggregate_geo",
         "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "sample_ads",
+        "source_port": "ad_ids",
+        "target_node": "embed_ads",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "embed_ads",
+        "source_port": "ad_ids",
+        "target_node": "cosine_candidates",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "embed_onet",
+        "source_port": "out",
+        "target_node": "cosine_candidates",
+        "target_port": "onet_done",
+        "dependency": false
+      },
+      {
+        "source_node": "cosine_candidates",
+        "source_port": "ad_ids",
+        "target_node": "rerank_candidates",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "rerank_candidates",
+        "source_port": "ad_ids",
+        "target_node": "llm_filter_candidates",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_0",
+        "target_node": "embed_onet",
+        "target_port": "__control_start_epoch__",
         "dependency": false
       }
     ],
