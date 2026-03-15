@@ -56,8 +56,8 @@ class FilterResponseModel(BaseModel):
 
 # %%
 #|set_func_signature
-async def main(ctx, print, ad_ids: list[int]) -> {
-    'successful_ad_ids': list[int]
+async def main(ctx, print, ad_ids: list) -> {
+    'successful_ad_ids': list
 }:
     """Run LLM negative selection to filter reranked candidates."""
     ...

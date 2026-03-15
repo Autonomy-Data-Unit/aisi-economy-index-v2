@@ -21,8 +21,8 @@
 
 # %%
 #|set_func_signature
-async def main(ctx, print, ad_ids: "list[int]") -> {
-    'ad_ids': "list[int]"
+async def main(ctx, print, ad_ids: list) -> {
+    'ad_ids': list
 }:
 
 # %%
