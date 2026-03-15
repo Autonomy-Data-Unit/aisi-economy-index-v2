@@ -103,9 +103,25 @@ Defines named pipeline configurations. `[defaults]` provides base values; `[runs
 
 **Convention:** Default values for all node variables (both global and per-node) live in `run_defs.toml`, not in `netrun.json`. The `netrun.json` only declares variable names and types as unfilled placeholders.
 
-### `embed_models.toml` / `llm_models.toml` — Model configs
+### `embed_models.toml` / `llm_models.toml` / `rerank_models.toml` — Model configs
 
 Model-key-based lookup. Each model entry has a `mode` (api/local/sbatch) and model-specific params. Resolution: `_load_model_config(config_path, model_key)` looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with the model entry, returns `(mode, merged_dict)`.
+
+#### Embedding model prompt/instruction support
+
+Embedding models have three categories of prompt support, configured in `embed_models.toml`:
+
+**1. Fixed prefixes** (`query_prefix` / `document_prefix`): Strings that must always be prepended to inputs for the model to work correctly. These are model-specific and unconditional. Example: e5-large requires `query_prefix = "query: "` and `document_prefix = "passage: "`.
+
+**2. Named prompts** (`query_prompt_name` / `document_prompt_name`): Reference a named prompt from the model's SentenceTransformer config. Applied unconditionally. Example: `query_prompt_name = "query"` for arctic-embed-l-v2.
+
+**3. Custom task instructions** (`supports_prompt = true`): The model accepts a free-form task instruction via the `prompt` parameter of `embed()`. The actual instruction text is defined in the pipeline node (e.g. via `run_defs.toml`), not in the model config. Only instruction-following models support this (Qwen3-Embedding, llama-embed-nemotron).
+
+Pipeline nodes should:
+- Always apply `query_prefix`/`document_prefix` if present in the model config
+- Always apply `query_prompt_name`/`document_prompt_name` if present
+- Only pass `prompt` if `supports_prompt = true` in the model config
+- The `prompt` text itself comes from node configuration (e.g. a node var)
 
 ### `deploy.toml` — Remote deployment config
 

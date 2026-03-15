@@ -1,18 +1,22 @@
 # Embedding model configurations
 #
-# Prompt support fields:
-#   prompt_name  - Use a named prompt from the model's SentenceTransformer config
-#                  (e.g. "query"). Only for models with built-in prompt configs.
-#   prompt       - Raw string prepended to each text before encoding. For models
-#                  that need a manual prefix (e.g. "query: ").
+# Prompt/instruction support fields:
 #
-# These fields document what the model supports. The pipeline nodes use them
-# to decide how to call embed() for queries vs documents.
+#   query_prefix / document_prefix
+#     Fixed string prepended to every query/document text. Required by some
+#     models for correct operation (e.g. e5 needs "query: " / "passage: ").
+#     Always applied unconditionally. Lives here because it's model-specific.
 #
-# Conventions:
-#   query_prompt_name / query_prompt   - prompt for query-side texts (job ads)
-#   document_prompt_name / document_prompt - prompt for document-side texts (O*NET)
-#   If absent, no prompt is applied for that side.
+#   query_prompt_name / document_prompt_name
+#     Named prompt from the model's SentenceTransformer config (e.g. "query").
+#     Applied unconditionally. Lives here because it's model-specific.
+#     Mutually exclusive with query_prefix/document_prefix for the same side.
+#
+#   supports_prompt
+#     Boolean. If true, the model accepts a custom task instruction via the
+#     `prompt` parameter. The actual instruction text is defined in the
+#     pipeline node (e.g. in run_defs.toml), not here. Only instruction-
+#     following models (Qwen3-Embedding, llama-embed-nemotron) support this.
 
 # Defaults
 
@@ -35,12 +39,10 @@ setup = true
 # API models
 # ----------------------------------------
 
-# No instruction support.
 [models."text-embedding-3-small"]
 mode = "api"
 model = "text-embedding-3-small"
 
-# No instruction support.
 [models."text-embedding-3-large"]
 mode = "api"
 model = "text-embedding-3-large"
@@ -57,53 +59,51 @@ max_retries = 20
 # Local models
 # ----------------------------------------
 
-# Optional prompt: "Represent this sentence for searching relevant passages: "
 [models.bge-large-local]
 mode = "local"
 model = "BAAI/bge-large-en-v1.5"
-query_prompt = "Represent this sentence for searching relevant passages: "
+query_prefix = "Represent this sentence for searching relevant passages: "
 
 [models.bge-large-mac]
 mode = "local"
 model = "BAAI/bge-large-en-v1.5"
 device = "cpu"
 dtype = "float32"
-query_prompt = "Represent this sentence for searching relevant passages: "
+query_prefix = "Represent this sentence for searching relevant passages: "
 
 # ----------------------------------------
 # Sbatch models
 # ----------------------------------------
 
-# Optional prompt: "Represent this sentence for searching relevant passages: "
 [models.bge-large-sbatch]
 mode = "sbatch"
 model = "BAAI/bge-large-en-v1.5"
-query_prompt = "Represent this sentence for searching relevant passages: "
+query_prefix = "Represent this sentence for searching relevant passages: "
 
-# Required prefixes: "query: " for queries, "passage: " for documents.
+# Required prefixes.
 [models.e5-large-sbatch]
 mode = "sbatch"
 model = "intfloat/e5-large-v2"
-query_prompt = "query: "
-document_prompt = "passage: "
+query_prefix = "query: "
+document_prefix = "passage: "
 
-# No instruction support.
+# No prefix needed.
 # Custom arch (BERT + RoPE + GLU) requires trust_remote_code.
 [models.gte-large-sbatch]
 mode = "sbatch"
 model = "Alibaba-NLP/gte-large-en-v1.5"
 st_kwargs = { trust_remote_code = true }
 
-# Required prefixes: "search_query: " for queries, "search_document: " for documents.
+# Required prefixes.
 # Custom arch requires trust_remote_code.
 [models.nomic-embed-sbatch]
 mode = "sbatch"
 model = "nomic-ai/nomic-embed-text-v1.5"
 st_kwargs = { trust_remote_code = true }
-query_prompt = "search_query: "
-document_prompt = "search_document: "
+query_prefix = "search_query: "
+document_prefix = "search_document: "
 
-# Has built-in prompt_name support: "query", "document", "STS", etc.
+# Has built-in prompt_name support.
 # Gemma 3 architecture. Does NOT support float16 -- must use bfloat16.
 [models.embedding-gemma-sbatch]
 mode = "sbatch"
@@ -112,7 +112,7 @@ dtype = "bfloat16"
 query_prompt_name = "query"
 document_prompt_name = "document"
 
-# Has built-in prompt_name support: "query" (adds "query: " prefix).
+# Has built-in prompt_name support.
 # 1024-dim like BGE baseline. Custom arch requires trust_remote_code.
 [models.arctic-embed-l-sbatch]
 mode = "sbatch"
@@ -120,25 +120,27 @@ model = "Snowflake/snowflake-arctic-embed-l-v2.0"
 st_kwargs = { trust_remote_code = true }
 query_prompt_name = "query"
 
-# Has built-in prompt_name support: "query", "document".
-# Default query instruction: "Given a web search query, retrieve relevant passages..."
-# Can override with custom prompt for domain-specific tasks.
+# Instruction-following. Supports custom task prompts via `prompt` parameter.
+# Also has built-in prompt_name="query" with a default retrieval instruction.
 [models."qwen3-embed-0.6b-sbatch"]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-0.6B"
+supports_prompt = true
 query_prompt_name = "query"
 
 [models.qwen3-embed-4b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-4B"
+supports_prompt = true
 query_prompt_name = "query"
 
 [models.qwen3-embed-8b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-8B"
+supports_prompt = true
 query_prompt_name = "query"
 
-# Has built-in prompt_name support: "query", "document".
+# Instruction-following. Supports custom task prompts via `prompt` parameter.
 # Llama-3.1-8B base with bidirectional attention. Requires trust_remote_code.
 # Native dtype is bfloat16; float16 may produce NaN due to dynamic range issues.
 [models.llama-embed-nemotron-sbatch]
@@ -146,4 +148,5 @@ mode = "sbatch"
 model = "nvidia/llama-embed-nemotron-8b"
 dtype = "bfloat16"
 st_kwargs = { trust_remote_code = true }
+supports_prompt = true
 query_prompt_name = "query"
