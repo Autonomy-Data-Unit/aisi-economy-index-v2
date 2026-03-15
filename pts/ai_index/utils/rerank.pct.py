@@ -21,8 +21,8 @@ import asyncio
 
 import numpy as np
 
-from ..const import rerank_models_config_path
-from ..utils._model_config import _resolve_model_args, _split_remote_kwargs
+from ai_index.const import rerank_models_config_path
+from ai_index.utils._model_config import _resolve_model_args, _split_remote_kwargs
 
 def _rerank_api(queries, documents, top_k, model_name):
     """Rerank using a hosted API (e.g. Voyage, Cohere) via litellm."""
