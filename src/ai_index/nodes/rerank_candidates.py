@@ -27,7 +27,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     onet_descs = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Description"]))
     onet_titles_lookup = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
     
-    matches_conn = duckdb.connect()  # in-memory, queries parquet directly
+    matches_conn = duckdb.connect()  # in-memory
+    matches_conn.execute(f"CREATE TABLE filtered AS SELECT * FROM read_parquet('{filtered_path}')")
     
     n_ads = len(ad_ids)
     print(f"rerank_candidates: {n_ads} ads")
@@ -60,7 +61,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
         chunk_matches = matches_conn.execute(
             f"SELECT ad_id, onet_code, onet_title, cosine_score "
-            f"FROM read_parquet('{filtered_path}') "
+            f"FROM filtered "
             f"WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
         ).fetchdf()
     

@@ -95,6 +95,7 @@ print(f"compute_job_ad_exposure: {len(score_cols)} score columns: {score_cols}")
 #|export
 filtered_path = const.pipeline_store_path / run_name / "rerank_candidates" / "reranked_matches.parquet"
 conn = duckdb.connect()
+conn.execute(f"CREATE TABLE reranked AS SELECT * FROM read_parquet('{filtered_path}')")
 
 n_ads = len(ad_ids)
 n_scores = len(score_cols)
@@ -114,7 +115,7 @@ for chunk_idx in range(n_chunks):
     id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
     chunk_matches = conn.execute(
         f"SELECT ad_id, onet_code, rerank_score "
-        f"FROM read_parquet('{filtered_path}') "
+        f"FROM reranked "
         f"WHERE ad_id IN ({id_list}) ORDER BY ad_id"
     ).fetchdf()
 

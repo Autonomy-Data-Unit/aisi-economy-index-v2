@@ -55,7 +55,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     db_path = output_dir / "filter_results.duckdb"
     matches_path = const.pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
     
-    _matches_conn = duckdb.connect()  # in-memory, queries parquet directly
+    _matches_conn = duckdb.connect()  # in-memory
+    _matches_conn.execute(f"CREATE TABLE candidates AS SELECT * FROM read_parquet('{matches_path}')")
     _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
     
     print(f"llm_filter: {len(ad_ids)} ads to process")
@@ -68,7 +69,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     
         # Matches from parquet
         chunk_matches = _matches_conn.execute(
-            f"SELECT * FROM read_parquet('{matches_path}') WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+            f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
         ).fetchdf()
         matches_by_ad = {}
         for ad_id, group in chunk_matches.groupby("ad_id"):
@@ -218,7 +219,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         # Load matches for this chunk from parquet
         id_list = ",".join(str(i) for i in chunk_ad_ids)
         chunk_matches = _matches_conn.execute(
-            f"SELECT * FROM read_parquet('{matches_path}') WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+            f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
         ).fetchdf()
         matches_by_ad = {}
         for ad_id, group in chunk_matches.groupby("ad_id"):
