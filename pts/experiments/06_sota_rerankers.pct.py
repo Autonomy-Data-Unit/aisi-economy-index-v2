@@ -300,8 +300,48 @@ if shown == 0:
 # %% [markdown]
 # ## 8. Conclusions
 #
-# Compare the SOTA rerankers against the flat embedding baseline and against
-# each other. Key questions:
-# - Does a better cross-encoder model fix the poor results from bge-reranker-v2-m3?
-# - Does the generative reranker (Qwen3-8B) outperform the classic cross-encoder?
-# - Is either reranker worth adding to the pipeline?
+# ### Results summary
+#
+# | Approach | Mean top-1 | Mean best-in-10 | **Top-10 has 4+** | Top-10 has 5 |
+# |----------|-----------|----------------|-------------------|-------------|
+# | Flat embedding (text-embedding-3-large) | 3.67 | 4.75 | 95.5% | 81.0% |
+# | GTE-ModernBERT (149M, cross-encoder) | 2.38 | 4.45 | 86.5% | 65.5% |
+# | **Qwen3-Reranker-8B (generative)** | **4.33** | **4.84** | **98.5%** | **86.0%** |
+#
+# ### Key findings
+#
+# **Classic cross-encoders do not work for this task.** Both bge-reranker-v2-m3
+# (notebook 05, 35.5% recall) and gte-reranker-modernbert-base (this notebook,
+# 86.5% recall) perform worse than flat bi-encoder embedding. These models were
+# trained on web search passage retrieval (MS MARCO, Natural Questions, etc.),
+# which is too different from semantic occupation classification. The relevance
+# signals they learned (keyword overlap, passage answering a question) don't
+# transfer to our task (job duties matching occupational descriptions).
+#
+# **Generative rerankers work.** Qwen3-Reranker-8B achieves 98.5% recall,
+# beating flat embedding (95.5%). The key advantage is instruction-following:
+# we can define what "relevance" means via the instruction parameter ("Given a
+# job advertisement, determine if the occupation description accurately describes
+# the type of work in the advertisement"). The model understands this semantic
+# task at a deeper level than keyword/passage matching.
+#
+# **Qwen3-Reranker-8B also improves top-1 quality** (4.33 vs 3.67), finding
+# correct matches that flat embedding misses entirely. Examples: "Senior Policy
+# Lawyer" correctly matched to Lawyers (flat picked Regulatory Affairs
+# Specialists), "Shift Manager" in manufacturing to Production Supervisors
+# (flat picked Industrial Production Managers).
+#
+# ### Recommended pipeline (updated)
+#
+# 1. **Bi-encoder** (text-embedding-3-large or Qwen3-Embedding-8B): embed raw
+#    ad text, cosine match against 861 O\*NET occupations, take top-100
+# 2. **Qwen3-Reranker-8B** (generative, vLLM on GPU): score top-100 candidates,
+#    take top-10. Runs on Isambard via sbatch.
+# 3. **LLM filter**: one LLM call per ad on the top-10
+#
+# ### Next steps
+#
+# - Compare text-embedding-3-large (API) vs Qwen3-Embedding-8B (open-source,
+#   Isambard) as the bi-encoder to determine if the full pipeline can run
+#   without any API dependencies
+# - Calibrate GPU-hours for the reranking step at 30M-ad scale
