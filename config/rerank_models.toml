@@ -1,12 +1,15 @@
 # Reranking model configurations
 #
-# Two backends supported:
+# Three backends supported:
 # - cross-encoder: Classic cross-encoder via sentence-transformers CrossEncoder
 # - vllm: Generative reranker via vLLM (e.g. Qwen3-Reranker)
+# - (api mode): Uses litellm.rerank for hosted reranking APIs (Voyage, Cohere)
 #
 # For vllm backend, set backend = "vllm" and optionally instruction/tensor_parallel_size.
 
 # Defaults
+
+[defaults.api]
 
 [defaults.local]
 device = "cuda"
@@ -24,12 +27,33 @@ setup = true
 backend = "cross-encoder"
 
 # ----------------------------------------
-# Cross-encoder models (sentence-transformers)
+# API models (hosted reranking services)
 # ----------------------------------------
+
+[models."voyage-rerank-2.5"]
+mode = "api"
+model = "voyage/rerank-2.5"
+
+# ----------------------------------------
+# Local models (CPU-compatible for testing)
+# ----------------------------------------
+
+# TinyBERT cross-encoder (4.5M params). Poor quality but runs on CPU.
+# For local testing only.
+[models.tinybert-reranker-mac]
+mode = "local"
+model = "cross-encoder/ms-marco-TinyBERT-L-2-v2"
+device = "cpu"
+dtype = "float32"
+batch_size = 32
 
 [models.bge-reranker-v2-m3-local]
 mode = "local"
 model = "BAAI/bge-reranker-v2-m3"
+
+# ----------------------------------------
+# Sbatch models (cross-encoder)
+# ----------------------------------------
 
 [models.bge-reranker-v2-m3-sbatch]
 mode = "sbatch"
@@ -48,7 +72,7 @@ mode = "sbatch"
 model = "BAAI/bge-reranker-v2.5-gemma2-lightweight"
 
 # ----------------------------------------
-# Generative rerankers (vLLM backend)
+# Sbatch models (generative, vLLM backend)
 # ----------------------------------------
 
 [models."qwen3-reranker-0.6b-sbatch"]

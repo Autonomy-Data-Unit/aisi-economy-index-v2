@@ -24,6 +24,49 @@ import numpy as np
 from ..const import rerank_models_config_path
 from ..utils._model_config import _resolve_model_args, _split_remote_kwargs
 
+def _rerank_api(queries, documents, top_k, model_name):
+    """Rerank using a hosted API (e.g. Voyage, Cohere) via litellm."""
+    import litellm
+
+    n_queries = len(queries)
+    all_indices = np.zeros((n_queries, top_k), dtype=np.int64)
+    all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
+
+    for qi in range(n_queries):
+        result = litellm.rerank(
+            model=model_name, query=queries[qi],
+            documents=documents, top_n=top_k,
+        )
+        for rank, r in enumerate(result.results[:top_k]):
+            all_indices[qi, rank] = r["index"]
+            all_scores[qi, rank] = r["relevance_score"]
+
+    return {"indices": all_indices, "scores": all_scores}
+
+
+async def _arerank_api(queries, documents, top_k, model_name):
+    """Async API reranking, one query at a time with concurrency."""
+    import litellm
+
+    n_queries = len(queries)
+    all_indices = np.zeros((n_queries, top_k), dtype=np.int64)
+    all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
+
+    sem = asyncio.Semaphore(5)
+    async def _one(qi):
+        async with sem:
+            result = await litellm.arerank(
+                model=model_name, query=queries[qi],
+                documents=documents, top_n=top_k,
+            )
+            for rank, r in enumerate(result.results[:top_k]):
+                all_indices[qi, rank] = r["index"]
+                all_scores[qi, rank] = r["relevance_score"]
+
+    await asyncio.gather(*[_one(qi) for qi in range(n_queries)])
+    return {"indices": all_indices, "scores": all_scores}
+
+
 def rerank(
     queries: list[str],
     documents: list[str],
@@ -34,7 +77,7 @@ def rerank(
 ) -> dict:
     """Rerank documents for each query using a named model key from rerank_models.toml.
 
-    The model key determines the execution mode (local/sbatch).
+    The model key determines the execution mode (api/local/sbatch).
     Any explicit **kwargs override config values.
 
     Pass slurm_accounting={} to collect Slurm resource accounting data
@@ -46,7 +89,10 @@ def rerank(
     mode, model_name, cfg = _resolve_model_args(rerank_models_config_path, model, kwargs)
     slurm_accounting = cfg.pop("slurm_accounting", None)
 
-    if mode == "local":
+    if mode == "api":
+        return _rerank_api(queries, documents, top_k, model_name)
+
+    elif mode == "local":
         from llm_runner.rerank import run_rerank
         return run_rerank(queries, documents, top_k, model_name=model_name, **cfg)
 
@@ -91,7 +137,10 @@ async def arerank(
     mode, model_name, cfg = _resolve_model_args(rerank_models_config_path, model, kwargs)
     slurm_accounting = cfg.pop("slurm_accounting", None)
 
-    if mode == "local":
+    if mode == "api":
+        return await _arerank_api(queries, documents, top_k, model_name)
+
+    elif mode == "local":
         from llm_runner.rerank import run_rerank
         return await asyncio.to_thread(run_rerank, queries, documents, top_k,
                                        model_name=model_name, **cfg)
