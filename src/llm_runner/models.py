@@ -421,13 +421,15 @@ def load_llm(model_name: str = "Qwen/Qwen2.5-7B-Instruct", *,
 # %% nbs/llm_runner/models.ipynb 19
 def load_rerank_model(model_name: str = "BAAI/bge-reranker-v2-m3", *,
                       device: str = "cuda",
-                      dtype: str = "float16") -> Any:
+                      dtype: str = "float16",
+                      trust_remote_code: bool = False) -> Any:
     """Load a cross-encoder reranking model via sentence-transformers.
 
     Args:
         model_name: HuggingFace cross-encoder model ID.
         device: Device to load onto ("cuda", "cpu").
         dtype: Model precision ("float16", "bfloat16", "float32").
+        trust_remote_code: If True, allow loading custom model code from HuggingFace.
 
     Returns:
         sentence_transformers.CrossEncoder instance.
@@ -440,6 +442,7 @@ def load_rerank_model(model_name: str = "BAAI/bge-reranker-v2-m3", *,
     model = CrossEncoder(
         model_name,
         device=device,
+        trust_remote_code=trust_remote_code,
         automodel_args={"torch_dtype": torch_dtype},
     )
     return model

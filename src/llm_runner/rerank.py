@@ -17,11 +17,13 @@ def _rerank_cross_encoder(
     device: str,
     dtype: str,
     batch_size: int,
+    trust_remote_code: bool = False,
 ) -> dict:
     """Rerank using a classic cross-encoder (sentence-transformers)."""
     from .models import load_rerank_model
 
-    model = load_rerank_model(model_name, device=device, dtype=dtype)
+    model = load_rerank_model(model_name, device=device, dtype=dtype,
+                              trust_remote_code=trust_remote_code)
     n_queries = len(queries)
     n_docs = len(documents)
     top_k = min(top_k, n_docs)
@@ -196,6 +198,7 @@ def run_rerank(
     tensor_parallel_size: int = 1,
     vllm_prompt_style: str = "qwen",
     max_model_len: int = 8192,
+    trust_remote_code: bool = False,
 ) -> dict:
     """Rerank documents for each query using a cross-encoder or generative reranker.
 
@@ -224,6 +227,7 @@ def run_rerank(
         return _rerank_cross_encoder(
             queries, documents, top_k,
             model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
+            trust_remote_code=trust_remote_code,
         )
     elif backend == "vllm":
         return _rerank_vllm(
@@ -243,6 +247,7 @@ def _rerank_pairs_cross_encoder(
     device: str,
     dtype: str,
     batch_size: int,
+    trust_remote_code: bool = False,
 ) -> list[list[float]]:
     """Score pre-paired (query, documents) items using a cross-encoder.
 
@@ -251,7 +256,8 @@ def _rerank_pairs_cross_encoder(
     """
     from .models import load_rerank_model
 
-    model = load_rerank_model(model_name, device=device, dtype=dtype)
+    model = load_rerank_model(model_name, device=device, dtype=dtype,
+                              trust_remote_code=trust_remote_code)
 
     # Flatten all (query, doc) pairs, tracking group boundaries
     pairs = []
@@ -346,6 +352,7 @@ def run_rerank_pairs(
     tensor_parallel_size: int = 1,
     vllm_prompt_style: str = "qwen",
     max_model_len: int = 8192,
+    trust_remote_code: bool = False,
 ) -> list[list[float]]:
     """Score grouped (query, documents) pairs efficiently in a single batch.
 
@@ -374,6 +381,7 @@ def run_rerank_pairs(
     if backend == "cross-encoder":
         return _rerank_pairs_cross_encoder(
             items, model_name=model_name, device=device, dtype=dtype, batch_size=batch_size,
+            trust_remote_code=trust_remote_code,
         )
     elif backend == "vllm":
         return _rerank_pairs_vllm(
