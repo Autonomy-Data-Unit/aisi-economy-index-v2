@@ -7,13 +7,18 @@ llm_models = [
     "qwen-14b-sbatch",
     "qwen-32b-sbatch",
     "qwen-72b-sbatch",
+    "qwen3-235b-sbatch",
     "mistral-7b-sbatch",
     "ministral-8b-sbatch",
+    "mistral-large-2-sbatch",
     "llama-8b-sbatch",
     "llama-70b-sbatch",
+    "llama-4-scout-sbatch",
     "phi-4-sbatch",
     "gemma-27b-sbatch",
     "exaone-32b-sbatch",
+    "deepseek-r1-qwen-32b-sbatch",
+    "gpt-oss-120b-sbatch",
 ]
 
 embed_models = [
@@ -31,12 +36,16 @@ embed_models = [
 
 rerank_models = [
     "bge-reranker-v2-m3-sbatch",
+    "ms-marco-minilm-sbatch",
     "gte-reranker-modernbert-sbatch",
     "nemotron-rerank-1b-sbatch",
     "bge-reranker-v2-gemma-sbatch",
     "qwen3-reranker-0.6b-sbatch",
+    "qwen3-reranker-0.6b-ce-sbatch",
     "qwen3-reranker-4b-sbatch",
+    "qwen3-reranker-4b-ce-sbatch",
     "qwen3-reranker-8b-sbatch",
+    "qwen3-reranker-8b-ce-sbatch",
 ]
 
 rbo_p = 0.9
