@@ -137,6 +137,8 @@ def _run_node(tmp_path, ad_ids=None, llm_responses=None, matches_df=None):
          patch("ai_index.utils.prompts.load_prompt", return_value="mock prompt {n_candidates} {job_ad_title} {job_sector_category} {full_ad_excerpt} {candidates_str}"), \
          patch("ai_index.utils.is_reasoning_model", return_value=False), \
          patch("ai_index.utils.llm.is_reasoning_model", return_value=False), \
+         patch("ai_index.utils.uses_structured_output", return_value=True), \
+         patch("ai_index.utils.llm.uses_structured_output", return_value=True), \
          patch("ai_index.utils.get_adzuna_conn", return_value=mock_conn), \
          patch("ai_index.utils.adzuna_store.get_adzuna_conn", return_value=mock_conn):
         result = asyncio.run(main(ctx, print, ad_ids))

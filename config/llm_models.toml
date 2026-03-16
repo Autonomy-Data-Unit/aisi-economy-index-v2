@@ -2,6 +2,7 @@
 
 [defaults.api]
 reasoning = false
+structured_output = true
 
 [defaults.local]
 max_new_tokens = 60
@@ -10,6 +11,7 @@ dtype = "float16"
 backend = "transformers"
 batch_size = 128
 reasoning = false
+structured_output = true
 
 [defaults.sbatch]
 max_new_tokens = 60
@@ -19,6 +21,7 @@ gpus = 1
 job_name = "llm_generate"
 setup = true
 reasoning = false
+structured_output = true
 
 # Models
 
@@ -50,10 +53,12 @@ model = "Qwen/Qwen2.5-7B-Instruct"
 [models.qwen-14b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-14B-Instruct"
+structured_output = false
 
 [models.qwen-32b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-32B-Instruct"
+structured_output = false
 
 [models.qwen-72b-sbatch]
 mode = "sbatch"
@@ -62,6 +67,7 @@ model = "Qwen/Qwen2.5-72B-Instruct"
 [models.mistral-7b-sbatch]
 mode = "sbatch"
 model = "mistralai/Mistral-7B-Instruct-v0.3"
+structured_output = false
 
 # Ministral uses Mistral's native format, not HuggingFace format.
 [models.ministral-8b-sbatch]
@@ -79,6 +85,7 @@ model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 [models.llama-70b-sbatch]
 mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-70B-Instruct"
+structured_output = false
 
 [models.phi-4-sbatch]
 mode = "sbatch"

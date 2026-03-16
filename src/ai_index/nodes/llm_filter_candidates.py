@@ -28,7 +28,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     from ai_index import const
     from ai_index.utils import (
         ResultStore, run_batched, strict_format, load_prompt, allm_generate,
-        extract_json, is_reasoning_model, get_adzuna_conn, duckdb_connect_retry,
+        extract_json, is_reasoning_model, uses_structured_output,
+        get_adzuna_conn, duckdb_connect_retry,
     )
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
@@ -46,9 +47,16 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     _is_reasoning = is_reasoning_model(llm_model)
+    _use_structured_output = uses_structured_output(llm_model)
     
-    SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
-    USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
+    _system_prompt_key = ctx.vars["system_prompt"]
+    _user_prompt_key = ctx.vars["user_prompt"]
+    if not _use_structured_output:
+        _system_prompt_key += "_unstructured"
+        _user_prompt_key += "_unstructured"
+    
+    SYSTEM_PROMPT = load_prompt(_system_prompt_key)
+    USER_PROMPT_TEMPLATE = load_prompt(_user_prompt_key)
     
     output_dir = const.pipeline_store_path / run_name / "llm_filter_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,6 +135,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             n_candidates_per_ad.append(len(candidates))
     
         _sa = {}
+        schema = FilterResponseModel.model_json_schema() if _use_structured_output else None
         responses = await allm_generate(
             prompts,
             model=llm_model,
@@ -135,7 +144,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
-            json_schema=FilterResponseModel.model_json_schema(),
+            json_schema=schema,
             cache=sbatch_cache,
             time=sbatch_time,
             slurm_accounting=_sa,
@@ -144,10 +153,10 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     
         records = []
         for ad_id, response, n_cands in zip(chunk_ids, responses, n_candidates_per_ad):
-            if _is_reasoning:
-                parsed = extract_json(response)
+            if _is_reasoning or not _use_structured_output:
+                parsed = extract_json(response, validator=FilterResponseModel.model_validate)
                 if parsed is None:
-                    records.append({"id": ad_id, "data": response, "error": "Failed to extract JSON from reasoning model output"})
+                    records.append({"id": ad_id, "data": response, "error": "Failed to extract valid JSON from model output"})
                     continue
                 response = json.dumps(parsed)
             error = _validate_response(response, n_cands)

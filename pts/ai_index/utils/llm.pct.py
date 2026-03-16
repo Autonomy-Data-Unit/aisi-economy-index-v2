@@ -21,28 +21,43 @@ from ai_index.const import llm_models_config_path
 from ai_index.utils._model_config import _load_model_config, _resolve_model_args, _split_remote_kwargs
 
 
-def extract_json(text: str) -> dict | None:
-    """Extract a JSON object from text that may contain a reasoning prefix.
+def extract_json(text: str, validator=None) -> dict | None:
+    """Extract a JSON object from text that may contain surrounding prose.
 
-    Reasoning models (DeepSeek-R1, GPT-OSS) emit thinking/analysis text before
-    the JSON payload. The JSON is assumed to be the last thing in the response,
-    running from some '{' to the end of the string. Tries each '{' position
-    from left to right until json.loads(text[i:]) succeeds.
+    Tries all pairs of '{' and '}' positions (opening: left-to-right,
+    closing: right-to-left for each opening) and returns the first
+    substring that parses as valid JSON and passes the optional validator.
 
-    Returns parsed dict, or None if no valid JSON found.
+    Args:
+        text: Text potentially containing a JSON object.
+        validator: Optional callable that takes a dict and raises on invalid
+            data (e.g. a pydantic model_validate). If provided, only returns
+            a parse that passes validation.
+
+    Returns:
+        Parsed dict, or None if no valid JSON found.
     """
     text = text.strip()
-    if not text.endswith("}"):
+    close_positions = [i for i, c in enumerate(text) if c == '}']
+    if not close_positions:
         return None
     pos = 0
     while True:
         idx = text.find("{", pos)
         if idx == -1:
             return None
-        try:
-            return json.loads(text[idx:])
-        except (json.JSONDecodeError, ValueError):
-            pass
+        for close_pos in reversed(close_positions):
+            if close_pos <= idx:
+                break
+            try:
+                parsed = json.loads(text[idx:close_pos + 1])
+                if not isinstance(parsed, dict):
+                    continue
+                if validator is not None:
+                    validator(parsed)
+                return parsed
+            except Exception:
+                continue
         pos = idx + 1
 
 
@@ -50,6 +65,12 @@ def is_reasoning_model(model_key: str) -> bool:
     """Check if a model emits a reasoning/thinking prefix before its answer."""
     _, cfg = _load_model_config(llm_models_config_path, model_key)
     return cfg["reasoning"]
+
+
+def uses_structured_output(model_key: str) -> bool:
+    """Check if a model supports vLLM structured output (json_schema)."""
+    _, cfg = _load_model_config(llm_models_config_path, model_key)
+    return cfg["structured_output"]
 
 def llm_generate(
     prompts: list[str],

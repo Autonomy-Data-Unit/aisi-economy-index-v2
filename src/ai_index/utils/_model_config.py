@@ -38,7 +38,7 @@ _RUN_REMOTE_KEYS = {
 # Includes prompt support fields from embed_models.toml (query_prefix, etc.)
 # which are read by pipeline nodes, not by run_embeddings/run_rerank.
 _META_KEYS = {
-    "reasoning",
+    "reasoning", "structured_output",
     "query_prefix", "document_prefix",
     "query_prompt_name", "document_prompt_name",
     "supports_prompt",
