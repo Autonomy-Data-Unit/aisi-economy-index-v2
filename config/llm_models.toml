@@ -131,7 +131,9 @@ gpus = 2
 
 # MoE (235B total, 22B active, 128 experts).
 # 64 attention heads requires TP divisible by 64 → gpus=4 (not 3).
+# Qwen3 models have a built-in thinking mode (<think>...</think>)
 [models.qwen3-235b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen3-235B-A22B"
 gpus = 4
+reasoning = true
