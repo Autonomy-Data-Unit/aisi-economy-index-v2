@@ -52,8 +52,9 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     _system_prompt_key = ctx.vars["system_prompt"]
     _user_prompt_key = ctx.vars["user_prompt"]
     if not _use_structured_output:
-        _system_prompt_key += "_unstructured"
-        _user_prompt_key += "_unstructured"
+        suffix = "_reasoning" if _is_reasoning else "_unstructured"
+        _system_prompt_key += suffix
+        _user_prompt_key += suffix
     
     SYSTEM_PROMPT = load_prompt(_system_prompt_key)
     USER_PROMPT_TEMPLATE = load_prompt(_user_prompt_key)
