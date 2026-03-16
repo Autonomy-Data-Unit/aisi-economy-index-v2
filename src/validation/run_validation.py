@@ -11,18 +11,21 @@ from pathlib import Path
 from ai_index.const import pipeline_store_path, run_defs_path
 
 # %% nbs/validation/run_validation.ipynb 3
-def _make_run_name(run_def: str, llm: str, embed: str) -> str:
+def _make_run_name(run_def: str, llm: str, embed: str, rerank: str | None = None) -> str:
     """Build a validation run name from run definition and model keys."""
-    return f"val__{run_def}__{llm}__{embed}"
+    if rerank is None:
+        return f"val__{run_def}__{llm}__{embed}"
+    return f"val__{run_def}__{llm}__{embed}__{rerank}"
 
 # %% nbs/validation/run_validation.ipynb 4
-def _build_run_defs(run_def: str, llm: str, embed: str) -> tuple[dict, str]:
+def _build_run_defs(run_def: str, llm: str, embed: str, rerank: str | None = None) -> tuple[dict, str]:
     """Load run_defs.toml, deep-copy the named run definition, and inject model keys.
 
     Args:
         run_def: Name of the run definition in run_defs.toml (e.g. 'validation').
         llm: LLM model key.
         embed: Embedding model key.
+        rerank: Reranker model key (optional, uses run_defs default if None).
 
     Returns (run_defs, run_name) where run_defs has a new entry at
     runs[run_name] with the injected model keys.
@@ -30,13 +33,15 @@ def _build_run_defs(run_def: str, llm: str, embed: str) -> tuple[dict, str]:
     from ai_index.run_pipeline import _load_run_defs
 
     run_defs = _load_run_defs(run_defs_path)
-    run_name = _make_run_name(run_def, llm, embed)
+    run_name = _make_run_name(run_def, llm, embed, rerank)
 
     # Deep-copy the named run definition into a new run entry
     template = run_defs["runs"][run_def]
     run_entry = copy.deepcopy(template)
     run_entry["llm_model"] = llm
     run_entry["embedding_model"] = embed
+    if rerank is not None:
+        run_entry.setdefault("rerank_candidates", {})["rerank_model"] = rerank
     run_defs["runs"][run_name] = run_entry
 
     return run_defs, run_name
@@ -48,20 +53,21 @@ def _is_run_complete(run_name: str) -> bool:
     return exposure.exists()
 
 # %% nbs/validation/run_validation.ipynb 6
-async def run_validation(run_def: str, llm: str, embed: str, force: bool = False) -> None:
-    """Run a single validation pipeline for the given run definition and model pair."""
+async def run_validation(run_def: str, llm: str, embed: str, rerank: str | None = None, force: bool = False) -> None:
+    """Run a single validation pipeline for the given run definition and model triple."""
     from ai_index.run_pipeline import run_pipeline_async
 
-    run_name = _make_run_name(run_def, llm, embed)
+    run_name = _make_run_name(run_def, llm, embed, rerank)
 
     if not force and _is_run_complete(run_name):
         print(f"validation: {run_name} already complete (use --force to re-run)")
         return
 
-    run_defs, run_name = _build_run_defs(run_def, llm, embed)
+    run_defs, run_name = _build_run_defs(run_def, llm, embed, rerank)
     sample_n = run_defs["runs"][run_name].get("sample_n", run_defs["defaults"]["sample_n"])
 
-    print(f"validation: run_name={run_name}, run_def={run_def}, llm={llm}, embed={embed}, sample_n={sample_n}")
+    print(f"validation: run_name={run_name}, run_def={run_def}, llm={llm}, embed={embed}, "
+          f"rerank={rerank or '(default)'}, sample_n={sample_n}")
     await run_pipeline_async(run_name, run_defs=run_defs)
     print(f"validation: {run_name} complete")
 
@@ -71,9 +77,9 @@ def main():
     flags = [a for a in sys.argv[1:] if a.startswith("--")]
     force = "--force" in flags
 
-    if len(args) != 3:
+    if len(args) < 3 or len(args) > 4:
         print(
-            "Usage: uv run run-validation <run_def_name> <llm_model_key> <embed_model_key> [--force]",
+            "Usage: uv run run-validation <run_def_name> <llm_model_key> <embed_model_key> [<rerank_model_key>] [--force]",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -81,4 +87,5 @@ def main():
     run_def_name = args[0]
     llm_model_key = args[1]
     embed_model_key = args[2]
-    asyncio.run(run_validation(run_def_name, llm_model_key, embed_model_key, force=force))
+    rerank_model_key = args[3] if len(args) > 3 else None
+    asyncio.run(run_validation(run_def_name, llm_model_key, embed_model_key, rerank_model_key, force=force))

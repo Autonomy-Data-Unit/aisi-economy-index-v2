@@ -43,7 +43,8 @@ def analyze(run_def: str) -> "Path":
     rbo_p = config["rbo_p"]
     fixed_llms = config["fixed_llms"]
     fixed_embeddings = config["fixed_embeddings"]
-    completed_names = {rn for rn, _, _, _ in completed}
+    fixed_rerankers = config["fixed_rerankers"]
+    completed_names = {rn for rn, _, _, _, _ in completed}
     
     output_dir = validation_results_path / run_def
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -55,6 +56,8 @@ def analyze(run_def: str) -> "Path":
         print(f"Fixed embedding: {fixed_embed}")
         print(f"{'#' * 70}")
     
+        fixed = {"embed": fixed_embed, "rerank": None}
+    
         for ref_llm in fixed_llms:
             ref_run = _make_run_name(run_def, ref_llm, fixed_embed)
             if ref_run not in completed_names:
@@ -62,7 +65,7 @@ def analyze(run_def: str) -> "Path":
                 continue
     
             arm_df = build_arm_table(
-                completed, config, run_def, "llm", fixed_embed, ref_llm, rbo_p,
+                completed, config, run_def, "llm", fixed, ref_llm, rbo_p,
             )
     
             title = f"Vary LLM (embed={fixed_embed}, ref={ref_llm})"
@@ -92,7 +95,7 @@ def analyze(run_def: str) -> "Path":
     
         # Pairwise matrix: every LLM vs every other LLM (no reference bias)
         for stage in ("cosine", "filtered"):
-            matrix = build_pairwise_matrix(completed, "llm", fixed_embed, stage)
+            matrix = build_pairwise_matrix(completed, "llm", fixed, stage)
             if not matrix.empty:
                 mean_agree = (matrix.sum(axis=1) - 1) / (len(matrix) - 1)
                 print(f"\nPairwise Top-1 Agreement ({stage}, embed={fixed_embed})")
@@ -112,6 +115,8 @@ def analyze(run_def: str) -> "Path":
         print(f"Fixed LLM: {fixed_llm}")
         print(f"{'#' * 70}")
     
+        fixed = {"llm": fixed_llm, "rerank": None}
+    
         for ref_embed in fixed_embeddings:
             ref_run = _make_run_name(run_def, fixed_llm, ref_embed)
             if ref_run not in completed_names:
@@ -119,7 +124,7 @@ def analyze(run_def: str) -> "Path":
                 continue
     
             arm_df = build_arm_table(
-                completed, config, run_def, "embed", fixed_llm, ref_embed, rbo_p,
+                completed, config, run_def, "embed", fixed, ref_embed, rbo_p,
             )
     
             title = f"Vary Embedding (llm={fixed_llm}, ref={ref_embed})"
@@ -149,7 +154,7 @@ def analyze(run_def: str) -> "Path":
     
         # Pairwise matrix: every embedding vs every other embedding
         for stage in ("cosine", "filtered"):
-            matrix = build_pairwise_matrix(completed, "embed", fixed_llm, stage)
+            matrix = build_pairwise_matrix(completed, "embed", fixed, stage)
             if not matrix.empty:
                 mean_agree = (matrix.sum(axis=1) - 1) / (len(matrix) - 1)
                 print(f"\nPairwise Top-1 Agreement ({stage}, llm={fixed_llm})")
@@ -162,12 +167,68 @@ def analyze(run_def: str) -> "Path":
                     matrix, f"Embedding Pairwise Top-1 ({stage}, llm={fixed_llm})")
                 if fig:
                     save_fig(fig, figures_dir, f"embed_pairwise__{fixed_llm}__{stage}")
+    all_rerank_dfs = []
+    
+    for fixed_llm in fixed_llms:
+        for fixed_embed in fixed_embeddings:
+            print(f"\n{'#' * 70}")
+            print(f"Fixed LLM: {fixed_llm}, Fixed embedding: {fixed_embed}")
+            print(f"{'#' * 70}")
+    
+            fixed = {"llm": fixed_llm, "embed": fixed_embed}
+    
+            for ref_rerank in fixed_rerankers:
+                ref_run = _make_run_name(run_def, fixed_llm, fixed_embed, ref_rerank)
+                if ref_run not in completed_names:
+                    print(f"\n  Skipping reference reranker {ref_rerank} (run not complete)")
+                    continue
+    
+                arm_df = build_arm_table(
+                    completed, config, run_def, "rerank", fixed, ref_rerank, rbo_p,
+                )
+    
+                title = f"Vary Reranker (llm={fixed_llm}, embed={fixed_embed}, ref={ref_rerank})"
+                print_arm_table(arm_df, title)
+    
+                # Plots
+                fig_suffix = f"{fixed_llm}__{fixed_embed}__{ref_rerank}"
+    
+                fig = plot_arm_bars(arm_df, title)
+                if fig:
+                    save_fig(fig, figures_dir, f"rerank_bars__{fig_suffix}")
+    
+                fig = plot_kl_divergence_bars(arm_df, title)
+                if fig:
+                    save_fig(fig, figures_dir, f"rerank_kl__{fig_suffix}")
+    
+                # Collect for CSV
+                if not arm_df.empty:
+                    arm_df = arm_df.copy()
+                    arm_df["fixed_llm"] = fixed_llm
+                    arm_df["fixed_embed"] = fixed_embed
+                    arm_df["ref_rerank"] = ref_rerank
+                    all_rerank_dfs.append(arm_df)
+    
+            # Pairwise matrix: every reranker vs every other reranker
+            matrix = build_pairwise_matrix(completed, "rerank", fixed, "filtered")
+            if not matrix.empty:
+                mean_agree = (matrix.sum(axis=1) - 1) / (len(matrix) - 1)
+                print(f"\nPairwise Top-1 Agreement (filtered, llm={fixed_llm}, embed={fixed_embed})")
+                print(matrix.to_string(float_format=lambda x: f"{x:.3f}"))
+                print(f"\nMean agreement per reranker:")
+                for model, val in mean_agree.sort_values(ascending=False).items():
+                    print(f"  {model:<28s} {val:.4f}")
+    
+                fig = plot_pairwise_matrix(
+                    matrix, f"Reranker Pairwise Top-1 (llm={fixed_llm}, embed={fixed_embed})")
+                if fig:
+                    save_fig(fig, figures_dir, f"rerank_pairwise__{fixed_llm}__{fixed_embed}")
     fig = plot_pairwise_heatmap(completed)
     if fig:
         save_fig(fig, figures_dir, "pairwise_heatmap")
     if len(completed) >= 2:
-        run_a, _, llm_a, embed_a = completed[0]
-        run_b, _, llm_b, embed_b = completed[1]
+        run_a, _, llm_a, embed_a, rerank_a = completed[0]
+        run_b, _, llm_b, embed_b, rerank_b = completed[1]
     
         sets_a = matches_to_ranked_lists(load_matches(run_a, "filtered"))
         sets_b = matches_to_ranked_lists(load_matches(run_b, "filtered"))
@@ -197,6 +258,10 @@ def analyze(run_def: str) -> "Path":
         embed_path = output_dir / "embed_sensitivity.csv"
         pd.concat(all_embed_dfs, ignore_index=True).to_csv(embed_path, index=False)
         print(f"Saved: {embed_path}")
+    if all_rerank_dfs:
+        rerank_path = output_dir / "rerank_sensitivity.csv"
+        pd.concat(all_rerank_dfs, ignore_index=True).to_csv(rerank_path, index=False)
+        print(f"Saved: {rerank_path}")
     
     print(f"\nAll results saved to {output_dir}")
     

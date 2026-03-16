@@ -1,5 +1,6 @@
 fixed_embeddings = ["bge-large-sbatch", "e5-large-sbatch"]
 fixed_llms = ["qwen-7b-sbatch", "llama-70b-sbatch"]
+fixed_rerankers = ["qwen3-reranker-8b-sbatch", "gte-reranker-modernbert-sbatch"]
 
 llm_models = [
     "qwen-7b-sbatch",
@@ -26,6 +27,16 @@ embed_models = [
     "qwen3-embed-4b-sbatch",
     "qwen3-embed-8b-sbatch",
     "llama-embed-nemotron-sbatch",
+]
+
+rerank_models = [
+    "bge-reranker-v2-m3-sbatch",
+    "gte-reranker-modernbert-sbatch",
+    "nemotron-rerank-1b-sbatch",
+    "bge-reranker-v2-gemma-sbatch",
+    "qwen3-reranker-0.6b-sbatch",
+    "qwen3-reranker-4b-sbatch",
+    "qwen3-reranker-8b-sbatch",
 ]
 
 rbo_p = 0.9

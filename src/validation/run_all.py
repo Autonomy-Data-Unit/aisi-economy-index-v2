@@ -18,45 +18,57 @@ def _load_validation_config() -> dict:
         return tomllib.load(f)
 
 # %% nbs/validation/run_all.ipynb 4
-def plan_runs(config: dict) -> list[tuple[str, str]]:
-    """Generate crossed (llm, embed) pairs from the validation config.
+def plan_runs(config: dict) -> list[tuple[str, str, str | None]]:
+    """Generate crossed (llm, embed, rerank) triples from the validation config.
 
-    Arm 1: for each fixed embedding, vary LLMs.
-    Arm 2: for each fixed LLM, vary embeddings.
-    De-duplicates pairs that appear in multiple arms.
+    Arm 1: for each fixed embedding + reranker, vary LLMs (rerank=None uses default).
+    Arm 2: for each fixed LLM + reranker, vary embeddings (rerank=None uses default).
+    Arm 3: for each fixed LLM + embedding, vary rerankers.
+    De-duplicates triples that appear in multiple arms.
     """
     fixed_embeddings = config["fixed_embeddings"]
     fixed_llms = config["fixed_llms"]
+    fixed_rerankers = config["fixed_rerankers"]
     llm_models = config["llm_models"]
     embed_models = config["embed_models"]
+    rerank_models = config["rerank_models"]
 
     seen = set()
-    pairs = []
+    triples = []
 
-    # Arm 1: fix embedding, vary LLMs
+    # Arm 1: fix embedding, vary LLMs (default reranker)
     for fixed_embed in fixed_embeddings:
         for llm in llm_models:
-            key = (llm, fixed_embed)
+            key = (llm, fixed_embed, None)
             if key not in seen:
                 seen.add(key)
-                pairs.append(key)
+                triples.append(key)
 
-    # Arm 2: fix LLM, vary embeddings
+    # Arm 2: fix LLM, vary embeddings (default reranker)
     for fixed_llm in fixed_llms:
         for embed in embed_models:
-            key = (fixed_llm, embed)
+            key = (fixed_llm, embed, None)
             if key not in seen:
                 seen.add(key)
-                pairs.append(key)
+                triples.append(key)
 
-    return pairs
+    # Arm 3: fix LLM + embedding, vary rerankers
+    for fixed_llm in fixed_llms:
+        for fixed_embed in fixed_embeddings:
+            for rerank in rerank_models:
+                key = (fixed_llm, fixed_embed, rerank)
+                if key not in seen:
+                    seen.add(key)
+                    triples.append(key)
+
+    return triples
 
 # %% nbs/validation/run_all.ipynb 5
-def _completed_runs(run_def: str, pairs: list[tuple[str, str]]) -> set[tuple[str, str]]:
-    """Return the subset of pairs whose validation runs are already complete."""
+def _completed_runs(run_def: str, triples: list[tuple[str, str, str | None]]) -> set[tuple[str, str, str | None]]:
+    """Return the subset of triples whose validation runs are already complete."""
     return {
-        (llm, embed) for llm, embed in pairs
-        if _is_run_complete(_make_run_name(run_def, llm, embed))
+        (llm, embed, rerank) for llm, embed, rerank in triples
+        if _is_run_complete(_make_run_name(run_def, llm, embed, rerank))
     }
 
 # %% nbs/validation/run_all.ipynb 6
@@ -80,28 +92,28 @@ def _parse_concurrency(argv: list[str]) -> tuple[int, list[str]]:
 # %% nbs/validation/run_all.ipynb 7
 async def _run_all(
     run_def: str,
-    remaining: list[tuple[str, str]],
+    remaining: list[tuple[str, str, str | None]],
     *,
     concurrency: int = 1,
     force: bool = False,
 ) -> list[tuple[str, Exception]]:
-    """Run validation for all pairs with bounded concurrency. Returns list of (run_name, error) failures."""
+    """Run validation for all triples with bounded concurrency. Returns list of (run_name, error) failures."""
     sem = asyncio.Semaphore(concurrency)
     failures: list[tuple[str, Exception]] = []
 
-    async def _run_one(i: int, llm: str, embed: str):
-        run_name = _make_run_name(run_def, llm, embed)
+    async def _run_one(i: int, llm: str, embed: str, rerank: str | None):
+        run_name = _make_run_name(run_def, llm, embed, rerank)
         async with sem:
             print(f"\n{'=' * 70}")
             print(f"Run {i}/{len(remaining)}: {run_name}")
             print(f"{'=' * 70}", flush=True)
             try:
-                await run_validation(run_def, llm, embed, force=force)
+                await run_validation(run_def, llm, embed, rerank, force=force)
             except Exception as e:
                 print(f"\nERROR: validation failed for {run_name}: {e}")
                 failures.append((run_name, e))
 
-    tasks = [_run_one(i, llm, embed) for i, (llm, embed) in enumerate(remaining, 1)]
+    tasks = [_run_one(i, llm, embed, rerank) for i, (llm, embed, rerank) in enumerate(remaining, 1)]
     await asyncio.gather(*tasks)
     return failures
 
@@ -123,24 +135,22 @@ def main():
     run_def = args[0]
 
     config = _load_validation_config()
-    pairs = plan_runs(config)
-    done = _completed_runs(run_def, pairs)
+    triples = plan_runs(config)
+    done = _completed_runs(run_def, triples)
 
     print(f"Run definition: {run_def}")
-    print(f"Validation runs: {len(pairs)} total, {len(done)} complete, {len(pairs) - len(done)} remaining")
-    if done:
-        print(f"  Completed: {', '.join(_make_run_name(run_def, l, e) for l, e in sorted(done))}")
+    print(f"Validation runs: {len(triples)} total, {len(done)} complete, {len(triples) - len(done)} remaining")
 
-    remaining = [(l, e) for l, e in pairs if force or (l, e) not in done]
+    remaining = [(l, e, r) for l, e, r in triples if force or (l, e, r) not in done]
 
     if not remaining:
         print("\nAll validation runs already complete.")
         return
 
     print(f"\nPlanned runs ({len(remaining)}, concurrency={concurrency}):")
-    for i, (llm, embed) in enumerate(remaining, 1):
-        status = "(done, --force)" if (llm, embed) in done else "(pending)"
-        print(f"  {i:>2}. {_make_run_name(run_def, llm, embed)} {status}")
+    for i, (llm, embed, rerank) in enumerate(remaining, 1):
+        status = "(done, --force)" if (llm, embed, rerank) in done else "(pending)"
+        print(f"  {i:>2}. {_make_run_name(run_def, llm, embed, rerank)} {status}")
 
     if dry_run:
         print("\n--dry-run: no validation runs executed.")

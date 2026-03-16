@@ -76,13 +76,14 @@ def matches_to_ranked_lists(df: pd.DataFrame) -> dict[int, list[str]]:
 
 # %%
 #|export
-def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str]]:
+def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str, str | None]]:
     """Scan store/pipeline/ for completed validation runs.
 
     Args:
         run_def: If given, only return runs matching this run definition name.
 
-    Returns list of (run_name, run_def, llm_key, embed_key) tuples.
+    Returns list of (run_name, run_def, llm_key, embed_key, rerank_key) tuples.
+    rerank_key is None for runs that used the default reranker.
     """
     runs = []
     if not pipeline_store_path.exists():
@@ -91,16 +92,20 @@ def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, 
     for run_dir in sorted(pipeline_store_path.iterdir()):
         if not run_dir.name.startswith("val__"):
             continue
-        filtered = run_dir / "llm_filter_candidates" / "filtered_matches.parquet"
-        if not filtered.exists():
+        exposure = run_dir / "compute_job_ad_exposure" / "ad_exposure.parquet"
+        if not exposure.exists():
             continue
-        parts = run_dir.name.split("__", 3)
-        if len(parts) != 4:
+        parts = run_dir.name.split("__")
+        if len(parts) == 4:
+            _, rd, llm, embed = parts
+            rerank = None
+        elif len(parts) == 5:
+            _, rd, llm, embed, rerank = parts
+        else:
             continue
-        _, rd, llm, embed = parts
         if run_def is not None and rd != run_def:
             continue
-        runs.append((run_dir.name, rd, llm, embed))
+        runs.append((run_dir.name, rd, llm, embed, rerank))
 
     return runs
 
@@ -297,41 +302,49 @@ def compute_pairwise(
 # %%
 #|export
 def build_arm_table(
-    completed_runs: list[tuple[str, str, str, str]],
+    completed_runs: list[tuple[str, str, str, str, str | None]],
     config: dict,
     run_def: str,
     vary: str,
-    fixed_model: str,
+    fixed_models: dict,
     ref_model: str,
     rbo_p: float = 0.9,
 ) -> pd.DataFrame:
     """Build a sensitivity table for one arm, with both cosine and filtered stage stats.
 
     Args:
-        vary: "llm" or "embed" -- which model dimension to vary.
-        fixed_model: The model held constant (embedding if vary="llm", LLM if vary="embed").
+        vary: "llm", "embed", or "rerank" -- which model dimension to vary.
+        fixed_models: Dict of the models held constant. Keys are the other dimensions.
+            For vary="llm": {"embed": "...", "rerank": None}
+            For vary="embed": {"llm": "...", "rerank": None}
+            For vary="rerank": {"llm": "...", "embed": "..."}
         ref_model: The reference model within the varied dimension.
 
     Returns DataFrame with columns: model, cosine_top1, cosine_jaccard, cosine_rbo,
         filtered_top1, filtered_jaccard, filtered_rbo, filtered_kl.
     """
     if vary == "llm":
-        ref_run = _make_run_name(run_def, ref_model, fixed_model)
+        ref_run = _make_run_name(run_def, ref_model, fixed_models["embed"], fixed_models.get("rerank"))
         models = config["llm_models"]
     elif vary == "embed":
-        ref_run = _make_run_name(run_def, fixed_model, ref_model)
+        ref_run = _make_run_name(run_def, fixed_models["llm"], ref_model, fixed_models.get("rerank"))
         models = config["embed_models"]
+    elif vary == "rerank":
+        ref_run = _make_run_name(run_def, fixed_models["llm"], fixed_models["embed"], ref_model)
+        models = config["rerank_models"]
     else:
-        raise ValueError(f"vary must be 'llm' or 'embed', got {vary!r}")
+        raise ValueError(f"vary must be 'llm', 'embed', or 'rerank', got {vary!r}")
 
-    run_lookup = {(llm, embed): rn for rn, _, llm, embed in completed_runs}
+    run_lookup = {(llm, embed, rerank): rn for rn, _, llm, embed, rerank in completed_runs}
 
     rows = []
     for model in models:
         if vary == "llm":
-            key = (model, fixed_model)
-        else:
-            key = (fixed_model, model)
+            key = (model, fixed_models["embed"], fixed_models.get("rerank"))
+        elif vary == "embed":
+            key = (fixed_models["llm"], model, fixed_models.get("rerank"))
+        elif vary == "rerank":
+            key = (fixed_models["llm"], fixed_models["embed"], model)
 
         if key not in run_lookup:
             continue
@@ -341,7 +354,7 @@ def build_arm_table(
 
         row = {"model": model}
 
-        # Cosine stage (pre-LLM-filter)
+        # Cosine stage (pre-LLM-filter) -- only meaningful when varying embed
         cosine_path_a = pipeline_store_path / ref_run / "cosine_candidates" / "candidates.parquet"
         cosine_path_b = pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
         if cosine_path_a.exists() and cosine_path_b.exists():
@@ -405,26 +418,31 @@ def print_arm_table(arm_df: pd.DataFrame, title: str):
 # %%
 #|export
 def build_pairwise_matrix(
-    completed_runs: list[tuple[str, str, str, str]],
+    completed_runs: list[tuple[str, str, str, str, str | None]],
     vary: str,
-    fixed_model: str,
+    fixed_models: dict,
     stage: str = "filtered",
 ) -> pd.DataFrame:
     """Build an N x N pairwise top-1 agreement matrix for one arm.
 
     Args:
-        vary: "llm" or "embed" -- which dimension is being varied.
-        fixed_model: The model held constant (embedding if vary="llm", LLM if vary="embed").
+        vary: "llm", "embed", or "rerank" -- which dimension is being varied.
+        fixed_models: Dict of the models held constant (same format as build_arm_table).
         stage: "filtered" or "cosine".
 
     Returns square DataFrame indexed and columned by model name.
     """
     if vary == "llm":
-        arm_runs = [(llm, rn) for rn, _, llm, embed in completed_runs if embed == fixed_model]
+        arm_runs = [(llm, rn) for rn, _, llm, embed, rerank in completed_runs
+                    if embed == fixed_models["embed"] and rerank == fixed_models.get("rerank")]
     elif vary == "embed":
-        arm_runs = [(embed, rn) for rn, _, llm, embed in completed_runs if llm == fixed_model]
+        arm_runs = [(embed, rn) for rn, _, llm, embed, rerank in completed_runs
+                    if llm == fixed_models["llm"] and rerank == fixed_models.get("rerank")]
+    elif vary == "rerank":
+        arm_runs = [(rerank, rn) for rn, _, llm, embed, rerank in completed_runs
+                    if llm == fixed_models["llm"] and embed == fixed_models["embed"] and rerank is not None]
     else:
-        raise ValueError(f"vary must be 'llm' or 'embed', got {vary!r}")
+        raise ValueError(f"vary must be 'llm', 'embed', or 'rerank', got {vary!r}")
 
     if len(arm_runs) < 2:
         return pd.DataFrame()
@@ -545,7 +563,7 @@ def plot_pairwise_heatmap(
     if len(completed_runs) < 2:
         return None
 
-    run_names = [rn for rn, _, _, _ in completed_runs]
+    run_names = [rn for rn, *_ in completed_runs]
     n = len(run_names)
     matrix = np.ones((n, n))
 
