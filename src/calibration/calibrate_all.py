@@ -4,12 +4,11 @@ __all__ = ['main', 'plan_runs']
 
 # %% nbs/calibration/calibrate_all.ipynb 2
 import asyncio
-import shutil
 import sys
 import tomllib
 from pathlib import Path
 
-from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, rerank_models_config_path, pipeline_store_path
+from ai_index.const import calibration_results_path, llm_models_config_path, embed_models_config_path, rerank_models_config_path
 from .run_calibration import run_calibration, RESULTS_DIR
 
 # %% nbs/calibration/calibrate_all.ipynb 3
@@ -103,13 +102,12 @@ async def _run_all(triples: list[tuple[str, str, str | None]], *, parallel: bool
     failures = []
 
     async def _run_one(i: int, llm: str, embed: str, rerank: str | None):
-        run_name = f"_calibration_{i}" if parallel else "calibration"
         rerank_label = rerank or "(default)"
         print(f"\n{'=' * 70}")
         print(f"Run {i}/{len(triples)}: {llm} + {embed} + {rerank_label}")
         print(f"{'=' * 70}", flush=True)
         try:
-            await run_calibration(llm, embed, rerank, run_name=run_name)
+            await run_calibration(llm, embed, rerank)
         except Exception as e:
             print(f"\nERROR: calibration failed for {llm} + {embed} + {rerank_label}: {e}")
             failures.append((llm, embed, rerank))
@@ -158,12 +156,6 @@ def main():
 
     print()
     failures = asyncio.run(_run_all(triples, parallel=not sequential))
-
-    if not sequential:
-        for i in range(1, len(triples) + 1):
-            tmp_store = pipeline_store_path / f"_calibration_{i}"
-            if tmp_store.exists():
-                shutil.rmtree(tmp_store)
 
     if failures:
         print(f"\n{len(failures)}/{len(triples)} calibration runs failed:")
