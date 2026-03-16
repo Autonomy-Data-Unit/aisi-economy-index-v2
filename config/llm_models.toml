@@ -104,22 +104,26 @@ mode = "sbatch"
 model = "LGAI-EXAONE/EXAONE-4.0-32B"
 
 # Reasoning model (distilled from DeepSeek-R1). Emits <think>...</think> before answer.
+# structured_output=false because json_schema conflicts with <think> tokens.
 [models.deepseek-r1-qwen-32b-sbatch]
 mode = "sbatch"
 model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
 reasoning = true
+structured_output = false
 
 # ──── 2-GPU models ────
 
 # MoE (117B total, 5.1B active, 128 experts, top-4 routing).
 # Ships in native MXFP4 (~61 GB); vLLM auto-detects quantization.
 # Must override default fp8 dtype to avoid quantization conflict.
+# structured_output=false because json_schema conflicts with <think> tokens.
 [models.gpt-oss-120b-sbatch]
 mode = "sbatch"
 model = "openai/gpt-oss-120b"
 dtype = "bfloat16"
 gpus = 2
 reasoning = true
+structured_output = false
 
 # MoE (109B total, 17B active, 16 experts).
 # Gated model — requires HF_TOKEN on Isambard (already in .env).
@@ -139,8 +143,10 @@ gpus = 2
 # MoE (235B total, 22B active, 128 experts).
 # 64 attention heads requires TP divisible by 64 → gpus=4 (not 3).
 # Qwen3 models have a built-in thinking mode (<think>...</think>)
+# structured_output=false because json_schema conflicts with <think> tokens.
 [models.qwen3-235b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen3-235B-A22B"
 gpus = 4
 reasoning = true
+structured_output = false

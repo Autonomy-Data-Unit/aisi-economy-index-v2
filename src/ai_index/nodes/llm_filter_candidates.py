@@ -47,7 +47,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     _is_reasoning = is_reasoning_model(llm_model)
-    _use_structured_output = uses_structured_output(llm_model) and not _is_reasoning
+    _use_structured_output = uses_structured_output(llm_model)
     
     _system_prompt_key = ctx.vars["system_prompt"]
     _user_prompt_key = ctx.vars["user_prompt"]
