@@ -113,9 +113,20 @@ def _is_json_hashable(value) -> bool:
 
 # %% nbs/isambard_utils/orchestrate.ipynb 9
 _JOB_LOCKS: dict[str, asyncio.Lock] = {}
+_JOB_LOCKS_LOOP: asyncio.AbstractEventLoop | None = None
 
 def _get_job_lock(job_hash: str) -> asyncio.Lock:
-    """Get or create an asyncio.Lock for a given job hash."""
+    """Get or create an asyncio.Lock for a given job hash.
+
+    Invalidates all cached locks when the event loop changes (e.g. when
+    running multiple pipeline runs sequentially via asyncio.run or in
+    different thread pool workers).
+    """
+    global _JOB_LOCKS_LOOP
+    loop = asyncio.get_running_loop()
+    if _JOB_LOCKS_LOOP is not loop:
+        _JOB_LOCKS.clear()
+        _JOB_LOCKS_LOOP = loop
     if job_hash not in _JOB_LOCKS:
         _JOB_LOCKS[job_hash] = asyncio.Lock()
     return _JOB_LOCKS[job_hash]
@@ -350,7 +361,18 @@ def clear_job_cache(job_hash: str, *, config: IsambardConfig | None = None) -> N
 
 # %% nbs/isambard_utils/orchestrate.ipynb 22
 _setup_done = False
-_setup_lock = asyncio.Lock()
+_setup_lock: asyncio.Lock | None = None
+_setup_lock_loop: asyncio.AbstractEventLoop | None = None
+
+def _get_setup_lock() -> asyncio.Lock:
+    """Get the setup lock, recreating it if the event loop has changed."""
+    global _setup_lock, _setup_lock_loop, _setup_done
+    loop = asyncio.get_running_loop()
+    if _setup_lock_loop is not loop:
+        _setup_lock = asyncio.Lock()
+        _setup_lock_loop = loop
+        _setup_done = False
+    return _setup_lock
 
 async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprint,
                         force: bool = False) -> None:
@@ -368,7 +390,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprin
         force: Run setup even if already done this session.
     """
     global _setup_done
-    async with _setup_lock:
+    async with _get_setup_lock():
         if _setup_done and not force:
             return
         import subprocess
