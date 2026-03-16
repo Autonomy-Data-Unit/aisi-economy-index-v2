@@ -121,35 +121,51 @@ def plan_runs(
 
 # %%
 #|export
-async def _run_all(triples: list[tuple[str, str, str | None]], *, parallel: bool = True) -> list[tuple[str, str, str | None]]:
-    """Run calibration for all triples. Returns list of failed triples."""
+async def _run_all(triples: list[tuple[str, str, str | None]], *, concurrency: int = 2) -> list[tuple[str, str, str | None]]:
+    """Run calibration for all triples with bounded concurrency. Returns list of failed triples."""
+    sem = asyncio.Semaphore(concurrency)
     failures = []
 
     async def _run_one(i: int, llm: str, embed: str, rerank: str | None):
         rerank_label = rerank or "(default)"
-        print(f"\n{'=' * 70}")
-        print(f"Run {i}/{len(triples)}: {llm} + {embed} + {rerank_label}")
-        print(f"{'=' * 70}", flush=True)
-        try:
-            await run_calibration(llm, embed, rerank)
-        except Exception as e:
-            print(f"\nERROR: calibration failed for {llm} + {embed} + {rerank_label}: {e}")
-            failures.append((llm, embed, rerank))
+        async with sem:
+            print(f"\n{'=' * 70}")
+            print(f"Run {i}/{len(triples)}: {llm} + {embed} + {rerank_label}")
+            print(f"{'=' * 70}", flush=True)
+            try:
+                await run_calibration(llm, embed, rerank)
+            except Exception as e:
+                print(f"\nERROR: calibration failed for {llm} + {embed} + {rerank_label}: {e}")
+                failures.append((llm, embed, rerank))
 
     tasks = [_run_one(i, llm, embed, rerank) for i, (llm, embed, rerank) in enumerate(triples, 1)]
-    if parallel:
-        await asyncio.gather(*tasks)
-    else:
-        for task in tasks:
-            await task
+    await asyncio.gather(*tasks)
 
     return failures
 
 # %%
 #|export
+def _parse_concurrency(argv: list[str]) -> tuple[int, list[str]]:
+    """Extract --concurrency N from argv. Returns (concurrency, remaining_argv)."""
+    remaining = []
+    concurrency = 2
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--concurrency" and i + 1 < len(argv):
+            concurrency = int(argv[i + 1])
+            i += 2
+        elif argv[i].startswith("--concurrency="):
+            concurrency = int(argv[i].split("=", 1)[1])
+            i += 1
+        else:
+            remaining.append(argv[i])
+            i += 1
+    return concurrency, remaining
+
+
 def main():
-    dry_run = "--dry-run" in sys.argv
-    sequential = "--sequential" in sys.argv
+    concurrency, argv = _parse_concurrency(sys.argv[1:])
+    dry_run = "--dry-run" in argv
 
     all_llm = _get_sbatch_keys(llm_models_config_path)
     all_embed = _get_sbatch_keys(embed_models_config_path)
@@ -166,8 +182,7 @@ def main():
         print("\nAll models already calibrated.")
         return
 
-    mode = "sequential" if sequential else "parallel"
-    print(f"\nPlanned runs ({len(triples)}, {mode}):")
+    print(f"\nPlanned runs ({len(triples)}, concurrency={concurrency}):")
     for i, (llm, embed, rerank) in enumerate(triples, 1):
         llm_tag = "(new)" if llm not in done_llm else "(done)"
         embed_tag = "(new)" if embed not in done_embed else "(done)"
@@ -180,7 +195,7 @@ def main():
         return
 
     print()
-    failures = asyncio.run(_run_all(triples, parallel=not sequential))
+    failures = asyncio.run(_run_all(triples, concurrency=concurrency))
 
     if failures:
         print(f"\n{len(failures)}/{len(triples)} calibration runs failed:")
