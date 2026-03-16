@@ -36,7 +36,7 @@ def load_matches(run_name: str, stage: str = "filtered") -> pd.DataFrame:
     if stage == "filtered":
         path = pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
     elif stage == "cosine":
-        path = pipeline_store_path / run_name / "cosine_match" / "matches.parquet"
+        path = pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
     else:
         raise ValueError(f"Unknown stage {stage!r}, expected 'filtered' or 'cosine'")
     return pd.read_parquet(path)
@@ -304,8 +304,8 @@ def build_arm_table(
         row = {"model": model}
 
         # Cosine stage (pre-LLM-filter)
-        cosine_path_a = pipeline_store_path / ref_run / "cosine_match" / "matches.parquet"
-        cosine_path_b = pipeline_store_path / run_name / "cosine_match" / "matches.parquet"
+        cosine_path_a = pipeline_store_path / ref_run / "cosine_candidates" / "candidates.parquet"
+        cosine_path_b = pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
         if cosine_path_a.exists() and cosine_path_b.exists():
             cs = compute_pairwise(ref_run, run_name, "cosine", rbo_p)
             row["cosine_top1"] = cs["top1_agreement"]

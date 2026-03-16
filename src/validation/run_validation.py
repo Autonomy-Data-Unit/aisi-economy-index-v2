@@ -43,9 +43,9 @@ def _build_run_defs(run_def: str, llm: str, embed: str) -> tuple[dict, str]:
 
 # %% nbs/validation/run_validation.ipynb 5
 def _is_run_complete(run_name: str) -> bool:
-    """Check if a validation run has completed (filtered_matches.parquet exists)."""
-    filtered = pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
-    return filtered.exists()
+    """Check if a validation run has completed (final ad_exposure.parquet exists)."""
+    exposure = pipeline_store_path / run_name / "compute_job_ad_exposure" / "ad_exposure.parquet"
+    return exposure.exists()
 
 # %% nbs/validation/run_validation.ipynb 6
 async def run_validation(run_def: str, llm: str, embed: str, force: bool = False) -> None:
