@@ -67,6 +67,10 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     _matches_conn.execute(f"CREATE VIEW candidates AS SELECT * FROM read_parquet('{matches_path}')")
     _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
     
+    # Load O*NET descriptions for candidate context
+    _onet_targets = pd.read_parquet(const.inputs_path / "onet_targets.parquet", columns=["O*NET-SOC Code", "Description"])
+    _onet_descriptions = dict(zip(_onet_targets["O*NET-SOC Code"], _onet_targets["Description"]))
+    
     print(f"llm_filter: {len(ad_ids)} ads to process")
     print(f"llm_filter: reading candidates from {const.rel(matches_path)}")
     
@@ -93,9 +97,11 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         return matches_by_ad, raw_ads_by_id
     def _build_prompt(ad_id, candidates, raw_ad):
         """Build the negative selection prompt for one ad."""
-        candidates_str = "\n".join(
-            f"{i+1}. {c['onet_title']}" for i, c in enumerate(candidates)
-        )
+        candidate_lines = []
+        for i, c in enumerate(candidates):
+            desc = _onet_descriptions.get(c["onet_code"], "")
+            candidate_lines.append(f"{i+1}. {c['onet_title']}: {desc}" if desc else f"{i+1}. {c['onet_title']}")
+        candidates_str = "\n".join(candidate_lines)
         full_ad_excerpt = (raw_ad["description"] or "")[:1200].strip()
     
         return strict_format(
