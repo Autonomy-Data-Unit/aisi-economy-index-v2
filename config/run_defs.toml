@@ -69,7 +69,7 @@ sample_n = 1000
 sbatch_cache = false
 
 [runs.calibration.llm_filter_candidates]
-sbatch_time = "01:00:00"
+sbatch_time = "04:00:00"
 filter_resume = false
 
 [runs.calibration.embed_onet]
