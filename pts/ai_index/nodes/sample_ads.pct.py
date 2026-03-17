@@ -68,7 +68,7 @@ ad_ids = res['ad_id']
 # %%
 #|export
 if ctx.vars['sample_n'] == -1:
-    sample_ad_ids = None
+    sample_ad_ids = ad_ids.to_numpy()
 elif ctx.vars['sample_n'] < 0:
     raise ValueError(f"sample_n must be >= 0, got {ctx.vars['sample_n']}")
 else:
