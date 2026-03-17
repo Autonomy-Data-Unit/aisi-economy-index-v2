@@ -10,7 +10,7 @@
 # # Configuration
 #
 # Pydantic models for Isambard HPC settings. Defaults are loaded from
-# `isambard_utils/assets/config.toml`, with `ssh_host` from the `ISAMBARD_HOST`
+# `config/isambard.toml`, with `ssh_host` from the `ISAMBARD_HOST`
 # environment variable (`.env` file).
 
 # %%
@@ -20,26 +20,25 @@
 #|export
 import os
 import tomllib
-from importlib import resources
 from dotenv import load_dotenv
 from pydantic import BaseModel, model_validator
+
+from ai_index.const import isambard_config_path
 
 # %%
 #|export
 def _load_config_toml() -> dict:
-    """Load the bundled config.toml and return the [isambard] section."""
-    config_path = resources.files("isambard_utils.assets") / "config.toml"
-    with resources.as_file(config_path) as p:
-        with open(p, "rb") as f:
-            data = tomllib.load(f)
-    return data.get("isambard", {})
+    """Load config/isambard.toml and return the [isambard] section."""
+    with open(isambard_config_path, "rb") as f:
+        data = tomllib.load(f)
+    return data["isambard"]
 
 # %%
 #|export
 class IsambardConfig(BaseModel):
     """Configuration for Isambard HPC cluster access.
 
-    Defaults are loaded from isambard_utils/assets/config.toml.
+    Defaults are loaded from config/isambard.toml.
     """
 
     ssh_host: str

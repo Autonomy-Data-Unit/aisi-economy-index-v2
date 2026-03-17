@@ -222,7 +222,7 @@ Explicit `**kwargs` override TOML config values. All functions support an option
 
 ## Isambard HPC
 
-The `isambard_utils` package (`pts/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `src/isambard_utils/assets/config.toml` + `ISAMBARD_HOST` env var.
+The `isambard_utils` package (`pts/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `config/isambard.toml` + `ISAMBARD_HOST` env var.
 
 The high-level entry point is `orchestrate.arun_remote()`, which manages the full lifecycle: setup, model caching, input transfer, SBATCH submit, poll, accounting collection, output download, and cleanup. Billing: 0.25 NHR per GPU-hour for typical 1-GPU jobs.
 

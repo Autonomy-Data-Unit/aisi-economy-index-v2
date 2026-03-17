@@ -73,7 +73,6 @@ sources = ["src"]
 packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner", "src/calibration", "src/validation", "src/deploy"]
 include = [
     "src/ai_index/scripts/**",
-    "src/isambard_utils/assets/**",
 ]
 
 [tool.pytest.ini_options]
