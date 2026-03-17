@@ -163,9 +163,9 @@ for year in years:
         ).fetchone()
         if existing_marker:
             marker = json.loads(existing_marker[0])
-            if marker.get("months_fingerprint") == months_fingerprint:
+            if marker["months_fingerprint"] == months_fingerprint:
                 print(f"fetch_adzuna: {year} already deduplicated (months match), skipping dedup")
-                year_info["duplicates_removed"] = marker.get("duplicates_removed", 0)
+                year_info["duplicates_removed"] = marker["duplicates_removed"]
             else:
                 needs_dedup = True
         # If no marker and no new months, nothing to dedup
