@@ -179,7 +179,7 @@ def _build_prompt(ad_id, candidates, raw_ad):
     """Build the negative selection prompt for one ad."""
     candidate_lines = []
     for i, c in enumerate(candidates):
-        desc = _onet_descriptions.get(c["onet_code"], "")
+        desc = _onet_descriptions[c["onet_code"]]
         candidate_lines.append(f"{i+1}. {c['onet_title']}: {desc}" if desc else f"{i+1}. {c['onet_title']}")
     candidates_str = "\n".join(candidate_lines)
     full_ad_excerpt = (raw_ad["description"] or "")[:1200].strip()
