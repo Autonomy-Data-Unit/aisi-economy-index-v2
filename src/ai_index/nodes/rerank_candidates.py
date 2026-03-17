@@ -26,8 +26,23 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
     
     onet_targets = pd.read_parquet(const.onet_targets_path)
-    onet_descs = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Description"]))
     onet_titles_lookup = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
+    
+    # Build rich document text per occupation for reranking: title, alternate titles,
+    # description, and top tasks. Mirrors the embedding text structure so the reranker
+    # has the same information as the embedding model used for cosine candidates.
+    def _build_onet_doc(row):
+        parts = [row["Title"]]
+        alt = row["Alternate_Titles"]
+        if len(alt) > 0:
+            parts.append("Also known as: " + ", ".join(alt[:10]))
+        parts.append(row["Description"])
+        tasks = row["Top_Tasks"]
+        if len(tasks) > 0:
+            parts.append("Key tasks: " + "; ".join(tasks[:5]))
+        return "\n".join(parts)
+    
+    onet_docs = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets.apply(_build_onet_doc, axis=1)))
     
     matches_conn = duckdb.connect()  # in-memory
     matches_conn.execute(f"CREATE VIEW filtered AS SELECT * FROM read_parquet('{filtered_path}')")
@@ -89,8 +104,8 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         items = []
         for ad_id in ads_with_candidates:
             candidates = candidates_by_ad[ad_id]
-            query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:3000]}"
-            doc_texts = [f"{onet_titles_lookup[c['onet_code']]}: {onet_descs[c['onet_code']][:300]}" for c in candidates]
+            query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:6000]}"
+            doc_texts = [onet_docs[c['onet_code']] for c in candidates]
             items.append((query, doc_texts))
     
         _sa = {}
