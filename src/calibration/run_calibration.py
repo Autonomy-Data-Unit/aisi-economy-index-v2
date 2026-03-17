@@ -10,41 +10,28 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ai_index.const import calibration_results_path, pipeline_store_path, run_defs_path
+from ai_index.const import calibration_results_path, pipeline_store_path
+from ai_index.utils.pipeline import make_run_name, build_run_defs, get_sample_n
 
 RESULTS_DIR = calibration_results_path
 
 
 def _make_cal_run_name(llm: str, embed: str, rerank: str | None = None) -> str:
     """Build a calibration run name from model keys."""
-    if rerank is None:
-        return f"cal__{llm}__{embed}"
-    return f"cal__{llm}__{embed}__{rerank}"
+    return make_run_name("cal", llm, embed, rerank)
 
-# %% nbs/calibration/run_calibration.ipynb 3
-def _build_run_defs(llm_model_key: str, embedding_model_key: str,
-                    rerank_model_key: str | None = None,
-                    run_name: str | None = None) -> tuple[dict, str]:
-    """Load run_defs.toml and inject dynamic model keys into a calibration run.
-
-    Returns (run_defs, run_name).
-    """
-    from ai_index.run_pipeline import _load_run_defs
-    import copy
-
+def _build_cal_run_defs(llm: str, embed: str, rerank: str | None = None,
+                        run_name: str | None = None) -> tuple[dict, str]:
+    """Build run_defs for a calibration run. Returns (run_defs, run_name)."""
     if run_name is None:
-        run_name = _make_cal_run_name(llm_model_key, embedding_model_key, rerank_model_key)
-
-    run_defs = _load_run_defs(run_defs_path)
-    cal_config = copy.deepcopy(run_defs["runs"]["calibration"])
-    cal_config["llm_model"] = llm_model_key
-    cal_config["embedding_model"] = embedding_model_key
-    if rerank_model_key is not None:
-        cal_config.setdefault("rerank_candidates", {})["rerank_model"] = rerank_model_key
-    run_defs["runs"][run_name] = cal_config
+        run_name = _make_cal_run_name(llm, embed, rerank)
+    overrides = {"llm_model": llm, "embedding_model": embed}
+    if rerank is not None:
+        overrides["rerank_candidates"] = {"rerank_model": rerank}
+    run_defs = build_run_defs("calibration", run_name, overrides)
     return run_defs, run_name
 
-# %% nbs/calibration/run_calibration.ipynb 4
+# %% nbs/calibration/run_calibration.ipynb 3
 def _read_meta(run_name: str, node_name: str, meta_filename: str) -> dict | None:
     """Read a node's meta JSON file from the pipeline store."""
     meta_path = pipeline_store_path / run_name / node_name / meta_filename
@@ -53,7 +40,7 @@ def _read_meta(run_name: str, node_name: str, meta_filename: str) -> dict | None
     with open(meta_path) as f:
         return json.load(f)
 
-# %% nbs/calibration/run_calibration.ipynb 5
+# %% nbs/calibration/run_calibration.ipynb 4
 def _extract_timing(meta: dict, n_key: str) -> dict:
     """Extract timing fields from a node meta dict."""
     n = meta[n_key]
@@ -76,7 +63,7 @@ def _extract_timing(meta: dict, n_key: str) -> dict:
 
     return result
 
-# %% nbs/calibration/run_calibration.ipynb 6
+# %% nbs/calibration/run_calibration.ipynb 5
 def _extract_fixed_timing(meta: dict) -> dict:
     """Extract timing from a fixed-cost node (e.g. embed_onet)."""
     slurm_total = meta.get("slurm_total_seconds", 0)
@@ -96,7 +83,7 @@ def _extract_fixed_timing(meta: dict) -> dict:
 
     return result
 
-# %% nbs/calibration/run_calibration.ipynb 7
+# %% nbs/calibration/run_calibration.ipynb 6
 def _print_timing(name: str, timing: dict) -> None:
     elapsed = timing["elapsed_seconds"]
     slurm = timing.get("slurm_seconds")
@@ -108,14 +95,14 @@ def _print_timing(name: str, timing: dict) -> None:
     else:
         print(f"  {name:30s} {elapsed:>8.1f}s total  (fixed, {source})")
 
-# %% nbs/calibration/run_calibration.ipynb 8
+# %% nbs/calibration/run_calibration.ipynb 7
 async def run_calibration(llm_model_key: str, embedding_model_key: str,
                           rerank_model_key: str | None = None,
                           *, run_name: str | None = None) -> None:
     from ai_index.run_pipeline import run_pipeline_async
 
-    run_defs, run_name = _build_run_defs(llm_model_key, embedding_model_key, rerank_model_key, run_name)
-    sample_n = run_defs["runs"][run_name].get("sample_n", run_defs["defaults"]["sample_n"])
+    run_defs, run_name = _build_cal_run_defs(llm_model_key, embedding_model_key, rerank_model_key, run_name)
+    sample_n = get_sample_n(run_defs, run_name)
 
     calibration_store = pipeline_store_path / run_name
     if calibration_store.exists():
@@ -179,7 +166,7 @@ async def run_calibration(llm_model_key: str, embedding_model_key: str,
     for name, timing in nodes.items():
         _print_timing(name, timing)
 
-# %% nbs/calibration/run_calibration.ipynb 9
+# %% nbs/calibration/run_calibration.ipynb 8
 def main():
     argv = sys.argv[1:]
     if len(argv) < 2 or len(argv) > 3:

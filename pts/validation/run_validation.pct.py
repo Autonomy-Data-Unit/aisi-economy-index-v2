@@ -30,56 +30,29 @@
 # %%
 #|export
 import asyncio
-import copy
 import sys
 from pathlib import Path
 
-from ai_index.const import pipeline_store_path, run_defs_path
+from ai_index.utils.pipeline import make_run_name, build_run_defs, is_run_complete, get_sample_n
 
 # %%
 #|export
 def _make_run_name(run_def: str, llm: str, embed: str, rerank: str | None = None) -> str:
     """Build a validation run name from run definition and model keys."""
-    if rerank is None:
-        return f"val__{run_def}__{llm}__{embed}"
-    return f"val__{run_def}__{llm}__{embed}__{rerank}"
+    return make_run_name("val", run_def, llm, embed, rerank)
 
-# %%
-#|export
-def _build_run_defs(run_def: str, llm: str, embed: str, rerank: str | None = None) -> tuple[dict, str]:
-    """Load run_defs.toml, deep-copy the named run definition, and inject model keys.
-
-    Args:
-        run_def: Name of the run definition in run_defs.toml (e.g. 'validation').
-        llm: LLM model key.
-        embed: Embedding model key.
-        rerank: Reranker model key (optional, uses run_defs default if None).
-
-    Returns (run_defs, run_name) where run_defs has a new entry at
-    runs[run_name] with the injected model keys.
-    """
-    from ai_index.run_pipeline import _load_run_defs
-
-    run_defs = _load_run_defs(run_defs_path)
+def _build_val_run_defs(run_def: str, llm: str, embed: str, rerank: str | None = None) -> tuple[dict, str]:
+    """Build run_defs for a validation run. Returns (run_defs, run_name)."""
     run_name = _make_run_name(run_def, llm, embed, rerank)
-
-    # Deep-copy the named run definition into a new run entry
-    template = run_defs["runs"][run_def]
-    run_entry = copy.deepcopy(template)
-    run_entry["llm_model"] = llm
-    run_entry["embedding_model"] = embed
+    overrides = {"llm_model": llm, "embedding_model": embed}
     if rerank is not None:
-        run_entry.setdefault("rerank_candidates", {})["rerank_model"] = rerank
-    run_defs["runs"][run_name] = run_entry
-
+        overrides["rerank_candidates"] = {"rerank_model": rerank}
+    run_defs = build_run_defs(run_def, run_name, overrides)
     return run_defs, run_name
 
-# %%
-#|export
 def _is_run_complete(run_name: str) -> bool:
-    """Check if a validation run has completed (final ad_exposure.parquet exists)."""
-    exposure = pipeline_store_path / run_name / "compute_job_ad_exposure" / "ad_exposure.parquet"
-    return exposure.exists()
+    """Check if a validation run has completed."""
+    return is_run_complete(run_name)
 
 # %%
 #|export
@@ -93,8 +66,8 @@ async def run_validation(run_def: str, llm: str, embed: str, rerank: str | None 
         print(f"validation: {run_name} already complete (use --force to re-run)")
         return
 
-    run_defs, run_name = _build_run_defs(run_def, llm, embed, rerank)
-    sample_n = run_defs["runs"][run_name].get("sample_n", run_defs["defaults"]["sample_n"])
+    run_defs, run_name = _build_val_run_defs(run_def, llm, embed, rerank)
+    sample_n = get_sample_n(run_defs, run_name)
 
     print(f"validation: run_name={run_name}, run_def={run_def}, llm={llm}, embed={embed}, "
           f"rerank={rerank or '(default)'}, sample_n={sample_n}")
