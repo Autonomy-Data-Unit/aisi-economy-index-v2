@@ -2,8 +2,6 @@
 sample_n = 10
 sample_seed = 42
 embedding_model = "bge-large-sbatch"
-cosine_mode = "sbatch"
-topk = 10
 llm_model = "qwen-7b-sbatch"
 llm_batch_size = 5000
 llm_max_new_tokens = 2048
@@ -92,7 +90,6 @@ sbatch_time = "00:30:00"
 [runs.test_api]
 sample_n = 10
 embedding_model = "text-embedding-3-large"
-cosine_mode = "api"
 llm_model = "gpt-5.2"
 
 [runs.test_api.rerank_candidates]
@@ -101,7 +98,6 @@ rerank_model = "voyage-rerank-2.5"
 [runs.test_local]
 sample_n = 10
 embedding_model = "bge-large-mac"
-cosine_mode = "api"
 llm_model = "qwen-0.5b-mac"
 
 [runs.test_local.rerank_candidates]

@@ -24,12 +24,6 @@
     "llm_model": {
       "type": "str"
     },
-    "cosine_mode": {
-      "type": "str"
-    },
-    "topk": {
-      "type": "int"
-    },
     "llm_batch_size": {
       "type": "int"
     },
