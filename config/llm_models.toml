@@ -50,6 +50,21 @@ batch_size = 16
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"
 
+# Qwen3-8B: hybrid think/fast reasoning modes, successor to Qwen 2.5.
+# structured_output=false: known vLLM issue with Qwen3 Instruct models looping during structured generation.
+[models.qwen3-8b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-8B"
+structured_output = false
+
+# Gemma 3 4B: smallest model in the set. Same family as gemma-27b.
+# Gemma's native dtype is bfloat16; FP8 less tested for this arch.
+[models.gemma-4b-sbatch]
+mode = "sbatch"
+model = "google/gemma-3-4b-it"
+dtype = "bfloat16"
+vllm_kwargs = { trust_remote_code = true }
+
 # structured_output=false: these models produce malformed output with vLLM's structured output backend.
 [models.qwen-14b-sbatch]
 mode = "sbatch"
@@ -66,23 +81,26 @@ structured_output = false
 mode = "sbatch"
 model = "Qwen/Qwen2.5-72B-Instruct"
 
+# Dropped: worst agreement with other models on all metrics (oldest 7B architecture).
 # structured_output=false: this model produces malformed output with vLLM's structured output backend.
-[models.mistral-7b-sbatch]
-mode = "sbatch"
-model = "mistralai/Mistral-7B-Instruct-v0.3"
-structured_output = false
+# [models.mistral-7b-sbatch]
+# mode = "sbatch"
+# model = "mistralai/Mistral-7B-Instruct-v0.3"
+# structured_output = false
 
+# Dropped: too permissive (median 11 candidates/ad, precision 0.338). Provides no filtering signal.
 # Ministral uses Mistral's native format, not HuggingFace format.
-[models.ministral-8b-sbatch]
-mode = "sbatch"
-model = "mistralai/Ministral-8B-Instruct-2410"
-vllm_kwargs = { tokenizer_mode = "mistral", config_format = "mistral", load_format = "mistral" }
+# [models.ministral-8b-sbatch]
+# mode = "sbatch"
+# model = "mistralai/Ministral-8B-Instruct-2410"
+# vllm_kwargs = { tokenizer_mode = "mistral", config_format = "mistral", load_format = "mistral" }
 
+# Dropped: too permissive (median 11 candidates/ad, precision 0.354), 3.5% failure rate.
 # Gated model — requires accepting Meta's license on HuggingFace
 # and HF_TOKEN available on Isambard (already in .env).
-[models.llama-8b-sbatch]
-mode = "sbatch"
-model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+# [models.llama-8b-sbatch]
+# mode = "sbatch"
+# model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 # Gated model — requires HF_TOKEN on Isambard (already in .env).
 # structured_output=false: this model produces malformed output with vLLM's structured output backend.
@@ -107,13 +125,14 @@ vllm_kwargs = { trust_remote_code = true }
 mode = "sbatch"
 model = "LGAI-EXAONE/EXAONE-4.0-32B"
 
+# Dropped: reasoning model without pipeline reasoning prompt support. Validation run never completed.
 # Reasoning model (distilled from DeepSeek-R1). Emits <think>...</think> before answer.
 # structured_output=false because json_schema conflicts with <think> tokens.
-[models.deepseek-r1-qwen-32b-sbatch]
-mode = "sbatch"
-model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-reasoning = true
-structured_output = false
+# [models.deepseek-r1-qwen-32b-sbatch]
+# mode = "sbatch"
+# model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+# reasoning = true
+# structured_output = false
 
 # ──── 2-GPU models ────
 

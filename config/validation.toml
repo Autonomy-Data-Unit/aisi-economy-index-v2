@@ -3,21 +3,23 @@ fixed_llms = ["qwen-7b-sbatch", "llama-70b-sbatch"]
 fixed_rerankers = ["qwen3-reranker-8b-sbatch", "gte-reranker-modernbert-sbatch"]
 
 llm_models = [
+    "gemma-4b-sbatch",
     "qwen-7b-sbatch",
+    "qwen3-8b-sbatch",
     "qwen-14b-sbatch",
     "qwen-32b-sbatch",
     "qwen-72b-sbatch",
-    "qwen3-235b-sbatch",
-    "mistral-7b-sbatch",
-    "ministral-8b-sbatch",
+    # "qwen3-235b-sbatch",       # Dropped: 4-GPU, 15.5% failure rate, too aggressive (median 2/ad), no reasoning prompt support
+    # "mistral-7b-sbatch",       # Dropped: worst agreement, oldest 7B arch
+    # "ministral-8b-sbatch",     # Dropped: too permissive (median 11/ad)
     "mistral-large-2-sbatch",
-    "llama-8b-sbatch",
+    # "llama-8b-sbatch",         # Dropped: too permissive (median 11/ad)
     "llama-70b-sbatch",
     "llama-4-scout-sbatch",
     "phi-4-sbatch",
     "gemma-27b-sbatch",
     "exaone-32b-sbatch",
-    "deepseek-r1-qwen-32b-sbatch",
+    # "deepseek-r1-qwen-32b-sbatch",  # Dropped: no reasoning prompt support, run never completed
     "gpt-oss-120b-sbatch",
 ]
 
