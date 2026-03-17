@@ -203,7 +203,7 @@
       },
       {
         "name": "llm_filter_candidates",
-        "description": "LLM negative selection on reranked candidates.",
+        "description": "LLM negative selection on cosine candidates.",
         "execution_config": {
           "node_vars": {
             "sbatch_cache": {
@@ -251,7 +251,7 @@
       },
       {
         "name": "broadcast_onet_ready",
-        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet, build_aspectt_vectors, and score nodes.",
+        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet and score nodes.",
         "extra": {
           "ui": {
             "shape": "triangle-left",

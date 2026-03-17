@@ -18,7 +18,7 @@
 # across all exposure score columns.
 #
 # 1. Receives the combined exposure DataFrame from `combine_onet_exposure`.
-# 2. Loads filtered matches from `llm_filter_candidates/filtered_matches.parquet`.
+# 2. Loads reranked matches from `rerank_candidates/reranked_matches.parquet`.
 # 3. For each chunk of ads, computes weighted average scores.
 # 4. Writes results as `ad_exposure.parquet`.
 #
