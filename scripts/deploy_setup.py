@@ -7,6 +7,7 @@ Must be run from the project root.
 Requires STORAGE_BOX_PASSWORD environment variable.
 """
 
+import io
 import os
 import tomllib
 
@@ -52,12 +53,11 @@ server.shell(
 
 # --- Mount storage box ---
 
-server.shell(
+files.put(
     name="Write storage box credentials",
-    commands=[
-        f"printf 'username={storage_username}\\npassword={storage_box_password}\\n' > {credentials_path}",
-        f"chmod 600 {credentials_path}",
-    ],
+    src=io.StringIO(f"username={storage_username}\npassword={storage_box_password}\n"),
+    dest=credentials_path,
+    mode="600",
 )
 
 files.line(

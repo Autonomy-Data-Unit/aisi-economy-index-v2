@@ -1,6 +1,6 @@
 [server]
 name = "aisi-economy-index"
-type = "cpx32"
+type = "cpx42"
 location = "fsn1"
 image = "ubuntu-24.04"
 ssh_key_name = "main"
