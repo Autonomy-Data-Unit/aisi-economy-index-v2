@@ -10,8 +10,8 @@
 # # nodes.sample_ads
 #
 # Deterministically sample a subset of job ads for development.
-# If `sample_n == 0`, reference the original deduped parquets directly (full run).
-# Otherwise, sample N ads proportionally across months and write subset parquets.
+# If `sample_n == -1`, pass through all ads (full run).
+# Otherwise, sample N ads and return their IDs.
 
 # %%
 #|default_exp nodes.sample_ads
@@ -26,7 +26,7 @@ import numpy as np
 def main(ctx, print) -> {
     'ad_ids': np.ndarray
 }:
-    """Sample job ads for processing (or pass through all if sample_n=0)."""
+    """Sample job ads for processing (or pass through all if sample_n=-1)."""
     ...
 
 # %% [markdown]

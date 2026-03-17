@@ -5,7 +5,7 @@ import numpy as np
 def main(ctx, print) -> {
     'ad_ids': np.ndarray
 }:
-    """Sample job ads for processing (or pass through all if sample_n=0)."""
+    """Sample job ads for processing (or pass through all if sample_n=-1)."""
     from ai_index import const
     from pathlib import Path
     from ai_index.utils import get_adzuna_conn

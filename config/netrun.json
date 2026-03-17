@@ -141,7 +141,7 @@
       },
       {
         "name": "sample_ads",
-        "description": "Sample job ads for processing (or pass through all if sample_n=0).",
+        "description": "Sample job ads for processing (or pass through all if sample_n=-1).",
         "execution_config": {
           "controls": [
             "start_epoch"
@@ -242,8 +242,8 @@
           "source_path": "src/ai_index/nodes/llm_filter_candidates.py",
           "ui": {
             "position": {
-              "x": 1640,
-              "y": 220
+              "x": 1280,
+              "y": 180
             },
             "descriptionExpanded": true,
             "headerColor": "#0084ff"
@@ -560,8 +560,8 @@
           "source_path": "src/ai_index/nodes/embed_onet.py",
           "ui": {
             "position": {
-              "x": 560,
-              "y": 320
+              "x": 620,
+              "y": 340
             },
             "headerColor": "#0084ff",
             "descriptionExpanded": true
@@ -575,7 +575,7 @@
       },
       {
         "name": "cosine_candidates",
-        "description": "Cosine similarity top-100 candidates for reranking.",
+        "description": "Cosine similarity top-k candidates for reranking.",
         "execution_config": {
           "node_vars": {
             "cosine_topk": {
@@ -625,7 +625,7 @@
           "source_path": "src/ai_index/nodes/rerank_candidates.py",
           "ui": {
             "position": {
-              "x": 1300,
+              "x": 1680,
               "y": 180
             },
             "headerColor": "#0084ff",
@@ -756,19 +756,22 @@
         "source_node": "cosine_candidates",
         "source_port": "ad_ids",
         "target_node": "llm_filter_candidates",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "llm_filter_candidates",
         "source_port": "successful_ad_ids",
         "target_node": "rerank_candidates",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       },
       {
         "source_node": "rerank_candidates",
         "source_port": "ad_ids",
         "target_node": "compute_job_ad_exposure",
-        "target_port": "ad_ids"
+        "target_port": "ad_ids",
+        "dependency": false
       }
     ],
     "extra": {
