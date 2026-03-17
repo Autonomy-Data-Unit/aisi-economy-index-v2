@@ -228,6 +228,8 @@ The high-level entry point is `orchestrate.arun_remote()`, which manages the ful
 
 Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton cert).
 
+**Clifton VPN certificates:** The user has access to Clifton certificates for Isambard. These expire periodically and may need to be re-certified. If sbatch commands fail with SSH/connection errors, check whether the certificate has expired.
+
 ## Project Structure
 
 ```

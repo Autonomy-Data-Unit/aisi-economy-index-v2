@@ -29,23 +29,23 @@ embed_models = [
     "gte-large-sbatch",
     "nomic-embed-sbatch",
     "embedding-gemma-sbatch",
-    "arctic-embed-l-sbatch",
+    # "arctic-embed-l-sbatch",          # Dropped: similar size/approach to GTE
     "qwen3-embed-0.6b-sbatch",
-    "qwen3-embed-4b-sbatch",
+    # "qwen3-embed-4b-sbatch",          # Dropped: middle Qwen3, redundant with 0.6B and 8B
     "qwen3-embed-8b-sbatch",
-    "llama-embed-nemotron-sbatch",
+    # "llama-embed-nemotron-sbatch",    # Dropped: redundant 8B instruction model (same niche as qwen3-embed-8b)
 ]
 
 rerank_models = [
     "bge-reranker-v2-m3-sbatch",
-    "ms-marco-minilm-sbatch",
+    # "ms-marco-minilm-sbatch",         # Dropped: 512 token limit too small for job ad pairs
     "gte-reranker-modernbert-sbatch",
     "nemotron-rerank-1b-sbatch",
     "bge-reranker-v2-gemma-sbatch",
-    "qwen3-reranker-0.6b-sbatch",
+    # "qwen3-reranker-0.6b-sbatch",     # Dropped: have CE version at same size
     "qwen3-reranker-0.6b-ce-sbatch",
-    "qwen3-reranker-4b-sbatch",
-    "qwen3-reranker-4b-ce-sbatch",
+    # "qwen3-reranker-4b-sbatch",       # Dropped: middle Qwen3 vLLM
+    # "qwen3-reranker-4b-ce-sbatch",    # Dropped: middle Qwen3 CE
     "qwen3-reranker-8b-sbatch",
     "qwen3-reranker-8b-ce-sbatch",
 ]
