@@ -612,6 +612,9 @@
         "execution_config": {
           "node_vars": {
             "rerank_model": {},
+            "sbatch_cache": {
+              "inherit": true
+            },
             "sbatch_time": {},
             "chunk_size": {
               "type": "int"

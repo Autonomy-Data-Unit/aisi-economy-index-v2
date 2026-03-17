@@ -17,6 +17,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     from ai_index.utils import arerank_pairs, get_ads_by_id
     run_name = ctx.vars["run_name"]
     rerank_model = ctx.vars["rerank_model"]
+    sbatch_cache = ctx.vars["sbatch_cache"]
     sbatch_time = ctx.vars["sbatch_time"]
     chunk_size = ctx.vars["chunk_size"]
     
@@ -96,7 +97,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         scores_per_ad = await arerank_pairs(
             items,
             model=rerank_model,
-            time=sbatch_time,
+            cache=sbatch_cache, time=sbatch_time,
             slurm_accounting=_sa,
         )
         if _sa:
