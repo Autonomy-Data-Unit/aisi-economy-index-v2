@@ -101,7 +101,7 @@ async def run_pipeline_async(
 
     Args:
         run_name: Name of the run definition to use. Falls back to
-            RUN_NAME env var, then 'baseline'.
+            RUN_NAME env var. Required (no implicit default).
         run_defs: Pre-loaded run definitions dict. When provided, skips
             loading from the default run_defs.toml file.
     """
@@ -111,7 +111,9 @@ async def run_pipeline_async(
     config_path = netrun_config_path
 
     # Load and resolve run definitions
-    run_name = run_name or os.environ.get("RUN_NAME", "baseline")
+    run_name = run_name or os.environ.get("RUN_NAME")
+    if run_name is None:
+        raise ValueError("run_name is required. Pass it as an argument or set the RUN_NAME env var.")
     if run_defs is None:
         run_defs = _load_run_defs(default_run_defs_path)
     global_vars, node_vars = _resolve_run_defs(run_defs, run_name)
@@ -155,12 +157,12 @@ async def run_pipeline_async(
 def main():
     """Sync entry point for the run-pipeline CLI command.
 
-    Usage: run-pipeline [RUN_NAME]
-    Falls back to RUN_NAME env var, then 'baseline'.
+    Usage: run-pipeline <RUN_NAME>
+    Falls back to RUN_NAME env var if no argument given.
     """
     args = sys.argv[1:]
     if len(args) > 1:
-        print(f"Usage: run-pipeline [RUN_NAME]", file=sys.stderr)
+        print(f"Usage: run-pipeline <RUN_NAME>", file=sys.stderr)
         sys.exit(1)
     run_name = args[0] if args else None
     asyncio.run(run_pipeline_async(run_name))
