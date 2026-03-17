@@ -139,9 +139,19 @@ _matches_conn = duckdb.connect()  # in-memory
 _matches_conn.execute(f"CREATE VIEW candidates AS SELECT * FROM read_parquet('{matches_path}')")
 _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
 
-# Load O*NET descriptions for candidate context
-_onet_targets = pd.read_parquet(const.inputs_path / "onet_targets.parquet", columns=["O*NET-SOC Code", "Description"])
-_onet_descriptions = dict(zip(_onet_targets["O*NET-SOC Code"], _onet_targets["Description"]))
+# Build O*NET candidate text for the LLM prompt: description + top 5 tasks.
+# No alternate titles (they blow up the context without helping the LLM's
+# keep/drop decision; the O*NET title is already shown separately).
+_onet_targets = pd.read_parquet(const.onet_targets_path)
+
+def _build_onet_text(row):
+    parts = [row["Description"]]
+    tasks = row["Top_Tasks"]
+    if len(tasks) > 0:
+        parts.append("Key tasks: " + "; ".join(tasks[:5]))
+    return " ".join(parts)
+
+_onet_descriptions = dict(zip(_onet_targets["O*NET-SOC Code"], _onet_targets.apply(_build_onet_text, axis=1)))
 
 print(f"llm_filter: {len(ad_ids)} ads to process")
 print(f"llm_filter: reading candidates from {const.rel(matches_path)}")
