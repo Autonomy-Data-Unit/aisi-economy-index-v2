@@ -53,9 +53,10 @@ def main(ctx, print, ad_ids: list[int], exposure_scores: "pd.DataFrame") -> {
             print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no scores)")
             continue
     
-        # Normalize rerank_score to per-ad weights
+        # Normalize rerank_score to per-ad weights (equal weighting if all scores are 0)
         weight_sums = merged.groupby("ad_id")["rerank_score"].transform("sum")
-        merged["_weight"] = merged["rerank_score"] / weight_sums
+        counts_per_ad = merged.groupby("ad_id")["rerank_score"].transform("count")
+        merged["_weight"] = np.where(weight_sums > 0, merged["rerank_score"] / weight_sums, 1.0 / counts_per_ad)
     
         # Multiply score columns by weight, then sum per ad
         for col in score_cols:
