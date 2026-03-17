@@ -50,11 +50,13 @@ batch_size = 16
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"
 
+# structured_output=false: these models produce malformed output with vLLM's structured output backend.
 [models.qwen-14b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-14B-Instruct"
 structured_output = false
 
+# structured_output=false: this model produces malformed output with vLLM's structured output backend.
 [models.qwen-32b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-32B-Instruct"
@@ -64,6 +66,7 @@ structured_output = false
 mode = "sbatch"
 model = "Qwen/Qwen2.5-72B-Instruct"
 
+# structured_output=false: this model produces malformed output with vLLM's structured output backend.
 [models.mistral-7b-sbatch]
 mode = "sbatch"
 model = "mistralai/Mistral-7B-Instruct-v0.3"
@@ -82,6 +85,7 @@ mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 # Gated model — requires HF_TOKEN on Isambard (already in .env).
+# structured_output=false: this model produces malformed output with vLLM's structured output backend.
 [models.llama-70b-sbatch]
 mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-70B-Instruct"
