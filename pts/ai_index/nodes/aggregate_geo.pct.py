@@ -77,8 +77,7 @@ ad_exposure_path = const.pipeline_store_path / run_name / "compute_job_ad_exposu
 # %%
 #|export
 conn = duckdb.connect()
-if duckdb_memory_limit is not None:
-    conn.execute(f"SET memory_limit = '{duckdb_memory_limit}'")
+conn.execute(f"SET memory_limit = '{duckdb_memory_limit}'")
 
 # Discover score columns from parquet schema
 all_cols = [row[0] for row in conn.execute(

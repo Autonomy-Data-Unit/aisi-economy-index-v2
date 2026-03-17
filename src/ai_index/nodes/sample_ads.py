@@ -22,6 +22,6 @@ def main(ctx, print) -> {
     elif ctx.vars['sample_n'] < 0:
         raise ValueError(f"sample_n must be >= 0, got {ctx.vars['sample_n']}")
     else:
-        np.random.seed(ctx.vars['sample_seed'])
-        sample_ad_ids = np.random.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
+        rng = np.random.default_rng(ctx.vars['sample_seed'])
+        sample_ad_ids = rng.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
     return sample_ad_ids

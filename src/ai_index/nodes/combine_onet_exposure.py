@@ -12,7 +12,8 @@ def main(ctx, print, score_dfs: dict) -> "pd.DataFrame":
     # Merge all score DataFrames on onet_code
     dfs = []
     for name, df in sorted(score_dfs.items()):
-        assert "onet_code" in df.columns, f"Score '{name}' missing 'onet_code' column"
+        if "onet_code" not in df.columns:
+            raise ValueError(f"Score '{name}' missing 'onet_code' column")
         dfs.append(df)
         score_cols = [c for c in df.columns if c != "onet_code"]
         print(f"  {name}: {len(df)} rows, columns={score_cols}")

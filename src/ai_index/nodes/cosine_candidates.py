@@ -96,7 +96,10 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     
         # Top-K per ad
         topk_clamped = min(cosine_topk, n_onet)
-        top_indices = np.argsort(-sim_matrix, axis=1)[:, :topk_clamped]
+        partitioned = np.argpartition(-sim_matrix, topk_clamped, axis=1)[:, :topk_clamped]
+        partitioned_scores = np.take_along_axis(sim_matrix, partitioned, axis=1)
+        sorted_within = np.argsort(-partitioned_scores, axis=1)
+        top_indices = np.take_along_axis(partitioned, sorted_within, axis=1)
         top_scores = np.take_along_axis(sim_matrix, top_indices, axis=1)
     
         chunk_rows = []

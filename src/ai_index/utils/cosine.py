@@ -53,7 +53,7 @@ def cosine_topk(
         return result
 
     else:
-        raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'local' and 'sbatch'.")
+        raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'api', 'local' and 'sbatch'.")
 
 # %% nbs/ai_index/utils/cosine.ipynb 3
 async def acosine_topk(
@@ -99,4 +99,4 @@ async def acosine_topk(
         return result
 
     else:
-        raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'local' and 'sbatch'.")
+        raise ValueError(f"Unknown mode: {mode!r}. cosine_topk supports 'api', 'local' and 'sbatch'.")
