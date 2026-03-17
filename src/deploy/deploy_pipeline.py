@@ -72,7 +72,6 @@ def _sync_code(ip: str, repo_path: str) -> None:
          "--exclude=.venv",
          "--exclude=__pycache__",
          "--exclude=*.pyc",
-         "--exclude=.env",
          "--exclude=.nbl",
          "--exclude=.git",
          "--exclude=.cache",
