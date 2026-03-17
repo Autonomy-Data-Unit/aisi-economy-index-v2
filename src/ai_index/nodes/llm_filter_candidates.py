@@ -103,7 +103,11 @@ async def main(ctx, print, ad_ids: list[int]) -> {
             desc = _onet_descriptions[c["onet_code"]]
             candidate_lines.append(f"{i+1}. {c['onet_title']}: {desc}" if desc else f"{i+1}. {c['onet_title']}")
         candidates_str = "\n".join(candidate_lines)
-        full_ad_excerpt = (raw_ad["description"] or "")[:1200].strip()
+        # Cap at 6000 chars: covers p95+ of ads (median 2217, p95 5544, p99 7955).
+        # The old limit of 1200 truncated 82% of ads. With 20 candidates at ~300
+        # chars each, the total prompt stays under ~3K tokens for most ads, well
+        # within all models' context windows (smallest is gemma-4b at 8K).
+        full_ad_excerpt = (raw_ad["description"] or "")[:6000].strip()
     
         return strict_format(
             USER_PROMPT_TEMPLATE,
