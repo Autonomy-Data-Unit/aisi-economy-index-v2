@@ -8,54 +8,7 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 20 nodes (17 function nodes + 2 broadcast + 1 join) and 23 edges. The pipeline has three main stages: job ad processing (blue), O\*NET exposure scoring (green), and index construction (red).
-
-```
-  ┌─── Job Ad Processing ───────────────────────────────────────────────────────┐
-  │                                                                             │
-  │  fetch_adzuna ──► sample_ads ──► llm_summarise ──► embed_ads ──┐            │
-  │                                                                 │            │
-  │  fetch_onet ──► prepare_onet_targets ──► broadcast_onet_ready ──┤            │
-  │                                          (1→5)  │ │ │          │            │
-  │                                                  │ │ │     embed_onet       │
-  │                                                  │ │ │          │            │
-  │                                                  │ │ │     cosine_match      │
-  │                                                  │ │ │          │            │
-  │                                                  │ │ │     llm_filter ──► broadcast_filter_done
-  │                                                  │ │ │                      (1→2)
-  └──────────────────────────────────────────────────┼─┼─┼──────────────────────┘
-                                                     │ │ │
-  ┌─── O*NET Exposure Scoring ───────────────────────┼─┼─┼──────────────────────┐
-  │                                                  │ │ │                       │
-  │  build_aspectt_vectors ◄─────────────────────────┘ │ │                       │
-  │  score_presence ◄──────────────────────────────────┘ │                       │
-  │  score_felten ◄──────────────────────────────────────┤                       │
-  │  score_task_exposure ◄───────────────────────────────┘                       │
-  │       │            │           │                                             │
-  │       └──► join_scores ◄───────┘                                             │
-  │                │                                                             │
-  │         combine_onet_exposure                                                │
-  └──────────────────────────────────────────────────────────────────────────────┘
-                        │
-  ┌─── Index Construction ──────────────────────────────────────────────────────┐
-  │                     │                                                       │
-  │  compute_job_ad_exposure ◄── broadcast_filter_done                          │
-  │         │                                                                   │
-  │    aggregate_geo                                                            │
-  │                                                                             │
-  │  compute_job_ad_aspectt_vectors ◄── broadcast_filter_done (currently disabled)│
-  └─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Nodes (20 total: 17 function + 2 broadcast + 1 join)
-
-Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`).
-
-**Data ingestion & preparation:** `fetch_onet`, `fetch_adzuna`, `sample_ads`, `prepare_onet_targets`
-**Job ad processing (matching):** `llm_summarise`, `embed_ads`, `embed_onet`, `cosine_match`, `llm_filter_candidates`
-**O\*NET exposure scoring:** `build_aspectt_vectors`, `score_presence`, `score_felten`, `score_task_exposure`, `combine_onet_exposure`
-**Index construction:** `compute_job_ad_exposure`, `aggregate_geo`, `compute_job_ad_aspectt_vectors` (disabled)
-**Infrastructure:** `broadcast_onet_ready` (1->5), `broadcast_filter_done` (1->2), `join_scores` (3->1)
+The pipeline is defined in `config/netrun.json`. Run `uv run netrun validate -c config/netrun.json` to check the current node/edge counts. The pipeline has three main stages: job ad processing, O\*NET exposure scoring, and index construction. Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`).
 
 ### Node Storage Convention
 
