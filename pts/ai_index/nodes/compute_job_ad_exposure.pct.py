@@ -123,6 +123,23 @@ for chunk_idx in range(n_chunks):
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no matches)")
         continue
 
+    # Drop candidates with negative rerank scores. Cross-encoder models
+    # produce unbounded logits that can be negative, meaning the model
+    # considers the candidate irrelevant. Negative scores would break
+    # the downstream weight normalization (sum could be near-zero or
+    # negative, producing nonsensical weights). vLLM rerankers (Qwen,
+    # BGE-Gemma) always produce scores in (0, 1) so this is a no-op
+    # for them.
+    n_before = len(chunk_matches)
+    chunk_matches = chunk_matches[chunk_matches["rerank_score"] >= 0]
+    n_dropped = n_before - len(chunk_matches)
+    if n_dropped > 0:
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: dropped {n_dropped} candidates with negative rerank scores")
+
+    if chunk_matches.empty:
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (all candidates negative)")
+        continue
+
     # Inner join with exposure scores (drops unrecognized onet_codes)
     merged = chunk_matches.merge(exposure_scores, on="onet_code", how="inner")
 
