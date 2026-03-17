@@ -31,7 +31,7 @@ apt.update(
 
 apt.packages(
     name="Install system packages",
-    packages=["git", "curl", "cifs-utils", "rsync"],
+    packages=["git", "curl", "cifs-utils", "rsync", "build-essential"],
 )
 
 # --- Install uv ---
@@ -40,6 +40,13 @@ server.shell(
     name="Install uv (if not present)",
     commands=[
         "command -v /root/.local/bin/uv > /dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh",
+    ],
+)
+
+server.shell(
+    name="Install Rust (if not present, needed for netrun-sim)",
+    commands=[
+        "command -v /root/.cargo/bin/rustc > /dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y)",
     ],
 )
 
@@ -56,7 +63,7 @@ server.shell(
 files.line(
     name="Add storage box mount to fstab",
     path="/etc/fstab",
-    line=f"//{storage_username}.your-storagebox.de/backup {storage_mount_point} cifs vers=3.1.1,seal,credentials={credentials_path},iocharset=utf8 0 0",
+    line=f"//{storage_username}.your-storagebox.de/backup {storage_mount_point} cifs vers=3.1.1,seal,credentials={credentials_path} 0 0",
     present=True,
 )
 

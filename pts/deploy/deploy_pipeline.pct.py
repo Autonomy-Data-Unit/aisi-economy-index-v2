@@ -82,7 +82,7 @@ def _run_pyinfra_setup(ip: str) -> None:
     """Run the pyinfra server setup script."""
     print("Running pyinfra server setup...")
     subprocess.run(
-        ["uv", "run", "pyinfra", f"root@{ip}", "scripts/deploy_setup.py", "-y"],
+        ["uv", "run", "pyinfra", ip, "--ssh-user", "root", "scripts/deploy_setup.py", "-y"],
         check=True,
     )
 
@@ -99,6 +99,9 @@ def _sync_code(ip: str, repo_path: str) -> None:
          "--exclude=*.pyc",
          "--exclude=.env",
          "--exclude=.nbl",
+         "--exclude=.git",
+         "--exclude=.cache",
+         "--exclude=_dev",
          "./", f"root@{ip}:{repo_path}/"],
         check=True,
     )
@@ -124,7 +127,7 @@ def _setup_store_symlink(ip: str, config: dict) -> None:
 def _install_dependencies(ip: str, repo_path: str) -> None:
     """Run uv sync on the remote server."""
     print("Installing dependencies on remote...")
-    run_ssh(ip, f"cd {repo_path} && /root/.local/bin/uv sync")
+    run_ssh(ip, f"cd {repo_path} && export PATH=$PATH:/root/.cargo/bin && /root/.local/bin/uv sync --no-dev")
 
 # %%
 #|export
