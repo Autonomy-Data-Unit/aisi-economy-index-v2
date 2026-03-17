@@ -1,5 +1,5 @@
 fixed_embeddings = ["bge-large-sbatch", "e5-large-sbatch"]
-fixed_llms = ["qwen-7b-sbatch", "llama-70b-sbatch"]
+fixed_llms = ["phi-4-sbatch", "llama-70b-sbatch"]
 fixed_rerankers = ["qwen3-reranker-8b-sbatch", "gte-reranker-modernbert-sbatch"]
 
 llm_models = [
