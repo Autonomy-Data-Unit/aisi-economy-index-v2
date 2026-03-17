@@ -8,7 +8,48 @@ This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. Run `uv run netrun validate -c config/netrun.json` to check the current node/edge counts. The pipeline has three main stages: job ad processing, O\*NET exposure scoring, and index construction. Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`).
+The pipeline is defined in `config/netrun.json`. Run `uv run netrun validate -c config/netrun.json` to check the current node/edge counts. Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`). The pipeline has three parallel tracks that converge at index construction:
+
+### Stage 1: Data Ingestion & Preparation
+
+Two independent startup branches run in parallel:
+
+- **`fetch_adzuna`** -- Downloads Adzuna job ad data from S3, deduplicates, stores in DuckDB.
+- **`fetch_onet`** -- Downloads and extracts the O\*NET database.
+- **`sample_ads`** -- Triggered after `fetch_adzuna`. Samples N ad IDs (or passes all through if `sample_n == -1`).
+- **`prepare_onet_targets`** -- Triggered after `fetch_onet`. Filters O\*NET occupations, builds rich text descriptions combining titles, tasks, skills, and work activities. Writes `onet_targets.parquet`.
+
+### Stage 2a: Job Ad Matching (blue path)
+
+Matches job ads to O\*NET occupations through a multi-stage retrieval pipeline:
+
+1. **`embed_ads`** -- Embeds raw job ad text (title + description) using the configured embedding model. Processes in chunks, stores embeddings in DuckDB.
+2. **`embed_onet`** -- Embeds O\*NET occupation descriptions. Triggered after `prepare_onet_targets` via `broadcast_onet_ready`.
+3. **`cosine_candidates`** -- Computes cosine similarity between ad and O\*NET embeddings. Selects top-k candidates per ad (default 20). Writes candidates parquet.
+4. **`llm_filter_candidates`** -- LLM-based negative selection. Presents candidates to an LLM which selects functional matches. Supports structured output, unstructured, and reasoning model prompt variants. Writes filtered matches to DuckDB.
+5. **`rerank_candidates`** -- Cross-encoder reranking of filtered candidates using Qwen3-Reranker. Produces final match scores.
+
+### Stage 2b: O\*NET Exposure Scoring (green path)
+
+Runs in parallel with job ad matching, triggered by `broadcast_onet_ready` (1-to-4 fan-out):
+
+- **`score_presence`** -- Computes humanness/presence scores (physical, emotional, creative dimensions) per occupation from O\*NET work context, GWAs, and skills data.
+- **`score_felten`** -- Computes Felten AIOE ability-application AI exposure scores per occupation, with configurable progress scenarios.
+- **`score_task_exposure`** -- LLM-based task-level AI exposure classification. Evaluates each O\*NET task for AI automation potential and aggregates to occupation level.
+- **`join_scores`** -- Synchronization barrier (3-to-1 join). Waits for all three score nodes to complete.
+- **`combine_onet_exposure`** -- Merges all score DataFrames into a single combined exposure table. Validates occupation set consistency.
+
+### Stage 3: Index Construction (red path)
+
+Converges the matching and scoring results:
+
+- **`compute_job_ad_exposure`** -- Maps occupation-level exposure scores to individual job ads via rerank-score-weighted averaging.
+- **`aggregate_geo`** -- Aggregates ad-level AI exposure scores by Local Authority District (LAD22CD). Produces the final geographic index.
+
+### Infrastructure Nodes
+
+- **`broadcast_onet_ready`** -- Fan-out (1-to-4): triggers `embed_onet`, `score_presence`, `score_felten`, `score_task_exposure` after O\*NET preparation completes.
+- **`join_scores`** -- Synchronization barrier (3-to-1): collects outputs from the three score nodes before combining.
 
 ### Node Storage Convention
 
