@@ -13,13 +13,14 @@
 #
 # 1. Optionally removes 33 public-sector-only occupations (894 → 861)
 #    that are not expected on commercial job boards.
-# 2. Builds two text columns per occupation for downstream embedding:
-#    - "Job Role Description" = "{Title} - {Description}"
-#    - "Work Activities/Tasks/Skills" = "{Title} - {top tasks, activities, skills}"
+# 2. Builds text columns per occupation for downstream embedding:
+#    - "Description" = O*NET summary description
+#    - "Top_Tasks" = top tasks ranked by direct importance (Task Ratings IM scale)
+#    - "Alternate_Titles" = alternate job titles from O*NET
 #
 # Node variables:
 # - `onet_exclude_public_sector` (per-node): Remove 33 public-sector occupations (default true)
-# - `onet_top_n` (per-node): Top-N tasks/skills/activities per occupation (default 10)
+# - `onet_top_n` (per-node): Top-N tasks per occupation (default 10)
 
 # %%
 #|default_exp nodes.prepare_onet_targets
@@ -122,69 +123,47 @@ def _load_onet_table(name):
 
 occupation_data = _load_onet_table("Occupation Data")
 task_statements = _load_onet_table("Task Statements")
-skills = _load_onet_table("Skills")
-work_activities = _load_onet_table("Work Activities")
+task_ratings = _load_onet_table("Task Ratings")
+alternate_titles = _load_onet_table("Alternate Titles")
 
 # %% [markdown]
-# ## Build text descriptions
+# ## Build top tasks
 #
-# For each occupation, construct:
-# - **Job Role Description**: `"{Title} - {Description}"`
-# - **Work Activities/Tasks/Skills**: `"{Title} - {top tasks, activities, skills}"`
-#   where top items are ranked by Importance (IM) scale score.
+# Rank tasks by their direct Importance (IM) score from Task Ratings,
+# not by the skill-sum proxy used in the old pipeline. This surfaces
+# the actually important tasks for each occupation.
 
 # %%
 #|export
-def _top_items_by_importance(occ_df, detail_df, element_col, top_n):
-    """Get top-N items per occupation ranked by Importance scale score."""
-    merged = occ_df[["O*NET-SOC Code", "Title"]].merge(
-        detail_df[["O*NET-SOC Code", element_col, "Scale ID", "Data Value"]],
-        on="O*NET-SOC Code", how="left",
-    )
-    merged = merged[merged["Scale ID"] == "IM"].copy()
-    merged["Data Value"] = pd.to_numeric(merged["Data Value"], errors="coerce")
-    merged = merged.dropna(subset=["Data Value"])
-
-    grouped = merged.groupby(["Title", element_col], as_index=False)["Data Value"].sum()
-    top = (
-        grouped.sort_values(["Title", "Data Value"], ascending=[True, False])
-        .groupby("Title")
-        .head(top_n)
-    )
-    return top.groupby("Title")[element_col].apply(list).reset_index()
-
-# Top tasks (ranked by skill importance as cross-reference, matches old pipeline)
-occ_tasks = occupation_data[["O*NET-SOC Code", "Title"]].merge(
-    task_statements[["O*NET-SOC Code", "Task"]], on="O*NET-SOC Code", how="left",
+# Join task ratings (IM scale) with task text
+tr_im = task_ratings[task_ratings["Scale ID"] == "IM"].copy()
+tr_im["Data Value"] = pd.to_numeric(tr_im["Data Value"], errors="coerce")
+tr_with_text = tr_im.merge(
+    task_statements[["O*NET-SOC Code", "Task ID", "Task"]],
+    on=["O*NET-SOC Code", "Task ID"],
 )
-occ_tasks_skills = occ_tasks.merge(
-    skills[["O*NET-SOC Code", "Element Name", "Scale ID", "Data Value"]],
-    on="O*NET-SOC Code", how="left",
-)
-occ_tasks_skills = occ_tasks_skills[occ_tasks_skills["Scale ID"] == "IM"].copy()
-occ_tasks_skills["Data Value"] = occ_tasks_skills["Data Value"].astype(float)
-task_scores = occ_tasks_skills.groupby(["Title", "Task"])["Data Value"].sum().reset_index()
+
+# Top-N tasks per occupation by direct importance
 top_tasks = (
-    task_scores.sort_values(["Title", "Data Value"], ascending=[True, False])
-    .groupby("Title").head(top_n)
+    tr_with_text.sort_values(["O*NET-SOC Code", "Data Value"], ascending=[True, False])
+    .groupby("O*NET-SOC Code")
+    .head(top_n)
 )
-tasks_grouped = top_tasks.groupby("Title")["Task"].apply(list).reset_index()
+tasks_grouped = top_tasks.groupby("O*NET-SOC Code")["Task"].apply(list).reset_index()
 tasks_grouped.rename(columns={"Task": "Top_Tasks"}, inplace=True)
 
-# Top skills
-skills_grouped = _top_items_by_importance(occupation_data, skills, "Element Name", top_n)
-skills_grouped.rename(columns={"Element Name": "Top_Skills"}, inplace=True)
+# %% [markdown]
+# ## Build alternate titles
 
-# Top work activities
-activities_grouped = _top_items_by_importance(occupation_data, work_activities, "Element Name", top_n)
-activities_grouped.rename(columns={"Element Name": "Top_Activities"}, inplace=True)
-
-# Merge all
-merged = tasks_grouped.merge(activities_grouped, on="Title", how="outer")
-merged = merged.merge(skills_grouped, on="Title", how="outer")
-for col in ["Top_Tasks", "Top_Activities", "Top_Skills"]:
-    merged[col] = merged[col].apply(lambda x: x if isinstance(x, list) else [])
-merged["All_Items"] = merged["Top_Tasks"] + merged["Top_Activities"] + merged["Top_Skills"]
+# %%
+#|export
+alt_grouped = (
+    alternate_titles
+    .groupby("O*NET-SOC Code")["Alternate Title"]
+    .apply(list)
+    .reset_index()
+)
+alt_grouped.rename(columns={"Alternate Title": "Alternate_Titles"}, inplace=True)
 
 # %% [markdown]
 # ## Assemble output DataFrame
@@ -192,15 +171,16 @@ merged["All_Items"] = merged["Top_Tasks"] + merged["Top_Activities"] + merged["T
 # %%
 #|export
 occ_df = occupation_data.copy()
-occ_df["All_Items"] = occ_df["Title"].map(merged.set_index("Title")["All_Items"].to_dict())
-occ_df = occ_df.dropna(subset=["All_Items"])
+occ_df = occ_df.merge(tasks_grouped, on="O*NET-SOC Code", how="left")
+occ_df = occ_df.merge(alt_grouped, on="O*NET-SOC Code", how="left")
+occ_df["Top_Tasks"] = occ_df["Top_Tasks"].apply(lambda x: x if isinstance(x, list) else [])
+occ_df["Alternate_Titles"] = occ_df["Alternate_Titles"].apply(lambda x: x if isinstance(x, list) else [])
 
-onet_targets = occ_df[["O*NET-SOC Code", "Title", "Description"]].copy()
-onet_targets["Job Role Description"] = onet_targets["Title"] + " - " + onet_targets["Description"].astype(str)
-onet_targets["Work Activities/Tasks/Skills"] = (
-    onet_targets["Title"] + " - "
-    + occ_df["All_Items"].apply(lambda items: ", ".join(str(i) for i in items))
-)
+# Drop occupations with no tasks (mostly "All Other" catch-all categories
+# and military roles that produce poor embeddings without task context)
+occ_df = occ_df[occ_df["Top_Tasks"].apply(len) > 0]
+
+onet_targets = occ_df[["O*NET-SOC Code", "Title", "Description", "Top_Tasks", "Alternate_Titles"]].copy()
 
 # %% [markdown]
 # ## Filter public sector occupations
@@ -227,5 +207,6 @@ print(f"Columns: {list(onet_targets.columns)}")
 print(f"Shape: {onet_targets.shape}")
 for _, row in onet_targets.head(2).iterrows():
     print(f"\n--- {row['Title']} ---")
-    print(f"  Role: {row['Job Role Description'][:120]}...")
-    print(f"  Tasks/Skills: {row['Work Activities/Tasks/Skills'][:120]}...")
+    print(f"  Description: {row['Description'][:120]}...")
+    print(f"  Top tasks ({len(row['Top_Tasks'])}): {', '.join(row['Top_Tasks'][:3])}...")
+    print(f"  Alternate titles ({len(row['Alternate_Titles'])}): {', '.join(row['Alternate_Titles'][:5])}...")

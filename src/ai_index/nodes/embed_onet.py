@@ -42,10 +42,20 @@ async def main(ctx, print) -> bool:
     
     onet_codes = onet_targets["O*NET-SOC Code"].tolist()
     
-    # Build a single rich text per occupation
+    # Build a single rich text per occupation for embedding.
+    # Includes alternate titles (bridges vocabulary gap with job ads),
+    # description, and top tasks ranked by direct importance.
     onet_texts = []
     for _, row in onet_targets.iterrows():
-        text = f"{row['Title']}\n\n{row['Description']}\n\nKey tasks and skills: {row['Work Activities/Tasks/Skills']}"
+        parts = [row['Title']]
+        alt_titles = row['Alternate_Titles']
+        if alt_titles:
+            parts.append(f"Also known as: {', '.join(alt_titles)}")
+        parts.append(row['Description'])
+        top_tasks = row['Top_Tasks']
+        if top_tasks:
+            parts.append("Key tasks: " + "; ".join(top_tasks))
+        text = "\n\n".join(parts)
         onet_texts.append(document_prefix + text)
     
     print(f"  Built {len(onet_texts)} texts")
