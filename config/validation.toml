@@ -19,7 +19,7 @@ llm_models = [
     "phi-4-sbatch",
     "gemma-27b-sbatch",
     "exaone-32b-sbatch",
-    # "deepseek-r1-qwen-32b-sbatch",  # Dropped: no reasoning prompt support, run never completed
+    "deepseek-r1-qwen-32b-sbatch",
     "gpt-oss-120b-sbatch",
 ]
 
