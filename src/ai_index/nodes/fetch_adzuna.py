@@ -43,6 +43,7 @@ def main(ctx, print):
     ensure_ads_table(conn)
     
     adzuna_meta = {"years": {}}
+    any_new_data = False
     
     for year in years:
         year_int = int(year)
@@ -177,28 +178,33 @@ def main(ctx, print):
             conn.execute("CHECKPOINT")
             print(f"fetch_adzuna: {year} dedup, {dups_removed} duplicates removed ({before_count} -> {after_count} rows)")
     
+        if year_info["new_months"]:
+            any_new_data = True
         del year_info["new_months"]
         adzuna_meta["years"][year] = year_info
         total_rows = sum(year_info["row_counts"].values())
         print(f"fetch_adzuna: year {year}, {len(year_info['months'])} months, {total_rows} total rows")
     
-    # --- Global dedup: remove cross-year duplicates ---
-    before_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
-    conn.execute("""
-        DELETE FROM ads
-        WHERE rowid NOT IN (
-            SELECT arg_min(rowid, date_created)
-            FROM ads
-            GROUP BY id
-        )
-    """)
-    after_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
-    global_dups = before_total - after_total
-    if global_dups > 0:
-        conn.execute("CHECKPOINT")
-        print(f"fetch_adzuna: global dedup, {global_dups} cross-year duplicates removed ({before_total} -> {after_total} rows)")
+    # --- Global dedup: remove cross-year duplicates (only if new data was ingested) ---
+    if any_new_data:
+        before_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
+        conn.execute("""
+            DELETE FROM ads
+            WHERE rowid NOT IN (
+                SELECT arg_min(rowid, date_created)
+                FROM ads
+                GROUP BY id
+            )
+        """)
+        after_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
+        global_dups = before_total - after_total
+        if global_dups > 0:
+            conn.execute("CHECKPOINT")
+            print(f"fetch_adzuna: global dedup, {global_dups} cross-year duplicates removed ({before_total} -> {after_total} rows)")
+        else:
+            print(f"fetch_adzuna: global dedup, no cross-year duplicates")
     else:
-        print(f"fetch_adzuna: global dedup, no cross-year duplicates")
+        print(f"fetch_adzuna: no new data ingested, skipping global dedup")
     
     conn.close()
     print(f"fetch_adzuna: done, {len(adzuna_meta['years'])} year(s)")
