@@ -65,34 +65,30 @@ def _build_ssh_cmd(config: IsambardConfig, *, timeout: int = 120) -> list[str]:
 
 # %%
 #|export
+def _run_once_sync(ssh_cmd: list[str], *, timeout: int,
+                   capture: bool) -> subprocess.CompletedProcess:
+    """Single SSH attempt using synchronous subprocess (no asyncio child watcher needed).
+
+    Uses subprocess.run instead of asyncio.create_subprocess_exec to avoid
+    the child watcher issue in thread pool workers (netrun issue #32) and
+    event loop blocking issues when sync nodes run on the main loop.
+    """
+    try:
+        return subprocess.run(
+            ssh_cmd,
+            capture_output=capture,
+            timeout=timeout,
+            text=True,
+        )
+    except subprocess.TimeoutExpired:
+        raise
+
+
 async def _arun_once(ssh_cmd: list[str], *, timeout: int,
                      capture: bool) -> subprocess.CompletedProcess:
-    """Single SSH attempt (no retries)."""
-    if capture:
-        proc = await asyncio.create_subprocess_exec(
-            *ssh_cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    else:
-        proc = await asyncio.create_subprocess_exec(*ssh_cmd)
-
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            proc.communicate(), timeout=timeout,
-        )
-    except asyncio.TimeoutError:
-        proc.kill()
-        await proc.communicate()
-        raise subprocess.TimeoutExpired(ssh_cmd, timeout)
-
-    stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
-    stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
-
-    return subprocess.CompletedProcess(
-        args=ssh_cmd, returncode=proc.returncode,
-        stdout=stdout if capture else None,
-        stderr=stderr if capture else None,
+    """Single SSH attempt. Runs subprocess in a thread to avoid blocking the event loop."""
+    return await asyncio.get_event_loop().run_in_executor(
+        None, lambda: _run_once_sync(ssh_cmd, timeout=timeout, capture=capture),
     )
 
 import os as _os
@@ -200,19 +196,12 @@ async def acheck_clifton_auth() -> bool:
     try:
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
                "-F", str(cert_path), "a5u.aip2.isambard", "echo ok"]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: subprocess.run(cmd, capture_output=True, text=True, timeout=15),
         )
-        try:
-            await asyncio.wait_for(proc.communicate(), timeout=15)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.communicate()
-            return False
-        return proc.returncode == 0
-    except (FileNotFoundError, OSError):
+        return result.returncode == 0
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         return False
 
 # %%
