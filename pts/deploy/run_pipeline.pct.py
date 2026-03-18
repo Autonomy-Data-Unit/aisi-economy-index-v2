@@ -64,7 +64,7 @@ def run_bg():
 
     cmd = (
         f"cd {repo_path} && "
-        f"nohup /root/.local/bin/uv run --no-dev {user_cmd} "
+        f"PYTHONUNBUFFERED=1 setsid nohup /root/.local/bin/uv run --no-dev {user_cmd} "
         f"> {REMOTE_LOG} 2>&1 </dev/null & echo $! > {REMOTE_PID}"
     )
     subprocess.run(
@@ -130,5 +130,6 @@ def kill_bg():
         print("No background job is running.")
         return
 
-    run_ssh(ip, f"kill {pid}")
-    print(f"Killed background job (PID {pid}).")
+    # Kill the entire process tree (children first, then parent)
+    run_ssh(ip, f"pkill -TERM -P {pid}; kill -TERM {pid}; sleep 1; pkill -KILL -P {pid}; kill -KILL {pid}", check=False)
+    print(f"Killed background job and children (PID {pid}).")
