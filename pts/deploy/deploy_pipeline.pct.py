@@ -79,6 +79,8 @@ def _ensure_server(config: dict) -> str:
 #|export
 def _run_pyinfra_setup(ip: str) -> None:
     """Run the pyinfra server setup script."""
+    # Remove any stale host key for this IP (Hetzner recycles IPs across servers)
+    subprocess.run(["ssh-keygen", "-R", ip], capture_output=True)
     print("Running pyinfra server setup...")
     subprocess.run(
         ["uv", "run", "pyinfra", ip, "--ssh-user", "root", "scripts/deploy_setup.py", "-y"],

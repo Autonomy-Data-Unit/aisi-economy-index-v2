@@ -35,3 +35,23 @@ server.shell(
         "command -v /root/.cargo/bin/rustc > /dev/null 2>&1 || (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y)",
     ],
 )
+
+# --- Install Clifton (Isambard VPN/SSH certificate tool) ---
+
+server.shell(
+    name="Install Clifton CLI (if not present)",
+    commands=[
+        "test -x /usr/local/bin/clifton || "
+        "(curl -L https://github.com/isambard-sc/clifton/releases/latest/download/clifton-linux-musl-x86_64 -o /usr/local/bin/clifton "
+        "&& chmod +x /usr/local/bin/clifton)",
+    ],
+)
+
+# --- Generate SSH key for Isambard ---
+
+server.shell(
+    name="Generate SSH key (if not present)",
+    commands=[
+        'test -f /root/.ssh/id_ed25519 || ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N ""',
+    ],
+)

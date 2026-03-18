@@ -47,3 +47,17 @@ def main():
          f"cd {repo_path} && {cmd}"],
     )
     sys.exit(result.returncode)
+
+# %%
+#|export
+def clifton_auth():
+    """Run 'clifton auth' interactively on the remote server."""
+    config = load_deploy_config()
+    ip = get_server_ip(config["server"]["name"])
+
+    result = subprocess.run(
+        ["ssh", "-o", "StrictHostKeyChecking=no", "-t",
+         f"root@{ip}",
+         "clifton auth -i ~/.ssh/id_ed25519 --open-browser false"],
+    )
+    sys.exit(result.returncode)
