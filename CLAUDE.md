@@ -533,6 +533,10 @@ The `pts/deploy/` module provisions a Hetzner Cloud server and deploys the pipel
 uv run remote-deploy-pipeline                          # Provision + deploy (idempotent)
 uv run remote-destroy                                  # Delete server
 uv run remote-run-cmd <command...>                     # Run command on remote (streams output)
+uv run remote-run-bg <command...>                      # Run command in background (detached from SSH)
+uv run remote-run-pipeline <run_name>                  # Shortcut: remote-run-bg run-pipeline <run_name>
+uv run remote-bg-log [--follow] [N]                    # Tail background job log
+uv run remote-bg-kill                                  # Kill background job
 uv run remote-download-store <rel_path> <local_path>   # rsync store files to local
 uv run remote-ip                                       # Print server IP
 ```
