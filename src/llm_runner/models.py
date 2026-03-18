@@ -347,7 +347,7 @@ def _load_vllm(model_name: str, *, device: str = "cuda", dtype: str = "float16",
         gpu_memory_utilization=0.9,
         tensor_parallel_size=tensor_parallel_size,
         enforce_eager=True,   # safer on aarch64/GH200
-        max_model_len=4096,   # our prompts are short, saves memory
+        max_model_len=16384,  # enriched O*NET prompts can reach ~8K tokens
     )
 
     if dtype == "fp8":
