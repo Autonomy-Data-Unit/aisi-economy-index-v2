@@ -49,11 +49,11 @@ async def main(ctx, print) -> bool:
     for _, row in onet_targets.iterrows():
         parts = [row['Title']]
         alt_titles = row['Alternate_Titles']
-        if alt_titles:
+        if len(alt_titles) > 0:
             parts.append(f"Also known as: {', '.join(alt_titles)}")
         parts.append(row['Description'])
         top_tasks = row['Top_Tasks']
-        if top_tasks:
+        if len(top_tasks) > 0:
             parts.append("Key tasks: " + "; ".join(top_tasks))
         text = "\n\n".join(parts)
         onet_texts.append(document_prefix + text)
