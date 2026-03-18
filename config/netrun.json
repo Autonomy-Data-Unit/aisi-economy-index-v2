@@ -59,8 +59,7 @@
   "pools": {
     "main": {
       "spec": {
-        "type": "thread",
-        "num_workers": 4
+        "type": "main"
       }
     }
   },
