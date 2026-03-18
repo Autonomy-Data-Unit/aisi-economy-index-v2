@@ -1,6 +1,6 @@
 [server]
 name = "aisi-economy-index"
-type = "cpx42"
+type = "cpx62"
 location = "fsn1"
 image = "ubuntu-24.04"
 ssh_key_name = "main"
@@ -8,8 +8,3 @@ ssh_pubkey_path = "~/.ssh/id_ed25519.pub"
 
 [repo]
 path = "/root/aisi-economy-index"
-
-[storage_box]
-username = "u563056"           
-mount_point = "/mnt/storage-box"
-store_path = "aisi-economy-index-store"   

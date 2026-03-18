@@ -9,7 +9,7 @@
 # %% [markdown]
 # # deploy.destroy
 #
-# Destroys the remote Hetzner server. Does not touch the storage box.
+# Destroys the remote Hetzner server.
 #
 # Usage:
 #     uv run remote-destroy

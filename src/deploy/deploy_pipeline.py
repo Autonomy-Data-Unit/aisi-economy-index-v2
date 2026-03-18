@@ -5,7 +5,6 @@ __all__ = ['deploy_pipeline', 'main']
 # %% nbs/deploy/deploy_pipeline.ipynb 2
 import os
 import subprocess
-import sys
 
 from .config import (
     get_server_ip,
@@ -81,19 +80,9 @@ def _sync_code(ip: str, repo_path: str) -> None:
     )
 
 # %% nbs/deploy/deploy_pipeline.ipynb 7
-def _setup_store_symlink(ip: str, config: dict) -> None:
-    """Create the store symlink pointing to the storage box."""
-    repo_path = config["repo"]["path"]
-    storage = config["storage_box"]
-    mount_point = storage["mount_point"]
-    store_path = storage["store_path"]
-    target = f"{mount_point}/{store_path}"
-
-    # Create the directory on the storage box if needed
-    run_ssh(ip, f"mkdir -p {target}")
-
-    # Create symlink (only if store is not already a symlink)
-    run_ssh(ip, f"cd {repo_path} && (test -L store || ln -s {target} store)")
+def _setup_store_dir(ip: str, repo_path: str) -> None:
+    """Create the store directory on the server's local disk."""
+    run_ssh(ip, f"mkdir -p {repo_path}/store")
 
 # %% nbs/deploy/deploy_pipeline.ipynb 8
 def _install_dependencies(ip: str, repo_path: str) -> None:
@@ -109,10 +98,6 @@ def deploy_pipeline() -> None:
 
     config = load_deploy_config()
 
-    if "STORAGE_BOX_PASSWORD" not in os.environ:
-        print("Error: STORAGE_BOX_PASSWORD environment variable is required", file=sys.stderr)
-        sys.exit(1)
-
     # 1. Ensure SSH key and server exist
     _ensure_ssh_key(config)
     ip = _ensure_server(config)
@@ -121,14 +106,14 @@ def deploy_pipeline() -> None:
     print(f"Server IP: {ip}")
     wait_for_ssh(ip)
 
-    # 3. Run pyinfra setup (packages, uv, storage box mount)
+    # 3. Run pyinfra setup (packages, uv)
     _run_pyinfra_setup(ip)
 
     # 4. Sync code
     _sync_code(ip, config["repo"]["path"])
 
-    # 5. Set up store symlink
-    _setup_store_symlink(ip, config)
+    # 5. Create store directory
+    _setup_store_dir(ip, config["repo"]["path"])
 
     # 6. Install dependencies
     _install_dependencies(ip, config["repo"]["path"])

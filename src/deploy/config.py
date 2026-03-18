@@ -24,9 +24,6 @@ def load_deploy_config() -> dict:
     repo = config["repo"]
     _ = repo["path"]
 
-    storage = config["storage_box"]
-    _ = storage["username"], storage["mount_point"], storage["store_path"]
-
     return config
 
 # %% nbs/deploy/config.ipynb 4

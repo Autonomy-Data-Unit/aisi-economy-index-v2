@@ -119,7 +119,7 @@ Pipeline nodes should:
 
 ### `deploy.toml` — Remote deployment config
 
-Settings for provisioning and managing a Hetzner Cloud server. Sections: `[server]` (name, type, location, image, SSH key), `[repo]` (remote path), `[storage_box]` (username, mount point, store symlink path). Storage box password comes from `STORAGE_BOX_PASSWORD` env var.
+Settings for provisioning and managing a Hetzner Cloud server. Sections: `[server]` (name, type, location, image, SSH key), `[repo]` (remote path).
 
 ### `netrun.json` — Pipeline graph
 
@@ -526,12 +526,12 @@ Nodes pass `time=sbatch_time` as a kwarg to `embed()`/`llm_generate()`/`cosine_t
 
 ## Remote Deployment (Hetzner)
 
-The `pts/deploy/` module provisions a Hetzner Cloud server and deploys the pipeline for remote execution. The `store/` folder is symlinked to a pre-existing Hetzner storage box. Configuration lives in `config/deploy.toml`. Requires `hcloud` CLI to be installed and authenticated.
+The `pts/deploy/` module provisions a Hetzner Cloud server and deploys the pipeline for remote execution. The `store/` directory is created on the server's local disk. Configuration lives in `config/deploy.toml`. Requires `hcloud` CLI to be installed and authenticated.
 
 ### CLI commands
 ```bash
 uv run remote-deploy-pipeline                          # Provision + deploy (idempotent)
-uv run remote-destroy                                  # Delete server (storage box untouched)
+uv run remote-destroy                                  # Delete server
 uv run remote-run-cmd <command...>                     # Run command on remote (streams output)
 uv run remote-download-store <rel_path> <local_path>   # rsync store files to local
 uv run remote-ip                                       # Print server IP
@@ -541,18 +541,15 @@ uv run remote-ip                                       # Print server IP
 1. Ensure SSH key registered in hcloud
 2. Create server if not exists (hcloud)
 3. Wait for SSH
-4. Run pyinfra setup (`scripts/deploy_setup.py`): install system packages, uv, mount storage box via CIFS
+4. Run pyinfra setup (`scripts/deploy_setup.py`): install system packages, uv
 5. rsync code to remote (excludes `store/`, `.venv/`, `.env`)
-6. Create `store` symlink pointing to storage box path
+6. Create `store` directory on local disk
 7. Run `uv sync` on remote
 
 Re-running is idempotent. If the server already exists, it skips provisioning and re-syncs code.
 
-### Required env var
-- `STORAGE_BOX_PASSWORD` -- needed by `remote-deploy-pipeline` for CIFS mount credentials (can be set in `.env`)
-
 ### Key files
-- `config/deploy.toml` -- server, repo, and storage box settings
+- `config/deploy.toml` -- server and repo settings
 - `scripts/deploy_setup.py` -- standalone pyinfra deploy script (not managed by nblite)
 - `pts/deploy/config.pct.py` -- config loading, hcloud helpers, SSH utilities
 - `pts/deploy/deploy_pipeline.pct.py` -- main deploy orchestration
