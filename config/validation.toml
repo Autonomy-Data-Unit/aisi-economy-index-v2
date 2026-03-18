@@ -3,7 +3,7 @@ fixed_llms = ["phi-4-sbatch", "llama-70b-sbatch"]
 fixed_rerankers = ["qwen3-reranker-8b-sbatch", "gte-reranker-modernbert-sbatch"]
 
 llm_models = [
-    "gemma-4b-sbatch",
+    # "gemma-4b-sbatch",             # Dropped: 4096 token context too small for enriched O*NET prompts
     "qwen-7b-sbatch",
     "qwen3-8b-sbatch",
     "qwen-14b-sbatch",
