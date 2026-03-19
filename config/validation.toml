@@ -4,7 +4,7 @@
 # - Arm 3 (vary reranker):  runs each reranker with every (fixed_llm, fixed_embedding) pair
 fixed_embeddings = ["bge-large-sbatch", "e5-large-sbatch"]
 fixed_llms = ["phi-4-sbatch", "llama-70b-sbatch"]
-fixed_rerankers = ["qwen3-reranker-8b-sbatch", "gte-reranker-modernbert-sbatch"]
+fixed_rerankers = ["qwen3-reranker-8b-sbatch", "bge-reranker-v2-m3-sbatch"]
 
 llm_models = [
     # "gemma-4b-sbatch",             # Dropped: 4096 token context too small for enriched O*NET prompts
