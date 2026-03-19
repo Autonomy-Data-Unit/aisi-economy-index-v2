@@ -63,16 +63,14 @@ print(f"Completed runs: {len(completed)}")
 # ### Models used
 
 # %%
-all_embeds = sorted({embed for _, _, _, embed, _ in completed})
-all_llms = sorted({llm for _, _, llm, _, _ in completed})
-all_reranks = sorted({rerank for _, _, _, _, rerank in completed})
+all_embeds = sorted(config["embed_models"])
 
 print("Embeddings (varied):")
 display(build_model_info_table(all_embeds, mn))
 print("\nLLMs (fixed):")
-display(build_model_info_table(all_llms, mn))
+display(build_model_info_table(fixed_llms, mn))
 print("\nRerankers (fixed):")
-display(build_model_info_table(all_reranks, mn))
+display(build_model_info_table(fixed_rerankers, mn))
 
 # %% [markdown]
 # ## Load data

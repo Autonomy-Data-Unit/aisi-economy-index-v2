@@ -62,21 +62,16 @@ print(f"Completed runs: {len(completed)}")
 
 # %% [markdown]
 # ### Models used
-#
-# All model keys appearing in the completed runs, with their short display names
-# and full HuggingFace identifiers.
 
 # %%
-all_llms = sorted({llm for _, _, llm, _, _ in completed})
-all_embeds = sorted({embed for _, _, _, embed, _ in completed})
-all_reranks = sorted({rerank for _, _, _, _, rerank in completed})
+all_llms = sorted(config["llm_models"])
 
-print("LLMs:")
+print("LLMs (varied):")
 display(build_model_info_table(all_llms, mn))
-print("\nEmbeddings:")
-display(build_model_info_table(all_embeds, mn))
-print("\nRerankers:")
-display(build_model_info_table(all_reranks, mn))
+print("\nEmbeddings (fixed):")
+display(build_model_info_table(fixed_embeddings, mn))
+print("\nRerankers (fixed):")
+display(build_model_info_table(fixed_rerankers, mn))
 
 # %% [markdown]
 # ## Load data
