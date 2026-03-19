@@ -399,5 +399,13 @@ def generate_reports_main():
         try:
             html_path = notebook_to_html(nb_path, reports_path, stem)
             print(f"  HTML: {html_path}")
+
+            # Convert HTML to PDF via weasyprint
+            from weasyprint import HTML as WeasyHTML
+            pdf_path = reports_path / f"{stem}.pdf"
+            WeasyHTML(filename=str(html_path)).write_pdf(str(pdf_path))
+            print(f"  PDF: {pdf_path}")
         except subprocess.CalledProcessError as e:
             print(f"  HTML: failed ({e})")
+        except Exception as e:
+            print(f"  PDF: failed ({e})")
