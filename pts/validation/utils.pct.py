@@ -156,8 +156,30 @@ def notebook_to_report(notebook_path: str | Path, output_dir: str | Path, stem: 
     md_path = output_dir / f"{stem}.md"
     md_path.write_text(md_content)
 
+
     return md_path
 
+
+def notebook_to_html(notebook_path: str | Path, output_dir: str | Path, stem: str) -> Path:
+    """Convert an executed notebook to a self-contained HTML report, omitting code cells.
+
+    Uses nbconvert --to html --no-input with --embed-images for a single-file output.
+    """
+    import subprocess
+
+    notebook_path = Path(notebook_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    html_path = output_dir / f"{stem}.html"
+    subprocess.run(
+        ["uv", "run", "jupyter", "nbconvert",
+         "--to", "html", "--no-input", "--embed-images",
+         "--output", str(html_path.resolve()),
+         str(notebook_path)],
+        check=True, capture_output=True, timeout=120,
+    )
+    return html_path
 
 
 def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str, str]]:
@@ -370,6 +392,12 @@ def generate_reports_main():
             print(result.stderr[-500:] if len(result.stderr) > 500 else result.stderr)
             continue
 
-        # Convert executed notebook to markdown report
+        # Convert executed notebook to reports
         md_path = notebook_to_report(nb_path, reports_path, stem)
         print(f"  Markdown: {md_path}")
+
+        try:
+            html_path = notebook_to_html(nb_path, reports_path, stem)
+            print(f"  HTML: {html_path}")
+        except subprocess.CalledProcessError as e:
+            print(f"  HTML: failed ({e})")
