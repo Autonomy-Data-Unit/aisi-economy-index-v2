@@ -30,9 +30,6 @@
     "llm_max_new_tokens": {
       "type": "int"
     },
-    "llm_max_concurrent_batches": {
-      "type": "int"
-    },
     "sbatch_cache": {
       "type": "bool"
     },
@@ -232,7 +229,10 @@
               "type": "bool"
             },
             "system_prompt": {},
-            "user_prompt": {}
+            "user_prompt": {},
+            "max_concurrent_chunks": {
+              "type": "int"
+            }
           }
         },
         "extra": {

@@ -125,7 +125,7 @@ Settings for provisioning and managing a Hetzner Cloud server. Sections: `[serve
 
 Defines the DAG, node_var placeholders, and cache settings. All node_vars (global and per-node) are declared with types only — no default values. Defaults live in `run_defs.toml`.
 
-Key global node_vars: `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `llm_max_concurrent_batches`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+Key global node_vars: `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `run_name`, `adzuna_s3_prefix` (from `$env`).
 
 ### Adding new node variables
 

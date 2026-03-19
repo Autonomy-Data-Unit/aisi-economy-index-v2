@@ -23,7 +23,7 @@
 # - `llm_model` (global): Model key from llm_models.toml
 # - `llm_batch_size` (global): Number of prompts per LLM call
 # - `llm_max_new_tokens` (global): Max tokens per LLM response
-# - `llm_max_concurrent_batches` (global): Max concurrent batch LLM calls
+# - `max_concurrent_chunks` (per-node): Max concurrent batch LLM calls
 # - `filter_resume` (per-node): Resume from previous partial run
 # - `filter_max_retries` (per-node): Retry rounds for failed ads
 # - `system_prompt` (per-node): Path in prompt_library/
@@ -102,7 +102,7 @@ max_new_tokens = ctx.vars["llm_max_new_tokens"]
 temperature = ctx.vars["temperature"]
 top_p = ctx.vars["top_p"]
 top_k = ctx.vars["top_k"]
-max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+max_concurrent = ctx.vars["max_concurrent_chunks"]
 resume = ctx.vars["filter_resume"]
 max_retries = ctx.vars["filter_max_retries"]
 raise_on_failure = ctx.vars["filter_raise_on_failure"]

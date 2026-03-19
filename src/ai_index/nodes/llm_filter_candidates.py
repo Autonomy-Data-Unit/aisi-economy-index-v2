@@ -40,7 +40,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     temperature = ctx.vars["temperature"]
     top_p = ctx.vars["top_p"]
     top_k = ctx.vars["top_k"]
-    max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+    max_concurrent = ctx.vars["max_concurrent_chunks"]
     resume = ctx.vars["filter_resume"]
     max_retries = ctx.vars["filter_max_retries"]
     raise_on_failure = ctx.vars["filter_raise_on_failure"]

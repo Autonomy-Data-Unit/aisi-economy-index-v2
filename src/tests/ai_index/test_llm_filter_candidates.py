@@ -84,7 +84,7 @@ def _make_ctx(tmp_path, llm_responses=None):
         "temperature": 0.0,
         "top_p": 1.0,
         "top_k": -1,
-        "llm_max_concurrent_batches": 1,
+        "max_concurrent_chunks": 1,
         "filter_resume": False,
         "filter_max_retries": 0,
         "filter_raise_on_failure": False,
