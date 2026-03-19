@@ -74,6 +74,7 @@ def _run_node(tmp_path, ads, embedding_model="text-embedding-3-large",
         "sbatch_time": "00:10:00",
         "embed_task_prompt": embed_task_prompt,
         "chunk_size": 5000,
+        "max_concurrent_chunks": 1,
         "duckdb_memory_limit": "256MB",
     }
 
@@ -235,4 +236,4 @@ class TestOutput:
         assert meta_path.exists()
         meta = json.loads(meta_path.read_text())
         assert meta["n_total"] == 1
-        assert meta["n_embedded"] == 1
+        assert meta["n_success"] == 1

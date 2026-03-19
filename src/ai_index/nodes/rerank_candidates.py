@@ -4,6 +4,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     'ad_ids': list[int]
 }:
     """Score filtered candidates with a reranker to produce exposure weights."""
+    import asyncio
     import json
     import time
     
@@ -20,6 +21,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     sbatch_cache = ctx.vars["sbatch_cache"]
     sbatch_time = ctx.vars["sbatch_time"]
     chunk_size = ctx.vars["chunk_size"]
+    max_concurrent_chunks = ctx.vars["max_concurrent_chunks"]
     
     output_dir = const.pipeline_store_path / run_name / "rerank_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -67,75 +69,80 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     n_chunks = (n_ads + CHUNK_SIZE - 1) // CHUNK_SIZE
     total_scored = 0
     slurm_jobs = []
+    sem = asyncio.Semaphore(max_concurrent_chunks)
     started_at = time.time()
     
-    for chunk_idx in range(n_chunks):
-        chunk_start = chunk_idx * CHUNK_SIZE
-        chunk_end = min(chunk_start + CHUNK_SIZE, n_ads)
-        chunk_ad_ids = ad_ids[chunk_start:chunk_end]
+    async def _process_chunk(chunk_idx, chunk_ad_ids):
+        async with sem:
+            # Load filtered candidates for this chunk
+            id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
+            chunk_matches = matches_conn.execute(
+                f"SELECT ad_id, onet_code, onet_title, cosine_score "
+                f"FROM filtered "
+                f"WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+            ).fetchdf()
     
-        # Load filtered candidates for this chunk
-        id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
-        chunk_matches = matches_conn.execute(
-            f"SELECT ad_id, onet_code, onet_title, cosine_score "
-            f"FROM filtered "
-            f"WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
-        ).fetchdf()
+            if chunk_matches.empty:
+                print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
+                return []
     
-        if chunk_matches.empty:
-            print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
-            continue
+            # Group candidates by ad
+            candidates_by_ad = {}
+            for ad_id, group in chunk_matches.groupby("ad_id"):
+                candidates_by_ad[int(ad_id)] = group.to_dict("records")
     
-        # Group candidates by ad
-        candidates_by_ad = {}
-        for ad_id, group in chunk_matches.groupby("ad_id"):
-            candidates_by_ad[int(ad_id)] = group.to_dict("records")
+            # Build query texts
+            ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_by_ad]
+            if not ads_with_candidates:
+                return []
+            ads_table = get_ads_by_id(ads_with_candidates, columns=["title", "description"])
+            ads_df = ads_table.to_pandas().set_index("id")
     
-        # Build query texts
-        ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_by_ad]
-        if not ads_with_candidates:
-            continue
-        ads_table = get_ads_by_id(ads_with_candidates, columns=["title", "description"])
-        ads_df = ads_table.to_pandas().set_index("id")
+            # Build (query, documents) items for all ads in the chunk, then score
+            # them in a single arerank_pairs call. This sends one sbatch job per
+            # chunk instead of one per ad.
+            items = []
+            for ad_id in ads_with_candidates:
+                candidates = candidates_by_ad[ad_id]
+                query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:6000]}"
+                doc_texts = [onet_docs[c['onet_code']] for c in candidates]
+                items.append((query, doc_texts))
     
-        # Build (query, documents) items for all ads in the chunk, then score
-        # them in a single arerank_pairs call. This sends one sbatch job per
-        # chunk (~500 ads) instead of one per ad.
-        items = []
-        for ad_id in ads_with_candidates:
-            candidates = candidates_by_ad[ad_id]
-            query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:6000]}"
-            doc_texts = [onet_docs[c['onet_code']] for c in candidates]
-            items.append((query, doc_texts))
+            _sa = {}
+            scores_per_ad = await arerank_pairs(
+                items,
+                model=rerank_model,
+                cache=sbatch_cache, time=sbatch_time,
+                slurm_accounting=_sa,
+            )
+            if _sa:
+                slurm_jobs.append(_sa)
     
-        _sa = {}
-        scores_per_ad = await arerank_pairs(
-            items,
-            model=rerank_model,
-            cache=sbatch_cache, time=sbatch_time,
-            slurm_accounting=_sa,
-        )
-        if _sa:
-            slurm_jobs.append(_sa)
+            chunk_rows = []
+            for i, ad_id in enumerate(ads_with_candidates):
+                candidates = candidates_by_ad[ad_id]
+                ad_scores = scores_per_ad[i]
+                for rank, c in enumerate(candidates):
+                    chunk_rows.append({
+                        "ad_id": ad_id,
+                        "rank": rank,
+                        "onet_code": c["onet_code"],
+                        "onet_title": c["onet_title"],
+                        "rerank_score": float(ad_scores[rank]),
+                    })
     
-        chunk_rows = []
-        for i, ad_id in enumerate(ads_with_candidates):
-            candidates = candidates_by_ad[ad_id]
-            ad_scores = scores_per_ad[i]
-            for rank, c in enumerate(candidates):
-                chunk_rows.append({
-                    "ad_id": ad_id,
-                    "rank": rank,
-                    "onet_code": c["onet_code"],
-                    "onet_title": c["onet_title"],
-                    "rerank_score": float(ad_scores[rank]),
-                })
+            print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(ads_with_candidates)} ads, {len(chunk_rows)} scored")
+            return chunk_rows
     
+    # Launch all chunks concurrently (gated by semaphore), write results as they complete
+    for coro in asyncio.as_completed([
+        _process_chunk(i, ad_ids[i * CHUNK_SIZE : min((i + 1) * CHUNK_SIZE, n_ads)])
+        for i in range(n_chunks)
+    ]):
+        chunk_rows = await coro
         if chunk_rows:
             writer.write_table(pa.Table.from_pylist(chunk_rows, schema=reranked_schema))
             total_scored += len(chunk_rows)
-    
-        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(ads_with_candidates)} ads, {len(chunk_rows)} scored")
     
     writer.close()
     matches_conn.close()

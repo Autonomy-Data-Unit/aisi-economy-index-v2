@@ -32,6 +32,8 @@ ONET_TARGETS = pd.DataFrame({
         "Research, design, and develop software.",
         "Assess patient health problems.",
     ],
+    "Alternate_Titles": [[], [], []],
+    "Top_Tasks": [[], [], []],
 })
 
 SAMPLE_ADS_TABLE = pa.table({
@@ -64,8 +66,10 @@ def _run_node(tmp_path, ad_ids=None, rerank_model="test-reranker",
     ctx.vars = {
         "run_name": "test_run",
         "rerank_model": rerank_model,
+        "sbatch_cache": False,
         "sbatch_time": "00:10:00",
         "chunk_size": 500,
+        "max_concurrent_chunks": 1,
     }
 
     async def _default_rerank_pairs(items, *, model, **kwargs):

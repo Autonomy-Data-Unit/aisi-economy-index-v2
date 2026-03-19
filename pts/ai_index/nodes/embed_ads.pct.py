@@ -24,6 +24,7 @@
 # - `embedding_model` (global): Model key from embed_models.toml
 # - `embed_task_prompt` (per-node): Custom task instruction (only used if
 #   model has `supports_prompt = true`)
+# - `max_concurrent_chunks` (per-node): Max concurrent embedding chunks
 # - `run_name` (global): Pipeline run name
 
 # %%
@@ -65,6 +66,7 @@ import pandas as pd
 from ai_index import const
 from ai_index.utils import aembed, get_ads_by_id
 from ai_index.utils._model_config import _load_model_config
+from ai_index.utils.batch import run_batched
 from ai_index.utils.result_store import ResultStore
 
 # %%
@@ -75,6 +77,7 @@ sbatch_cache = ctx.vars["sbatch_cache"]
 sbatch_time = ctx.vars["sbatch_time"]
 embed_task_prompt = ctx.vars["embed_task_prompt"]
 chunk_size = ctx.vars["chunk_size"]
+max_concurrent_chunks = ctx.vars["max_concurrent_chunks"]
 duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
 
 output_dir = const.pipeline_store_path / run_name / "embed_ads"
@@ -133,36 +136,18 @@ if n_total > 0:
 # %% [markdown]
 # ## Embed in chunks
 #
-# Embeds ads in chunks and writes each chunk to DuckDB as BLOBs via ResultStore.
-# Already-embedded ads (from a previous partial run) are skipped automatically.
+# Embeds ads in chunks via `run_batched`, which handles resume, concurrency,
+# and retry. Each chunk calls `aembed()` and returns a DataFrame for the
+# ResultStore.
 
 # %%
 #|export
-CHUNK_SIZE = chunk_size
+texts_by_id = dict(zip(ordered_ids, ordered_texts))
 
-db_path = output_dir / "embeddings.duckdb"
-store = ResultStore(db_path, {
-    "id": "BIGINT NOT NULL",
-    "embedding": "BLOB NOT NULL",
-    "error": "VARCHAR",
-}, memory_limit=duckdb_memory_limit)
+_slurm_jobs = []
 
-done = store.done_ids()
-remaining_indices = [i for i in range(n_total) if ordered_ids[i] not in done]
-n_remaining = len(remaining_indices)
-print(f"embed_ads: {len(done)} already embedded, {n_remaining} remaining")
-
-n_chunks = (n_remaining + CHUNK_SIZE - 1) // CHUNK_SIZE
-
-started_at = time.time()
-slurm_jobs = []
-
-for chunk_idx in range(n_chunks):
-    start = chunk_idx * CHUNK_SIZE
-    end = min(start + CHUNK_SIZE, n_remaining)
-    chunk_indices = remaining_indices[start:end]
-
-    chunk_texts = [ordered_texts[i] for i in chunk_indices]
+async def _work_fn(chunk_ids):
+    chunk_texts = [texts_by_id[i] for i in chunk_ids]
 
     _sa = {}
     embeddings = await aembed(
@@ -172,34 +157,36 @@ for chunk_idx in range(n_chunks):
         **embed_prompt_kwargs,
     )
     if _sa:
-        slurm_jobs.append(_sa)
+        _slurm_jobs.append(_sa)
 
-    df = pd.DataFrame({
-        "id": [ordered_ids[i] for i in chunk_indices],
+    return pd.DataFrame({
+        "id": list(chunk_ids),
         "embedding": [row.astype(np.float32).tobytes() for row in embeddings],
-        "error": [None] * len(chunk_indices),
+        "error": [None] * len(chunk_ids),
     })
-    store.insert(df)
 
-    print(f"  chunk {chunk_idx + 1}/{n_chunks}: embedded {len(chunk_indices)} ads")
+# %%
+#|export
+db_path = output_dir / "embeddings.duckdb"
+store = ResultStore(db_path, {
+    "id": "BIGINT NOT NULL",
+    "embedding": "BLOB NOT NULL",
+    "error": "VARCHAR",
+}, memory_limit=duckdb_memory_limit)
 
-ended_at = time.time()
-
-n_ok, n_err = store.counts()
+embed_meta = await run_batched(
+    ordered_ids, store, _work_fn,
+    batch_size=chunk_size,
+    max_concurrent=max_concurrent_chunks,
+    resume=True,
+    node_name="embed_ads",
+    print_fn=print,
+)
 store.close()
 del store
-print(f"embed_ads: done, {n_ok} succeeded, {n_err} failed")
+embed_meta["slurm_jobs"] = _slurm_jobs
+embed_meta["slurm_total_seconds"] = sum(j.get("elapsed_seconds", 0) for j in _slurm_jobs)
 
-embed_meta = {
-    "n_total": n_total,
-    "n_embedded": n_remaining,
-    "n_skipped": len(done),
-    "started_at": started_at,
-    "ended_at": ended_at,
-    "elapsed_seconds": ended_at - started_at,
-    "slurm_jobs": slurm_jobs,
-    "slurm_total_seconds": sum(j.get("elapsed_seconds", 0) for j in slurm_jobs),
-}
 meta_path = output_dir / "embed_meta.json"
 with open(meta_path, "w") as f:
     json.dump(embed_meta, f, indent=2)

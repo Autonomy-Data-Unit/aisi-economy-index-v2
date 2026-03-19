@@ -513,6 +513,9 @@
             "embed_task_prompt": {},
             "chunk_size": {
               "type": "int"
+            },
+            "max_concurrent_chunks": {
+              "type": "int"
             }
           },
           "signals": [
@@ -614,6 +617,9 @@
             },
             "sbatch_time": {},
             "chunk_size": {
+              "type": "int"
+            },
+            "max_concurrent_chunks": {
               "type": "int"
             }
           },
