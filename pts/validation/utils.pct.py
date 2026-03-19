@@ -185,11 +185,19 @@ def notebook_to_html(notebook_path: str | Path, output_dir: str | Path, stem: st
 def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str, str]]:
     """Scan store/pipeline/ for completed validation runs.
 
-    A run is complete if it has an exposure_meta.json (written last by the pipeline).
+    A run is complete if all expected node outputs exist: exposure_meta.json,
+    filtered_matches.parquet, and reranked_matches.parquet. Runs with missing
+    outputs (e.g. cleaned by clean-store --verify) are skipped.
 
     Returns list of (run_name, run_def, llm_key, embed_key, rerank_key) tuples.
     All runs have an explicit reranker key (5-part naming).
     """
+    required_files = [
+        "compute_job_ad_exposure/exposure_meta.json",
+        "llm_filter_candidates/filtered_matches.parquet",
+        "rerank_candidates/reranked_matches.parquet",
+    ]
+
     runs = []
     if not pipeline_store_path.exists():
         return runs
@@ -197,8 +205,7 @@ def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, 
     for run_dir in sorted(pipeline_store_path.iterdir()):
         if not run_dir.name.startswith("val__"):
             continue
-        meta = run_dir / "compute_job_ad_exposure" / "exposure_meta.json"
-        if not meta.exists():
+        if not all((run_dir / f).exists() for f in required_files):
             continue
         parts = run_dir.name.split("__")
         if len(parts) != 5:
@@ -229,16 +236,27 @@ def pairwise_jaccard(sets_a: dict, sets_b: dict, common_keys: list) -> float:
     return np.mean(jaccards) if jaccards else 0.0
 
 
+def _l1_normalise(scores: dict) -> dict:
+    """L1-normalise a score dict: clamp negatives to 0, divide by sum."""
+    clamped = {c: max(s, 0.0) for c, s in scores.items()}
+    total = sum(clamped.values())
+    if total <= 0:
+        return clamped
+    return {c: s / total for c, s in clamped.items()}
+
+
 def pairwise_weighted_jaccard(scores_a: dict, scores_b: dict, common_keys: list) -> float:
     """Mean weighted Jaccard (Ruzicka similarity) over common keys.
 
     Each value in scores_a/scores_b is a dict mapping candidate codes to scores.
+    Scores are L1-normalised per key (clamp negatives to 0, divide by sum)
+    so that different reranker models with different score scales are comparable.
     For each key: weighted intersection = sum(min(s_a, s_b)), weighted union = sum(max(s_a, s_b)).
     """
     wjs = []
     for k in common_keys:
-        sa = scores_a.get(k, {})
-        sb = scores_b.get(k, {})
+        sa = _l1_normalise(scores_a.get(k, {}))
+        sb = _l1_normalise(scores_b.get(k, {}))
         all_codes = set(sa.keys()) | set(sb.keys())
         if not all_codes:
             continue

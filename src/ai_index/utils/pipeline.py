@@ -108,15 +108,29 @@ def get_sample_n(run_defs: dict, run_name: str) -> int:
     return run_defs["defaults"]["sample_n"]
 
 
-def clean_incomplete_nodes(run_name: str, *, dry_run: bool = True) -> list[str]:
-    """Find and optionally delete node directories that lack a *_meta.json completion marker.
+def _verify_parquets(node_dir: Path) -> list[str]:
+    """Try reading every .parquet file in a node directory. Returns list of corrupt file paths."""
+    import pyarrow.parquet as pq
 
-    A node directory without a meta file was interrupted mid-write and its data
-    files may be corrupt. Deleting it allows the pipeline to re-run that node cleanly.
+    corrupt = []
+    for pf in node_dir.glob("*.parquet"):
+        try:
+            pq.read_table(pf)
+        except Exception:
+            corrupt.append(str(pf))
+    return corrupt
+
+
+def clean_incomplete_nodes(run_name: str, *, dry_run: bool = True, verify: bool = False) -> list[str]:
+    """Find and optionally delete node directories that are incomplete or corrupt.
+
+    Checks for missing *_meta.json completion markers. With verify=True, also
+    probes each .parquet file to catch corrupt data that passed the meta check.
 
     Args:
         run_name: The pipeline run name (directory under store/pipeline/).
         dry_run: If True (default), only report what would be deleted. If False, delete.
+        verify: If True, also read-test all .parquet files in each node directory.
 
     Returns:
         List of node directories that were (or would be) deleted.
@@ -140,7 +154,11 @@ def clean_incomplete_nodes(run_name: str, *, dry_run: bool = True) -> list[str]:
     deleted = []
     for node_name, meta_file in node_metas.items():
         node_dir = run_dir / node_name
-        if node_dir.exists() and not (node_dir / meta_file).exists():
+        if not node_dir.exists():
+            continue
+        missing_meta = not (node_dir / meta_file).exists()
+        corrupt_parquets = _verify_parquets(node_dir) if verify and not missing_meta else []
+        if missing_meta or corrupt_parquets:
             deleted.append(str(node_dir))
             if not dry_run:
                 shutil.rmtree(node_dir)
@@ -155,6 +173,7 @@ def clean_store_main():
 
     parser = argparse.ArgumentParser(description="Clean incomplete node directories from store/pipeline/")
     parser.add_argument("--apply", action="store_true", help="Actually delete (default is dry-run)")
+    parser.add_argument("--verify", action="store_true", help="Also read-test .parquet files to detect corruption")
     parser.add_argument("pattern", nargs="?", default=None, help="Glob pattern to filter run names (e.g. 'val__*', 'cal__*__bge-large-*')")
     args = parser.parse_args()
 
@@ -166,13 +185,13 @@ def clean_store_main():
 
     total_deleted = 0
     for run_name in run_names:
-        removed = clean_incomplete_nodes(run_name, dry_run=not args.apply)
+        removed = clean_incomplete_nodes(run_name, dry_run=not args.apply, verify=args.verify)
         for path in removed:
             action = "DELETED" if args.apply else "WOULD DELETE"
             print(f"  {action}: {path}")
             total_deleted += 1
 
     if total_deleted == 0:
-        print("All node directories have meta files. Nothing to clean.")
+        print("All node directories are OK. Nothing to clean.")
     elif not args.apply:
         print(f"\nDry run: {total_deleted} directories would be deleted. Pass --apply to delete.")

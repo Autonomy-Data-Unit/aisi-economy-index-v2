@@ -33,6 +33,7 @@ backend = "cross-encoder"
 [models."voyage-rerank-2.5"]
 mode = "api"
 model = "voyage/rerank-2.5"
+instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"
 
 # ----------------------------------------
 # Local models (CPU-compatible for testing)

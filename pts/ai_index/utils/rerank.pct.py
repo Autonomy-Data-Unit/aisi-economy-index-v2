@@ -24,7 +24,14 @@ import numpy as np
 from ai_index.const import rerank_models_config_path
 from ai_index.utils._model_config import _resolve_model_args, _split_remote_kwargs
 
-def _rerank_api(queries, documents, top_k, model_name):
+def _apply_instruction(query, instruction):
+    """Prepend instruction to query for API rerankers that support it (e.g. Voyage)."""
+    if instruction:
+        return f"{instruction}. {query}"
+    return query
+
+
+def _rerank_api(queries, documents, top_k, model_name, instruction=""):
     """Rerank using a hosted API (e.g. Voyage, Cohere) via litellm."""
     import litellm
     import time
@@ -34,10 +41,11 @@ def _rerank_api(queries, documents, top_k, model_name):
     all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
 
     for qi in range(n_queries):
+        q = _apply_instruction(queries[qi], instruction)
         for attempt in range(5):
             try:
                 result = litellm.rerank(
-                    model=model_name, query=queries[qi],
+                    model=model_name, query=q,
                     documents=documents, top_n=top_k,
                 )
                 for rank, r in enumerate(result.results[:top_k]):
@@ -54,7 +62,7 @@ def _rerank_api(queries, documents, top_k, model_name):
     return {"indices": all_indices, "scores": all_scores}
 
 
-async def _arerank_api(queries, documents, top_k, model_name):
+async def _arerank_api(queries, documents, top_k, model_name, instruction=""):
     """Async API reranking, one query at a time with rate limit pacing."""
     import litellm
     import time
@@ -64,10 +72,11 @@ async def _arerank_api(queries, documents, top_k, model_name):
     all_scores = np.zeros((n_queries, top_k), dtype=np.float32)
 
     for qi in range(n_queries):
+        q = _apply_instruction(queries[qi], instruction)
         for attempt in range(5):
             try:
                 result = await litellm.arerank(
-                    model=model_name, query=queries[qi],
+                    model=model_name, query=q,
                     documents=documents, top_n=top_k,
                 )
                 for rank, r in enumerate(result.results[:top_k]):
@@ -84,7 +93,7 @@ async def _arerank_api(queries, documents, top_k, model_name):
     return {"indices": all_indices, "scores": all_scores}
 
 
-def _rerank_pairs_api(items, model_name):
+def _rerank_pairs_api(items, model_name, instruction=""):
     """Score pre-paired items using a hosted API, one query at a time."""
     import litellm
     import time
@@ -92,6 +101,7 @@ def _rerank_pairs_api(items, model_name):
     all_scores = []
     for item in items:
         query, docs = item[0], item[1]
+        query = _apply_instruction(query, instruction)
         n_docs = len(docs)
         scores = [0.0] * n_docs
         for attempt in range(5):
@@ -113,13 +123,14 @@ def _rerank_pairs_api(items, model_name):
     return all_scores
 
 
-async def _arerank_pairs_api(items, model_name):
+async def _arerank_pairs_api(items, model_name, instruction=""):
     """Async version of _rerank_pairs_api."""
     import litellm
 
     all_scores = []
     for item in items:
         query, docs = item[0], item[1]
+        query = _apply_instruction(query, instruction)
         n_docs = len(docs)
         scores = [0.0] * n_docs
         for attempt in range(5):
@@ -162,9 +173,10 @@ def rerank(
     """
     mode, model_name, cfg = _resolve_model_args(rerank_models_config_path, model, kwargs)
     slurm_accounting = cfg.pop("slurm_accounting", None)
+    instruction = cfg.pop("instruction", "")
 
     if mode == "api":
-        return _rerank_api(queries, documents, top_k, model_name)
+        return _rerank_api(queries, documents, top_k, model_name, instruction=instruction)
 
     elif mode == "local":
         from llm_runner.rerank import run_rerank
@@ -215,9 +227,10 @@ def rerank_pairs(
     """
     mode, model_name, cfg = _resolve_model_args(rerank_models_config_path, model, kwargs)
     slurm_accounting = cfg.pop("slurm_accounting", None)
+    instruction = cfg.pop("instruction", "")
 
     if mode == "api":
-        return _rerank_pairs_api(items, model_name)
+        return _rerank_pairs_api(items, model_name, instruction=instruction)
 
     elif mode == "local":
         from llm_runner.rerank import run_rerank_pairs
@@ -257,9 +270,10 @@ async def arerank_pairs(
     """
     mode, model_name, cfg = _resolve_model_args(rerank_models_config_path, model, kwargs)
     slurm_accounting = cfg.pop("slurm_accounting", None)
+    instruction = cfg.pop("instruction", "")
 
     if mode == "api":
-        return await _arerank_pairs_api(items, model_name)
+        return await _arerank_pairs_api(items, model_name, instruction=instruction)
 
     elif mode == "local":
         from llm_runner.rerank import run_rerank_pairs
@@ -305,9 +319,10 @@ async def arerank(
     """
     mode, model_name, cfg = _resolve_model_args(rerank_models_config_path, model, kwargs)
     slurm_accounting = cfg.pop("slurm_accounting", None)
+    instruction = cfg.pop("instruction", "")
 
     if mode == "api":
-        return await _arerank_api(queries, documents, top_k, model_name)
+        return await _arerank_api(queries, documents, top_k, model_name, instruction=instruction)
 
     elif mode == "local":
         from llm_runner.rerank import run_rerank
