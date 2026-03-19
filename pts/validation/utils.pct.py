@@ -362,18 +362,17 @@ def generate_reports_main():
 
     run_def = args[0]
     nbs_dir = repo_root / "nbs" / "validation"
-    analyze_nbs = sorted(nbs_dir.glob("analyze_*.ipynb"))
+    analyze_nbs = sorted(nbs_dir.glob("analyse_*.ipynb"))
 
     if not analyze_nbs:
-        print(f"No analyze_* notebooks found in {nbs_dir}", file=sys.stderr)
+        print(f"No analyse_* notebooks found in {nbs_dir}", file=sys.stderr)
         sys.exit(1)
 
     reports_path.mkdir(parents=True, exist_ok=True)
 
     for nb_path in analyze_nbs:
-        # Derive report stem: analyze_arm1.ipynb -> {run_def}__arm_1
-        arm_name = nb_path.stem.replace("analyze_", "")
-        stem = f"{run_def}__{arm_name}"
+        # Derive report stem from notebook filename
+        stem = f"{run_def}__{nb_path.stem}"
 
         print(f"\n{'=' * 60}")
         print(f"Executing: {nb_path.name}")
