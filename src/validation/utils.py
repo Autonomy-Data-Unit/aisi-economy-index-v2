@@ -406,7 +406,7 @@ def _generate_report_index(reports_dir: Path):
         # Extract title from the first <h1> tag in the HTML
         content = f.read_text(errors="ignore")
         h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", content, re.IGNORECASE | re.DOTALL)
-        title = re.sub(r"<[^>]+>", "", h1_match.group(1)).strip() if h1_match else f.stem
+        title = re.sub(r"<[^>]+>", "", h1_match.group(1)).strip().rstrip("¶").strip() if h1_match else f.stem
 
         rows.append(f'<tr><td><a href="{f.name}">{title}</a></td><td>{f.stem}</td><td>{mtime}</td><td>{size_kb:.0f} KB</td></tr>')
 
