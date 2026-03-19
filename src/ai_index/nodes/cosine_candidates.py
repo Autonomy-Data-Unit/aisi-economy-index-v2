@@ -36,6 +36,10 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     onet_norms = np.linalg.norm(onet_embeds, axis=1, keepdims=True)
     onet_norms = np.maximum(onet_norms, 1e-10)
     onet_normed = onet_embeds / onet_norms
+    
+    # Pre-build arrays for vectorized lookup in chunk loop
+    onet_codes_arr = np.array(onet_codes)
+    onet_titles_arr = np.array([onet_titles[code] for code in onet_codes])
     import pyarrow as pa
     import pyarrow.parquet as pq
     
@@ -96,26 +100,30 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     
         # Top-K per ad
         topk_clamped = min(cosine_topk, n_onet)
-        partitioned = np.argpartition(-sim_matrix, topk_clamped, axis=1)[:, :topk_clamped]
-        partitioned_scores = np.take_along_axis(sim_matrix, partitioned, axis=1)
-        sorted_within = np.argsort(-partitioned_scores, axis=1)
-        top_indices = np.take_along_axis(partitioned, sorted_within, axis=1)
+        if topk_clamped < n_onet:
+            partitioned = np.argpartition(-sim_matrix, topk_clamped, axis=1)[:, :topk_clamped]
+            partitioned_scores = np.take_along_axis(sim_matrix, partitioned, axis=1)
+            sorted_within = np.argsort(-partitioned_scores, axis=1)
+            top_indices = np.take_along_axis(partitioned, sorted_within, axis=1)
+        else:
+            top_indices = np.argsort(-sim_matrix, axis=1)
         top_scores = np.take_along_axis(sim_matrix, top_indices, axis=1)
     
-        chunk_rows = []
-        for i in range(len(chunk_ad_ids)):
-            for rank in range(topk_clamped):
-                onet_idx = int(top_indices[i, rank])
-                chunk_rows.append({
-                    "ad_id": int(chunk_ad_ids[i]),
-                    "rank": rank,
-                    "onet_code": onet_codes[onet_idx],
-                    "onet_title": onet_titles[onet_codes[onet_idx]],
-                    "cosine_score": float(top_scores[i, rank]),
-                })
+        n_chunk = len(chunk_ad_ids)
+        ad_id_col = np.repeat(np.array(chunk_ad_ids, dtype=np.int64), topk_clamped)
+        rank_col = np.tile(np.arange(topk_clamped, dtype=np.int32), n_chunk)
+        onet_idx_flat = top_indices.ravel()
     
-        writer.write_table(pa.Table.from_pylist(chunk_rows, schema=candidates_schema))
-        total_rows += len(chunk_rows)
+        chunk_table = pa.table({
+            "ad_id": ad_id_col,
+            "rank": rank_col,
+            "onet_code": onet_codes_arr[onet_idx_flat],
+            "onet_title": onet_titles_arr[onet_idx_flat],
+            "cosine_score": top_scores.ravel().astype(np.float32),
+        }, schema=candidates_schema)
+    
+        writer.write_table(chunk_table)
+        total_rows += len(chunk_table)
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads")
     
     writer.close()
