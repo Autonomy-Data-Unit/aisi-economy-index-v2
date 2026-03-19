@@ -397,11 +397,19 @@ def _generate_report_index(reports_dir: Path):
     html_files = sorted(reports_dir.glob("*.html"))
     html_files = [f for f in html_files if f.name != "index.html"]
 
+    import re
+
     rows = []
     for f in html_files:
         mtime = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
         size_kb = f.stat().st_size / 1024
-        rows.append(f'<tr><td><a href="{f.name}">{f.stem}</a></td><td>{mtime}</td><td>{size_kb:.0f} KB</td></tr>')
+
+        # Extract title from the first <h1> tag in the HTML
+        content = f.read_text(errors="ignore")
+        h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", content, re.IGNORECASE | re.DOTALL)
+        title = re.sub(r"<[^>]+>", "", h1_match.group(1)).strip() if h1_match else f.stem
+
+        rows.append(f'<tr><td><a href="{f.name}">{title}</a></td><td>{f.stem}</td><td>{mtime}</td><td>{size_kb:.0f} KB</td></tr>')
 
     index_html = f"""<!DOCTYPE html>
 <html>
@@ -410,7 +418,7 @@ def _generate_report_index(reports_dir: Path):
 <title>Validation Reports</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-         max-width: 800px; margin: 0 auto; padding: 2rem; }}
+         max-width: 900px; margin: 0 auto; padding: 2rem; }}
   h1 {{ border-bottom: 2px solid #333; padding-bottom: 0.3em; }}
   table {{ border-collapse: collapse; width: 100%; margin-top: 1em; }}
   th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; }}
@@ -424,7 +432,7 @@ def _generate_report_index(reports_dir: Path):
 <h1>Validation Reports</h1>
 <p class="meta">Generated {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
 <table>
-<tr><th>Report</th><th>Last modified</th><th>Size</th></tr>
+<tr><th>Title</th><th>File</th><th>Last modified</th><th>Size</th></tr>
 {"".join(rows)}
 </table>
 </body>
