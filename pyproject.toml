@@ -22,7 +22,6 @@ dependencies = [
     "outlines>=1.2.12",
     "openpyxl>=3.1.5",
     "matplotlib>=3.10.8",
-    "weasyprint>=63.0",
 ]
 
 [dependency-groups]
