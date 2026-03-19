@@ -14,6 +14,7 @@ top_k = -1
 
 [defaults.fetch_adzuna]
 fetch_years = "all"
+skip_fetch = true
 
 [defaults.prepare_onet_targets]
 onet_exclude_public_sector = true

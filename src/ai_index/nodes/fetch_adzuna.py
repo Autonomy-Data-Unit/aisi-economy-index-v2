@@ -2,6 +2,12 @@
 
 def main(ctx, print):
     """Download raw Adzuna job ads from S3, insert into DuckDB, and deduplicate."""
+    # Skip fetch if data is already ingested (avoids DuckDB contention in concurrent runs)
+    skip_fetch = ctx.vars["skip_fetch"]
+    if skip_fetch:
+        print("fetch_adzuna: skip_fetch=true, assuming data already ingested")
+        return None
+    
     import json
     import os
     import shutil

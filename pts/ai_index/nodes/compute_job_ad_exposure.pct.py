@@ -185,6 +185,12 @@ results_df.to_parquet(output_path, index=False)
 print(f"compute_job_ad_exposure: done, {n_ok} succeeded, {n_err} failed")
 print(f"  output: {const.rel(output_path)}")
 
+import json
+meta_path = output_dir / "exposure_meta.json"
+with open(meta_path, "w") as f:
+    json.dump({"n_ads": n_ads, "n_ok": n_ok, "n_err": n_err, "score_cols": score_cols}, f, indent=2)
+print(f"  meta: {const.rel(meta_path)}")
+
 ad_ids #|func_return_line
 
 # %% [markdown]

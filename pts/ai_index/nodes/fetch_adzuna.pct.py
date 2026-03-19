@@ -38,6 +38,12 @@ show_node_vars('fetch_adzuna', run_name=run_name)
 
 # %%
 #|export
+# Skip fetch if data is already ingested (avoids DuckDB contention in concurrent runs)
+skip_fetch = ctx.vars["skip_fetch"]
+if skip_fetch:
+    print("fetch_adzuna: skip_fetch=true, assuming data already ingested")
+    None #|func_return_line
+
 import json
 import os
 import shutil

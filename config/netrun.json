@@ -105,7 +105,10 @@
         "execution_config": {
           "run_on_startup": true,
           "node_vars": {
-            "fetch_years": {}
+            "fetch_years": {},
+            "skip_fetch": {
+              "type": "bool"
+            }
           },
           "signals": [
             "epoch_finished"

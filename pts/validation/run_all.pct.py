@@ -136,8 +136,11 @@ async def _run_all(
     sem = asyncio.Semaphore(concurrency)
     failures: list[tuple[str, Exception]] = []
 
+    stagger_delay = 60  # seconds between launching concurrent runs, to avoid SSH flooding
+
     async def _run_one(i: int, llm: str, embed: str, rerank: str | None):
         run_name = _make_run_name(run_def, llm, embed, rerank)
+        await asyncio.sleep(stagger_delay * (i - 1))
         async with sem:
             print(f"\n{'=' * 70}")
             print(f"Run {i}/{len(remaining)}: {run_name}")

@@ -77,8 +77,8 @@ async def _arun_once(ssh_cmd: list[str], *, timeout: int,
 import os as _os
 
 _SSH_TRANSIENT_EXIT = 255
-_SSH_RETRY_DELAYS = [2, 5, 10, 30, 60]
-_SSH_DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "10"))
+_SSH_RETRY_DELAYS = [2, 5, 10, 30, 60, 120, 300]
+_SSH_DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "50"))
 
 async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
                check: bool = True, capture: bool = True,
