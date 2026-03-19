@@ -35,7 +35,7 @@ chunk_size = 10000
 [defaults.rerank_candidates]
 rerank_model = "qwen3-reranker-8b-sbatch"
 sbatch_time = "04:00:00"
-chunk_size = 500
+chunk_size = 5000
 
 [defaults.llm_filter_candidates]
 sbatch_time = "08:00:00"
@@ -155,6 +155,7 @@ llm_model = "gpt-5.4"
 
 [runs.benchmark_5k.rerank_candidates]
 rerank_model = "voyage-rerank-2.5"
+chunk_size = 500
 
 [runs.benchmark_5k.llm_filter_candidates]
 filter_resume = true
