@@ -255,9 +255,11 @@ def pairwise_spearman(scores_a: dict, scores_b: dict, common_keys: list) -> floa
     """Mean Spearman rank correlation on shared candidates over common keys.
 
     Only considers keys where at least 3 candidates are shared (needed for
-    a meaningful rank correlation).
+    a meaningful rank correlation). Skips ads where either side has constant
+    scores (Spearman is undefined).
     """
-    from scipy.stats import spearmanr
+    import warnings
+    from scipy.stats import spearmanr, ConstantInputWarning
 
     correlations = []
     for k in common_keys:
@@ -268,7 +270,11 @@ def pairwise_spearman(scores_a: dict, scores_b: dict, common_keys: list) -> floa
             continue
         vals_a = [sa[c] for c in shared]
         vals_b = [sb[c] for c in shared]
-        rho, _ = spearmanr(vals_a, vals_b)
+        if len(set(vals_a)) < 2 or len(set(vals_b)) < 2:
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ConstantInputWarning)
+            rho, _ = spearmanr(vals_a, vals_b)
         if not np.isnan(rho):
             correlations.append(rho)
     return np.mean(correlations) if correlations else np.nan

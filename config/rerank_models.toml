@@ -11,6 +11,8 @@
 
 [defaults.api]
 
+[defaults.zeroentropy]
+
 [defaults.local]
 device = "cuda"
 dtype = "float16"
@@ -33,6 +35,14 @@ backend = "cross-encoder"
 [models."voyage-rerank-2.5"]
 mode = "api"
 model = "voyage/rerank-2.5"
+instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"
+
+# ZeroEntropy zerank-2: #1 on Agentset third-party reranker leaderboard (ELO 1638)
+# as of Feb 2026 (https://agentset.ai/rerankers). Supports instruction-following
+# via XML tags in the query. Requires ZEROENTROPY_API_KEY env var.
+[models.zerank-2]
+mode = "zeroentropy"
+model = "zerank-2"
 instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"
 
 # ----------------------------------------

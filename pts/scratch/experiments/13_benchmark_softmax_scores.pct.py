@@ -7,16 +7,33 @@
 # ---
 
 # %% [markdown]
-# # Job Ads Pipeline Validation: Benchmark Comparison
+# # Experiment: Softmax-normalised rerank scores
 #
-# Compare each validation run against the API benchmark run (`benchmark_5k`),
-# which uses frontier models throughout: GPT-5.4 (node: `llm_filter_candidates`),
-# text-embedding-3-large (node: `embed_ads`), and voyage-rerank-2.5
-# (node: `rerank_candidates`).
+# Different reranker models produce scores on incomparable scales (e.g.
+# cross-encoder logits vs API relevance scores in [0, 1]). The default
+# Ruzicka comparison uses L1 normalisation (clamp negatives, divide by sum),
+# but this is sensitive to the number of candidates: a run with 5 candidates
+# spreads weight differently than one with 2.
 #
-# For each validation run, we measure agreement with the benchmark at three
-# pipeline stages: LLM filter, rerank, and final exposure scores. This gives
-# a reference-based quality measure rather than just pairwise model agreement.
+# This experiment replaces L1 normalisation with softmax:
+#
+# $$w_k \to \frac{\exp(w_k)}{\sum_j \exp(w_j)}$$
+#
+# Softmax has two advantages:
+# 1. It handles negative scores naturally (no clamping needed).
+# 2. The temperature parameter controls how peaked the distribution is,
+#    letting us test whether agreement improves when we sharpen or flatten
+#    the score distributions.
+#
+# `SOFTMAX_TEMPERATURE` controls the temperature. Lower values (e.g. 0.1)
+# make the distribution peakier (winner-take-all), higher values (e.g. 10)
+# flatten it. Set to 1.0 for standard softmax.
+
+# %% [markdown]
+# ## Configuration
+
+# %%
+SOFTMAX_TEMPERATURE = 1.0
 
 # %% [markdown]
 # ## Setup
@@ -38,14 +55,13 @@ from validation.utils import (
     build_model_info_table,
     pairwise_jaccard,
     pairwise_top1,
-    pairwise_weighted_jaccard,
     pairwise_spearman,
     pairwise_correlation_matrix,
     upper_tri_stats,
 )
 
 run_def = os.environ.get("VALIDATION_RUN_DEF", "validation_5k")
-benchmark_run = os.environ.get("BENCHMARK_RUN", f"benchmark_{run_def.split('_')[-1]}")
+benchmark_run = f"benchmark_{run_def.split('_')[-1]}"
 
 with open(validation_config_path, "rb") as f:
     config = tomllib.load(f)
@@ -56,6 +72,7 @@ completed = discover_completed_runs(run_def)
 print(f"Run definition: {run_def}")
 print(f"Benchmark run: {benchmark_run}")
 print(f"Validation runs: {len(completed)}")
+print(f"SOFTMAX_TEMPERATURE: {SOFTMAX_TEMPERATURE}")
 
 # %% [markdown]
 # ### Benchmark model
@@ -69,6 +86,38 @@ print("Benchmark pipeline:")
 print(f"  LLM filter: GPT-5.4 (API)")
 print(f"  Embedding:  text-embedding-3-large (API)")
 print(f"  Reranker:   voyage-rerank-2.5 (API)")
+
+# %% [markdown]
+# ## Softmax Ruzicka
+
+# %%
+def _softmax_normalise(scores: dict, temperature: float = 1.0) -> dict:
+    """Softmax-normalise a score dict."""
+    if not scores:
+        return scores
+    codes = list(scores.keys())
+    vals = np.array([scores[c] for c in codes], dtype=np.float64)
+    vals = vals / temperature
+    vals -= vals.max()  # numerical stability
+    exp_vals = np.exp(vals)
+    softmax_vals = exp_vals / exp_vals.sum()
+    return dict(zip(codes, softmax_vals))
+
+
+def softmax_weighted_jaccard(scores_a: dict, scores_b: dict, common_keys: list,
+                             temperature: float = 1.0) -> float:
+    """Ruzicka similarity with softmax normalisation instead of L1."""
+    wjs = []
+    for k in common_keys:
+        sa = _softmax_normalise(scores_a.get(k, {}), temperature)
+        sb = _softmax_normalise(scores_b.get(k, {}), temperature)
+        all_codes = set(sa.keys()) | set(sb.keys())
+        if not all_codes:
+            continue
+        w_inter = sum(min(sa.get(c, 0.0), sb.get(c, 0.0)) for c in all_codes)
+        w_union = sum(max(sa.get(c, 0.0), sb.get(c, 0.0)) for c in all_codes)
+        wjs.append(w_inter / w_union if w_union > 0 else 0.0)
+    return np.mean(wjs) if wjs else 0.0
 
 # %% [markdown]
 # ## Load benchmark data
@@ -102,13 +151,6 @@ print(f"Benchmark exposure: {len(bench_exposure)} ads with valid scores")
 
 # %% [markdown]
 # ## Compare each validation run against the benchmark
-#
-# For each completed validation run, compute:
-# - **Filter Jaccard**: overlap of kept candidate sets with benchmark
-# - **Filter top-1**: fraction of ads where the top cosine-ranked kept candidate matches
-# - **Rerank top-1**: fraction of ads where the best-scoring candidate matches
-# - **Exposure Pearson**: correlation of per-ad exposure scores with benchmark
-# - **Exposure MAD%**: mean absolute difference as percentage of score range
 
 # %%
 rows = []
@@ -169,8 +211,10 @@ for rn, rd, llm, embed, rerank in completed:
     if common_rerank:
         agrees = sum(1 for ad_id in common_rerank if val_rerank_top1[ad_id] == bench_rerank_top1[ad_id])
         row["rerank_top1"] = agrees / len(common_rerank)
-        row["rerank_ruzicka"] = pairwise_weighted_jaccard(val_rerank_scores, bench_rerank_scores, common_rerank)
-        row["rerank_spearman"] = pairwise_spearman(val_rerank_scores, bench_rerank_scores, common_rerank)
+        row["rerank_ruzicka"] = softmax_weighted_jaccard(
+            val_rerank_scores, bench_rerank_scores, common_rerank,
+            temperature=SOFTMAX_TEMPERATURE,
+        )
 
     # Exposure comparison
     try:
@@ -203,10 +247,6 @@ if skipped:
 
 # %% [markdown]
 # ## Filter stage agreement with benchmark
-#
-# How well does each validation run's LLM filter agree with GPT-5.4's filter?
-# Note that runs using different embeddings will have different cosine candidate
-# sets feeding into the filter, so lower agreement is expected for those.
 
 # %%
 print(f"Benchmark ({benchmark_run}): mean {bench_filter_counts.mean():.1f} candidates/ad (median {bench_filter_counts.median():.0f})")
@@ -220,32 +260,22 @@ filter_df.style.format({
 }).background_gradient(subset=["filter_jaccard"], cmap="YlOrRd", vmin=0, vmax=1)
 
 # %% [markdown]
-# ## Rerank stage agreement with benchmark
+# ## Rerank stage agreement with benchmark (softmax Ruzicka)
 #
-# After reranking, how similar are each run's scores to the benchmark?
-#
-# - **Top-1 agreement**: fraction of ads where the highest-scoring occupation matches
-#   the benchmark. Combines the effects of embedding, LLM filter, and reranker.
-# - **Ruzicka similarity**: weighted Jaccard over rerank score vectors per ad,
-#   $R = \frac{1}{N}\sum_i \frac{\sum_c \min(s^v_{ic},\, s^b_{ic})}{\sum_c \max(s^v_{ic},\, s^b_{ic})}$,
-#   capturing agreement across the full score distribution, not just the top pick.
-# - **Spearman**: mean Spearman rank correlation on shared candidates per ad.
-#   Measures whether the two rerankers agree on the *ranking order*, ignoring
-#   score magnitudes. Only computed for ads with at least 3 shared candidates.
+# Rerank scores are softmax-normalised with temperature `SOFTMAX_TEMPERATURE`
+# before computing Ruzicka similarity.
 
 # %%
-rerank_cols = ["llm", "embedding", "reranker", "rerank_top1", "rerank_spearman", "rerank_ruzicka"]
+print(f"SOFTMAX_TEMPERATURE = {SOFTMAX_TEMPERATURE}")
+
+rerank_cols = ["llm", "embedding", "reranker", "rerank_top1", "rerank_ruzicka"]
 rerank_df = benchmark_comparison[rerank_cols].copy()
-rerank_df = rerank_df.sort_values("rerank_spearman", ascending=False)
-rerank_df.style.format({"rerank_top1": "{:.3f}", "rerank_spearman": "{:.3f}", "rerank_ruzicka": "{:.3f}"}).background_gradient(
-    subset=["rerank_top1", "rerank_spearman", "rerank_ruzicka"], cmap="YlOrRd", vmin=0, vmax=1)
+rerank_df = rerank_df.sort_values("rerank_ruzicka", ascending=False)
+rerank_df.style.format({"rerank_top1": "{:.3f}", "rerank_ruzicka": "{:.3f}"}).background_gradient(
+    subset=["rerank_top1", "rerank_ruzicka"], cmap="YlOrRd", vmin=0, vmax=1)
 
 # %% [markdown]
 # ## Exposure score agreement with benchmark
-#
-# Pearson correlation and MAD (as % of range) for `task_exposure_importance_weighted`.
-# This is the bottom line: how much does each model configuration's final output
-# differ from the frontier API benchmark?
 
 # %%
 exp_cols = ["llm", "embedding", "reranker", "exposure_pearson", "exposure_mad_pct"]
@@ -258,17 +288,12 @@ exp_df.style.format({
 
 # %% [markdown]
 # ## Summary by model dimension
-#
-# Average agreement with benchmark, grouped by each model dimension. Shows
-# which choice (LLM, embedding, or reranker) has the largest impact on
-# deviation from the benchmark.
 
 # %%
 for dim in ["llm", "embedding", "reranker"]:
     grouped = benchmark_comparison.groupby(dim).agg({
         "filter_jaccard": "mean",
         "rerank_top1": "mean",
-        "rerank_spearman": "mean",
         "rerank_ruzicka": "mean",
         "exposure_pearson": "mean",
         "exposure_mad_pct": "mean",
@@ -278,25 +303,7 @@ for dim in ["llm", "embedding", "reranker"]:
     display(grouped.style.format({
         "filter_jaccard": "{:.3f}",
         "rerank_top1": "{:.3f}",
-        "rerank_spearman": "{:.3f}",
         "rerank_ruzicka": "{:.3f}",
         "exposure_pearson": "{:.4f}",
         "exposure_mad_pct": "{:.1f}%",
     }))
-
-# %% [markdown]
-# ## Summary
-#
-# This notebook measures how far each validation run deviates from a
-# high-quality API benchmark. Unlike the arm notebooks (which measure
-# pairwise agreement within a model dimension), this gives a reference-based
-# quality assessment.
-#
-# Key questions:
-# 1. **Which LLMs agree most with GPT-5.4?** Higher filter Jaccard and top-1
-#    suggest the model makes similar matching decisions to the frontier model.
-# 2. **Does embedding choice matter more than LLM choice?** Compare the spread
-#    of Pearson values within the "by LLM" table vs the "by embedding" table.
-# 3. **Are any configurations clearly worse?** Low exposure Pearson (<0.9)
-#    suggests a model is producing meaningfully different results from the
-#    benchmark.

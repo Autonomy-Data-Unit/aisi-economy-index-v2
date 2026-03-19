@@ -33,6 +33,10 @@ model = "openai/gpt-5.2"
 mode = "api"
 model = "openai/gpt-5.4"
 
+[models."claude-opus-4.6"]
+mode = "api"
+model = "anthropic/claude-opus-4-6"
+
 [models.gemini-2-flash]
 mode = "api"
 model = "gemini/gemini-2.0-flash"

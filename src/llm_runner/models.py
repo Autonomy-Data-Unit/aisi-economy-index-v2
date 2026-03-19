@@ -287,6 +287,10 @@ class ApiLLM:
             prompts = [prompts]
 
         extra_kwargs = dict(kwargs)
+        # top_p=1.0 is the default (no restriction); drop it to avoid
+        # Anthropic API errors (rejects temperature + top_p together).
+        if extra_kwargs.get("top_p", 1.0) == 1.0:
+            extra_kwargs.pop("top_p", None)
         # top_k is not standard in the OpenAI API; drop if disabled (-1).
         if extra_kwargs.get("top_k", -1) == -1:
             extra_kwargs.pop("top_k", None)

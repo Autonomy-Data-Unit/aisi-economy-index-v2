@@ -212,7 +212,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     import pyarrow as pa
     import pyarrow.parquet as pq
     
-    filter_conn = duckdb.connect(str(db_path), read_only=True)
+    filter_conn = duckdb.connect(str(db_path))
     filter_rows = filter_conn.execute(
         "SELECT id, data FROM results WHERE error IS NULL"
     ).fetchall()

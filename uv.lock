@@ -81,6 +81,7 @@ dependencies = [
     { name = "sentence-transformers" },
     { name = "torch" },
     { name = "transformers" },
+    { name = "zeroentropy" },
 ]
 
 [package.dev-dependencies]
@@ -115,6 +116,7 @@ requires-dist = [
     { name = "sentence-transformers", specifier = ">=5.0" },
     { name = "torch", specifier = ">=2.0" },
     { name = "transformers", specifier = ">=5.0" },
+    { name = "zeroentropy", specifier = ">=0.1.0a11" },
 ]
 
 [package.metadata.requires-dev]
@@ -4870,6 +4872,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/19/3774d162f6732d1cfb0b47b4140a942a35ca82bb19b6db1f80e9e7bdc8f8/yarl-1.23.0-cp314-cp314t-win_amd64.whl", hash = "sha256:4503053d296bc6e4cbd1fad61cf3b6e33b939886c4f249ba7c78b602214fabe2", size = 97610, upload-time = "2026-03-01T22:07:45.773Z" },
     { url = "https://files.pythonhosted.org/packages/51/47/3fa2286c3cb162c71cdb34c4224d5745a1ceceb391b2bd9b19b668a8d724/yarl-1.23.0-cp314-cp314t-win_arm64.whl", hash = "sha256:44bb7bef4ea409384e3f8bc36c063d77ea1b8d4a5b2706956c0d6695f07dcc25", size = 86041, upload-time = "2026-03-01T22:07:49.026Z" },
     { url = "https://files.pythonhosted.org/packages/69/68/c8739671f5699c7dc470580a4f821ef37c32c4cb0b047ce223a7f115757f/yarl-1.23.0-py3-none-any.whl", hash = "sha256:a2df6afe50dea8ae15fa34c9f824a3ee958d785fd5d089063d960bae1daa0a3f", size = 48288, upload-time = "2026-03-01T22:07:51.388Z" },
+]
+
+[[package]]
+name = "zeroentropy"
+version = "0.1.0a11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/23/509c453497710cf967bd4f8f77386bd8b306227086255bb85949c09267c1/zeroentropy-0.1.0a11.tar.gz", hash = "sha256:220b2e7faf7a31c400f9ca7b1d257b65e96a616b7fcb8620fe828fce705c6986", size = 127076, upload-time = "2026-03-03T08:56:51.475Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c4/5e/8fc9a160808fdfaf76c2094f24fc90ada74f5fae12ca913e87b449e0c863/zeroentropy-0.1.0a11-py3-none-any.whl", hash = "sha256:07fc4d48fff78ba36680e53092c2a5e6dcbfd416866fce240ba0fe5a3ec800ef", size = 111464, upload-time = "2026-03-03T08:56:50.162Z" },
 ]
 
 [[package]]

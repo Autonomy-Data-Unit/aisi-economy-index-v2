@@ -44,7 +44,7 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     import pyarrow.parquet as pq
     
     embed_db = const.pipeline_store_path / run_name / "embed_ads" / "embeddings.duckdb"
-    embed_conn = duckdb.connect(str(embed_db), read_only=True)
+    embed_conn = duckdb.connect(str(embed_db))
     
     n_ads = len(ad_ids)
     CHUNK_SIZE = chunk_size

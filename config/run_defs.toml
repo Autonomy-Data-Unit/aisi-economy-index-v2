@@ -156,8 +156,21 @@ embedding_model = "text-embedding-3-large"
 llm_model = "gpt-5.4"
 
 [runs.benchmark_5k.rerank_candidates]
-rerank_model = "voyage-rerank-2.5"
+rerank_model = "zerank-2"
 chunk_size = 500
 
 [runs.benchmark_5k.llm_filter_candidates]
+filter_resume = true
+
+[runs.benchmark_5k_opus]
+sample_n = 5000
+sample_seed = 42
+embedding_model = "text-embedding-3-large"
+llm_model = "claude-opus-4.6"
+
+[runs.benchmark_5k_opus.rerank_candidates]
+rerank_model = "voyage-rerank-2.5"
+chunk_size = 500
+
+[runs.benchmark_5k_opus.llm_filter_candidates]
 filter_resume = true

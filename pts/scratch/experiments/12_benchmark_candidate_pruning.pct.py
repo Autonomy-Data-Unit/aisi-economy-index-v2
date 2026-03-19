@@ -7,16 +7,24 @@
 # ---
 
 # %% [markdown]
-# # Job Ads Pipeline Validation: Benchmark Comparison
+# # Experiment: Benchmark candidate pruning
 #
-# Compare each validation run against the API benchmark run (`benchmark_5k`),
-# which uses frontier models throughout: GPT-5.4 (node: `llm_filter_candidates`),
-# text-embedding-3-large (node: `embed_ads`), and voyage-rerank-2.5
-# (node: `rerank_candidates`).
+# The benchmark (GPT-5.4) keeps far fewer candidates per ad than the sbatch
+# LLMs. This experiment tests whether agreement with the benchmark improves
+# if we prune the lowest-ranked candidates from each validation run's filter
+# output before comparing.
 #
-# For each validation run, we measure agreement with the benchmark at three
-# pipeline stages: LLM filter, rerank, and final exposure scores. This gives
-# a reference-based quality measure rather than just pairwise model agreement.
+# `MAX_CANDIDATES` controls the maximum number of candidates kept per ad.
+# Candidates are ranked by cosine score (from the filter stage). If an ad
+# has more candidates than `MAX_CANDIDATES`, the lowest-ranked ones are
+# dropped. Set to `None` to disable pruning.
+
+# %% [markdown]
+# ## Configuration
+
+# %%
+# Maximum candidates per ad. Set to None to disable pruning.
+MAX_CANDIDATES = 3
 
 # %% [markdown]
 # ## Setup
@@ -45,7 +53,7 @@ from validation.utils import (
 )
 
 run_def = os.environ.get("VALIDATION_RUN_DEF", "validation_5k")
-benchmark_run = os.environ.get("BENCHMARK_RUN", f"benchmark_{run_def.split('_')[-1]}")
+benchmark_run = f"benchmark_{run_def.split('_')[-1]}"  # e.g. "benchmark_5k"
 
 with open(validation_config_path, "rb") as f:
     config = tomllib.load(f)
@@ -56,6 +64,7 @@ completed = discover_completed_runs(run_def)
 print(f"Run definition: {run_def}")
 print(f"Benchmark run: {benchmark_run}")
 print(f"Validation runs: {len(completed)}")
+print(f"MAX_CANDIDATES: {MAX_CANDIDATES}")
 
 # %% [markdown]
 # ### Benchmark model
@@ -71,11 +80,26 @@ print(f"  Embedding:  text-embedding-3-large (API)")
 print(f"  Reranker:   voyage-rerank-2.5 (API)")
 
 # %% [markdown]
+# ## Candidate pruning helper
+
+# %%
+def prune_candidates(df, max_candidates):
+    """Keep only the top `max_candidates` per ad by rank (lowest rank = best).
+
+    Returns the pruned DataFrame. If max_candidates is None, returns df unchanged.
+    """
+    if max_candidates is None:
+        return df
+    return df[df["rank"] < max_candidates]
+
+# %% [markdown]
 # ## Load benchmark data
 
 # %%
 # Benchmark filter output
 bench_filter_df = load_parquet(benchmark_run, "llm_filter_candidates", "filtered_matches.parquet")
+bench_filter_df = prune_candidates(bench_filter_df, MAX_CANDIDATES)
+
 bench_filter_sets = bench_filter_df.groupby("ad_id")["onet_code"].apply(set).to_dict()
 bench_filter_top1 = bench_filter_df.sort_values(["ad_id", "rank"]).groupby("ad_id").first()["onet_code"].to_dict()
 
@@ -84,6 +108,8 @@ print(f"Benchmark filter: {len(bench_filter_sets)} ads, mean {bench_filter_count
 
 # Benchmark rerank output
 bench_rerank_df = load_parquet(benchmark_run, "rerank_candidates", "reranked_matches.parquet")
+bench_rerank_df = prune_candidates(bench_rerank_df, MAX_CANDIDATES)
+
 bench_rerank_scores = {}
 bench_rerank_top1 = {}
 for ad_id, group in bench_rerank_df.groupby("ad_id"):
@@ -102,13 +128,6 @@ print(f"Benchmark exposure: {len(bench_exposure)} ads with valid scores")
 
 # %% [markdown]
 # ## Compare each validation run against the benchmark
-#
-# For each completed validation run, compute:
-# - **Filter Jaccard**: overlap of kept candidate sets with benchmark
-# - **Filter top-1**: fraction of ads where the top cosine-ranked kept candidate matches
-# - **Rerank top-1**: fraction of ads where the best-scoring candidate matches
-# - **Exposure Pearson**: correlation of per-ad exposure scores with benchmark
-# - **Exposure MAD%**: mean absolute difference as percentage of score range
 
 # %%
 rows = []
@@ -129,6 +148,8 @@ for rn, rd, llm, embed, rerank in completed:
         print(f"WARNING: skipping {rn} (corrupt filter parquet: {e})")
         skipped.append(rn)
         continue
+
+    val_filter_df = prune_candidates(val_filter_df, MAX_CANDIDATES)
 
     val_filter_sets = val_filter_df.groupby("ad_id")["onet_code"].apply(set).to_dict()
     val_filter_top1 = val_filter_df.sort_values(["ad_id", "rank"]).groupby("ad_id").first()["onet_code"].to_dict()
@@ -159,6 +180,8 @@ for rn, rd, llm, embed, rerank in completed:
         rows.append(row)
         continue
 
+    val_rerank_df = prune_candidates(val_rerank_df, MAX_CANDIDATES)
+
     val_rerank_top1 = {}
     val_rerank_scores = {}
     for ad_id, group in val_rerank_df.groupby("ad_id"):
@@ -170,9 +193,8 @@ for rn, rd, llm, embed, rerank in completed:
         agrees = sum(1 for ad_id in common_rerank if val_rerank_top1[ad_id] == bench_rerank_top1[ad_id])
         row["rerank_top1"] = agrees / len(common_rerank)
         row["rerank_ruzicka"] = pairwise_weighted_jaccard(val_rerank_scores, bench_rerank_scores, common_rerank)
-        row["rerank_spearman"] = pairwise_spearman(val_rerank_scores, bench_rerank_scores, common_rerank)
 
-    # Exposure comparison
+    # Exposure comparison (not pruned, uses saved pipeline output)
     try:
         val_exposure = load_parquet(rn, "compute_job_ad_exposure", "ad_exposure.parquet")
     except Exception as e:
@@ -205,11 +227,12 @@ if skipped:
 # ## Filter stage agreement with benchmark
 #
 # How well does each validation run's LLM filter agree with GPT-5.4's filter?
-# Note that runs using different embeddings will have different cosine candidate
-# sets feeding into the filter, so lower agreement is expected for those.
+# Candidates are pruned to the top `MAX_CANDIDATES` by cosine rank before
+# comparison.
 
 # %%
 print(f"Benchmark ({benchmark_run}): mean {bench_filter_counts.mean():.1f} candidates/ad (median {bench_filter_counts.median():.0f})")
+print(f"MAX_CANDIDATES = {MAX_CANDIDATES}")
 
 filter_cols = ["llm", "embedding", "reranker", "filter_mean_candidates", "filter_jaccard"]
 filter_df = benchmark_comparison[filter_cols].copy()
@@ -223,29 +246,28 @@ filter_df.style.format({
 # ## Rerank stage agreement with benchmark
 #
 # After reranking, how similar are each run's scores to the benchmark?
+# Candidates are pruned to the top `MAX_CANDIDATES` by cosine rank before
+# comparison.
 #
 # - **Top-1 agreement**: fraction of ads where the highest-scoring occupation matches
 #   the benchmark. Combines the effects of embedding, LLM filter, and reranker.
 # - **Ruzicka similarity**: weighted Jaccard over rerank score vectors per ad,
 #   $R = \frac{1}{N}\sum_i \frac{\sum_c \min(s^v_{ic},\, s^b_{ic})}{\sum_c \max(s^v_{ic},\, s^b_{ic})}$,
 #   capturing agreement across the full score distribution, not just the top pick.
-# - **Spearman**: mean Spearman rank correlation on shared candidates per ad.
-#   Measures whether the two rerankers agree on the *ranking order*, ignoring
-#   score magnitudes. Only computed for ads with at least 3 shared candidates.
 
 # %%
-rerank_cols = ["llm", "embedding", "reranker", "rerank_top1", "rerank_spearman", "rerank_ruzicka"]
+rerank_cols = ["llm", "embedding", "reranker", "rerank_top1", "rerank_ruzicka"]
 rerank_df = benchmark_comparison[rerank_cols].copy()
-rerank_df = rerank_df.sort_values("rerank_spearman", ascending=False)
-rerank_df.style.format({"rerank_top1": "{:.3f}", "rerank_spearman": "{:.3f}", "rerank_ruzicka": "{:.3f}"}).background_gradient(
-    subset=["rerank_top1", "rerank_spearman", "rerank_ruzicka"], cmap="YlOrRd", vmin=0, vmax=1)
+rerank_df = rerank_df.sort_values("rerank_ruzicka", ascending=False)
+rerank_df.style.format({"rerank_top1": "{:.3f}", "rerank_ruzicka": "{:.3f}"}).background_gradient(
+    subset=["rerank_top1", "rerank_ruzicka"], cmap="YlOrRd", vmin=0, vmax=1)
 
 # %% [markdown]
 # ## Exposure score agreement with benchmark
 #
 # Pearson correlation and MAD (as % of range) for `task_exposure_importance_weighted`.
-# This is the bottom line: how much does each model configuration's final output
-# differ from the frontier API benchmark?
+# Note: exposure scores use the saved pipeline output (not pruned), since
+# the exposure computation already happened with the full candidate set.
 
 # %%
 exp_cols = ["llm", "embedding", "reranker", "exposure_pearson", "exposure_mad_pct"]
@@ -258,17 +280,12 @@ exp_df.style.format({
 
 # %% [markdown]
 # ## Summary by model dimension
-#
-# Average agreement with benchmark, grouped by each model dimension. Shows
-# which choice (LLM, embedding, or reranker) has the largest impact on
-# deviation from the benchmark.
 
 # %%
 for dim in ["llm", "embedding", "reranker"]:
     grouped = benchmark_comparison.groupby(dim).agg({
         "filter_jaccard": "mean",
         "rerank_top1": "mean",
-        "rerank_spearman": "mean",
         "rerank_ruzicka": "mean",
         "exposure_pearson": "mean",
         "exposure_mad_pct": "mean",
@@ -278,25 +295,7 @@ for dim in ["llm", "embedding", "reranker"]:
     display(grouped.style.format({
         "filter_jaccard": "{:.3f}",
         "rerank_top1": "{:.3f}",
-        "rerank_spearman": "{:.3f}",
         "rerank_ruzicka": "{:.3f}",
         "exposure_pearson": "{:.4f}",
         "exposure_mad_pct": "{:.1f}%",
     }))
-
-# %% [markdown]
-# ## Summary
-#
-# This notebook measures how far each validation run deviates from a
-# high-quality API benchmark. Unlike the arm notebooks (which measure
-# pairwise agreement within a model dimension), this gives a reference-based
-# quality assessment.
-#
-# Key questions:
-# 1. **Which LLMs agree most with GPT-5.4?** Higher filter Jaccard and top-1
-#    suggest the model makes similar matching decisions to the frontier model.
-# 2. **Does embedding choice matter more than LLM choice?** Compare the spread
-#    of Pearson values within the "by LLM" table vs the "by embedding" table.
-# 3. **Are any configurations clearly worse?** Low exposure Pearson (<0.9)
-#    suggests a model is producing meaningfully different results from the
-#    benchmark.

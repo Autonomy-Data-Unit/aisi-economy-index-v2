@@ -17,6 +17,13 @@ def _apply_instruction(query, instruction):
     return query
 
 
+def _apply_instruction_zeroentropy(query, instruction):
+    """Embed instruction using ZeroEntropy's XML tag format."""
+    if instruction:
+        return f"<query>{query}</query> <instruction>{instruction}</instruction>"
+    return query
+
+
 def _rerank_api(queries, documents, top_k, model_name, instruction=""):
     """Rerank using a hosted API (e.g. Voyage, Cohere) via litellm."""
     import litellm
@@ -138,6 +145,67 @@ async def _arerank_pairs_api(items, model_name, instruction=""):
     return all_scores
 
 
+def _rerank_pairs_zeroentropy(items, model_name, instruction=""):
+    """Score pre-paired items using the ZeroEntropy API."""
+    from zeroentropy import ZeroEntropy
+    import time
+
+    client = ZeroEntropy()
+    all_scores = []
+    for item in items:
+        query, docs = item[0], item[1]
+        query = _apply_instruction_zeroentropy(query, instruction)
+        n_docs = len(docs)
+        scores = [0.0] * n_docs
+        for attempt in range(5):
+            try:
+                result = client.models.rerank(
+                    model=model_name, query=query,
+                    documents=docs, top_n=n_docs,
+                )
+                for r in result.results:
+                    scores[r.index] = r.relevance_score
+                break
+            except Exception as e:
+                if "429" in str(e) or "rate" in str(e).lower():
+                    wait = 15 * (attempt + 1)
+                    time.sleep(wait)
+                else:
+                    raise
+        all_scores.append(scores)
+    return all_scores
+
+
+async def _arerank_pairs_zeroentropy(items, model_name, instruction=""):
+    """Async version of _rerank_pairs_zeroentropy."""
+    from zeroentropy import AsyncZeroEntropy
+
+    client = AsyncZeroEntropy()
+    all_scores = []
+    for item in items:
+        query, docs = item[0], item[1]
+        query = _apply_instruction_zeroentropy(query, instruction)
+        n_docs = len(docs)
+        scores = [0.0] * n_docs
+        for attempt in range(5):
+            try:
+                result = await client.models.rerank(
+                    model=model_name, query=query,
+                    documents=docs, top_n=n_docs,
+                )
+                for r in result.results:
+                    scores[r.index] = r.relevance_score
+                break
+            except Exception as e:
+                if "429" in str(e) or "rate" in str(e).lower():
+                    wait = 15 * (attempt + 1)
+                    await asyncio.sleep(wait)
+                else:
+                    raise
+        all_scores.append(scores)
+    return all_scores
+
+
 def rerank(
     queries: list[str],
     documents: list[str],
@@ -217,6 +285,9 @@ def rerank_pairs(
     if mode == "api":
         return _rerank_pairs_api(items, model_name, instruction=instruction)
 
+    elif mode == "zeroentropy":
+        return _rerank_pairs_zeroentropy(items, model_name, instruction=instruction)
+
     elif mode == "local":
         from llm_runner.rerank import run_rerank_pairs
         return run_rerank_pairs(items, model_name=model_name, **cfg)
@@ -258,6 +329,9 @@ async def arerank_pairs(
 
     if mode == "api":
         return await _arerank_pairs_api(items, model_name, instruction=instruction)
+
+    elif mode == "zeroentropy":
+        return await _arerank_pairs_zeroentropy(items, model_name, instruction=instruction)
 
     elif mode == "local":
         from llm_runner.rerank import run_rerank_pairs
