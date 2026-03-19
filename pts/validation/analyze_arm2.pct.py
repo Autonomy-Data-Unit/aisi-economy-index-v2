@@ -93,12 +93,15 @@ for fixed_llm in fixed_llms:
 
         embed_names = [mn.get(embed, embed) for _, embed in arm_runs]
 
-        # Cosine candidates: per-ad candidate sets (top-20 from embedding similarity)
+        # Cosine candidates: per-ad candidate sets (full top-20 and top-5)
         cosine_sets = {}
+        cosine_sets_top5 = {}
         for rn, embed in arm_runs:
             name = mn.get(embed, embed)
             df = load_parquet(rn, "cosine_candidates", "candidates.parquet")
             cosine_sets[name] = df.groupby("ad_id")["onet_code"].apply(set).to_dict()
+            top5 = df[df["rank"] < 5]
+            cosine_sets_top5[name] = top5.groupby("ad_id")["onet_code"].apply(set).to_dict()
 
         # Filter outputs
         filter_sets = {}
@@ -120,6 +123,7 @@ for fixed_llm in fixed_llms:
             "arm_runs": arm_runs,
             "common_ads": common_ads,
             "cosine_sets": cosine_sets,
+            "cosine_sets_top5": cosine_sets_top5,
             "filter_sets": filter_sets,
             "filter_counts": filter_counts,
             "filter_top1": filter_top1,
@@ -132,15 +136,17 @@ for (llm, rerank), r in arm2_results.items():
 # %% [markdown]
 # ## Cosine stage
 #
-# ### Pairwise Jaccard (cosine candidate sets)
-#
-# Different embedding models retrieve different top-20 candidate sets from the
-# O\*NET occupation space. For each ad, we compare the candidate sets from two
+# Different embedding models retrieve different candidate sets from the O\*NET
+# occupation space. For each ad, we compare the candidate sets from two
 # embeddings: $J = |A \cap B| \,/\, |A \cup B|$.
 #
-# This is the earliest point of divergence in the pipeline. High Jaccard here
-# means the embeddings agree on which occupations are plausible matches;
-# low Jaccard means they retrieve fundamentally different candidates.
+# This is the earliest point of divergence in the pipeline. We measure Jaccard
+# at two depths: the full top-20 (all candidates passed to the LLM filter) and
+# the top-5 (the highest-confidence matches). If top-5 Jaccard is higher than
+# top-20, the embeddings agree more on the best candidates and diverge mainly
+# on the tail.
+#
+# ### Pairwise Jaccard (cosine candidates, top-20)
 
 # %%
 arm2_cosine_jaccard = {}
@@ -163,7 +169,38 @@ arm2_cosine_jaccard_summary
 
 # %%
 for (fixed_llm, fixed_rerank), matrix in arm2_cosine_jaccard.items():
-    display(IPyMarkdown(f"**Cosine Jaccard ({mn.get(fixed_llm, fixed_llm)} + {mn.get(fixed_rerank, fixed_rerank)})**"))
+    display(IPyMarkdown(f"**Cosine Jaccard, top-20 ({mn.get(fixed_llm, fixed_llm)} + {mn.get(fixed_rerank, fixed_rerank)})**"))
+    display(matrix.style.format("{:.3f}").background_gradient(cmap="YlOrRd", vmin=0, vmax=1))
+
+# %% [markdown]
+# ### Pairwise Jaccard (cosine candidates, top-5)
+#
+# Restricting to only the 5 highest-ranked cosine candidates per ad. If two
+# embeddings agree on the top-5 but disagree on ranks 6-20, that tail
+# disagreement is less likely to affect the final output.
+
+# %%
+arm2_cosine_jaccard_top5 = {}
+
+for (fixed_llm, fixed_rerank), r in arm2_results.items():
+    arm2_cosine_jaccard_top5[(fixed_llm, fixed_rerank)] = build_pairwise_matrix(
+        r["embed_names"], r["cosine_sets_top5"], r["common_ads"], pairwise_jaccard,
+    )
+
+cosine_top5_rows = []
+for (fixed_llm, fixed_rerank), matrix in arm2_cosine_jaccard_top5.items():
+    stats = upper_tri_stats(matrix.values)
+    stats["llm"] = mn.get(fixed_llm, fixed_llm)
+    stats["reranker"] = mn.get(fixed_rerank, fixed_rerank)
+    cosine_top5_rows.append(stats)
+arm2_cosine_top5_summary = pd.DataFrame(cosine_top5_rows).set_index(["llm", "reranker"])
+
+# %%
+arm2_cosine_top5_summary
+
+# %%
+for (fixed_llm, fixed_rerank), matrix in arm2_cosine_jaccard_top5.items():
+    display(IPyMarkdown(f"**Cosine Jaccard, top-5 ({mn.get(fixed_llm, fixed_llm)} + {mn.get(fixed_rerank, fixed_rerank)})**"))
     display(matrix.style.format("{:.3f}").background_gradient(cmap="YlOrRd", vmin=0, vmax=1))
 
 # %% [markdown]
