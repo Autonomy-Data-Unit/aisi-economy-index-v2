@@ -36,23 +36,25 @@ def plan_runs(config: dict) -> list[tuple[str, str, str | None]]:
     seen = set()
     triples = []
 
-    # Arm 1: fix embedding, vary LLMs (default reranker)
+    # Arm 1: vary LLM, fix embedding + reranker
     for fixed_embed in fixed_embeddings:
-        for llm in llm_models:
-            key = (llm, fixed_embed, None)
-            if key not in seen:
-                seen.add(key)
-                triples.append(key)
+        for fixed_rerank in fixed_rerankers:
+            for llm in llm_models:
+                key = (llm, fixed_embed, fixed_rerank)
+                if key not in seen:
+                    seen.add(key)
+                    triples.append(key)
 
-    # Arm 2: fix LLM, vary embeddings (default reranker)
+    # Arm 2: vary embedding, fix LLM + reranker
     for fixed_llm in fixed_llms:
-        for embed in embed_models:
-            key = (fixed_llm, embed, None)
-            if key not in seen:
-                seen.add(key)
-                triples.append(key)
+        for fixed_rerank in fixed_rerankers:
+            for embed in embed_models:
+                key = (fixed_llm, embed, fixed_rerank)
+                if key not in seen:
+                    seen.add(key)
+                    triples.append(key)
 
-    # Arm 3: fix LLM + embedding, vary rerankers
+    # Arm 3: vary reranker, fix LLM + embedding
     for fixed_llm in fixed_llms:
         for fixed_embed in fixed_embeddings:
             for rerank in rerank_models:

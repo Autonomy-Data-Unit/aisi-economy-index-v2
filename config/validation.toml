@@ -1,3 +1,7 @@
+# Models held constant when varying other dimensions:
+# - Arm 1 (vary LLM):       runs each LLM with every (fixed_embedding, fixed_reranker) pair
+# - Arm 2 (vary embedding): runs each embedding with every (fixed_llm, fixed_reranker) pair
+# - Arm 3 (vary reranker):  runs each reranker with every (fixed_llm, fixed_embedding) pair
 fixed_embeddings = ["bge-large-sbatch", "e5-large-sbatch"]
 fixed_llms = ["phi-4-sbatch", "llama-70b-sbatch"]
 fixed_rerankers = ["qwen3-reranker-8b-sbatch", "gte-reranker-modernbert-sbatch"]
@@ -41,7 +45,7 @@ rerank_models = [
     # "ms-marco-minilm-sbatch",         # Dropped: 512 token limit too small for job ad pairs
     "gte-reranker-modernbert-sbatch",
     "nemotron-rerank-1b-sbatch",
-    "bge-reranker-v2-gemma-sbatch",
+    # "bge-reranker-v2-gemma-sbatch",   # Dropped: 4096 context limit too small for enriched O*NET + job ad pairs
     # "qwen3-reranker-0.6b-sbatch",     # Dropped: have CE version at same size
     # "qwen3-reranker-0.6b-ce-sbatch",   # Dropped: community conversion (tomaarsen), not official
     # "qwen3-reranker-4b-sbatch",       # Dropped: middle Qwen3 vLLM
