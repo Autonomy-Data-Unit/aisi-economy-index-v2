@@ -509,11 +509,8 @@ def publish_reports_main():
         # Commit and push
         subprocess.run(["git", "add", "-A"], cwd=str(pages_dir), capture_output=True)
 
-        # Check if there are changes to commit
-        status = subprocess.run(["git", "status", "--porcelain"], cwd=str(pages_dir), capture_output=True, text=True)
-        if not status.stdout.strip():
-            print("No changes to publish.")
-            return
+        # Always update a timestamp so there's always something to commit
+        (pages_dir / ".published").write_text(f"{__import__('datetime').datetime.now().isoformat()}\n")
 
         subprocess.run(
             ["git", "commit", "-m", f"Update reports {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}"],
