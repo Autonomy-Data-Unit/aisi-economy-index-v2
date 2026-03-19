@@ -79,6 +79,97 @@ def build_model_info_table(keys: list[str], lookup: dict[str, str]) -> pd.DataFr
     return pd.DataFrame(rows)
 
 
+def notebook_to_report(notebook_path: str | Path, output_dir: str | Path, stem: str) -> Path:
+    """Convert an executed notebook to a Markdown report (and optionally PDF).
+
+    Code cells are omitted. Images from cell outputs are embedded as inline
+    base64 data URIs. The markdown file is self-contained (no external image files).
+
+    Args:
+        notebook_path: Path to the .ipynb file (should already be executed with outputs).
+        output_dir: Directory to write the report files.
+        stem: Base filename without extension (e.g. "validation_5k__arm_1").
+
+    Returns:
+        Path to the generated markdown file.
+    """
+    import json, base64, re, subprocess
+
+    notebook_path = Path(notebook_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(notebook_path) as f:
+        nb = json.load(f)
+
+    parts = []
+    for cell in nb["cells"]:
+        if cell["cell_type"] == "markdown":
+            parts.append("".join(cell["source"]))
+            parts.append("")
+
+        elif cell["cell_type"] == "code":
+            # Skip code, but include outputs
+            for output in cell.get("outputs", []):
+                otype = output.get("output_type", "")
+
+                # Display data (styled tables, images, markdown)
+                if otype in ("display_data", "execute_result"):
+                    data = output.get("data", {})
+                    # Prefer HTML (rendered tables with styling)
+                    if "text/html" in data:
+                        html = "".join(data["text/html"])
+                        parts.append(html)
+                        parts.append("")
+                    # Images
+                    elif "image/png" in data:
+                        b64 = "".join(data["image/png"]).strip()
+                        parts.append(f"![](data:image/png;base64,{b64})")
+                        parts.append("")
+                    # Plain text fallback
+                    elif "text/plain" in data:
+                        text = "".join(data["text/plain"])
+                        # Skip repr-style outputs like '<pandas.io.formats...>'
+                        if not text.startswith("<"):
+                            parts.append(f"```\n{text}\n```")
+                            parts.append("")
+
+                # Stream output (print statements)
+                elif otype == "stream":
+                    text = "".join(output.get("text", []))
+                    if text.strip():
+                        parts.append(f"```\n{text.rstrip()}\n```")
+                        parts.append("")
+
+    md_content = "\n".join(parts)
+
+    # Also embed any matplotlib figure outputs that nbconvert saved as attachments
+    # (cell attachments use a different format)
+    for cell in nb["cells"]:
+        for att_name, att_data in cell.get("attachments", {}).items():
+            for mime, b64 in att_data.items():
+                if mime.startswith("image/"):
+                    old_ref = f"attachment:{att_name}"
+                    new_ref = f"data:{mime};base64,{b64}"
+                    md_content = md_content.replace(old_ref, new_ref)
+
+    md_path = output_dir / f"{stem}.md"
+    md_path.write_text(md_content)
+
+    # Try to generate PDF via pandoc if available
+    pdf_path = output_dir / f"{stem}.pdf"
+    try:
+        subprocess.run(
+            ["pandoc", str(md_path), "-o", str(pdf_path),
+             "--pdf-engine=xelatex", "-V", "geometry:margin=1in"],
+            check=True, capture_output=True, timeout=120,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass  # pandoc not available or failed, skip PDF
+
+    return md_path
+
+
 def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str, str]]:
     """Scan store/pipeline/ for completed validation runs.
 
@@ -243,3 +334,52 @@ def best_subsets(names: list[str], matrix: np.ndarray, metric_fn_matrix=None) ->
         subset_names = [names[i] for i in best_subset]
         results.append((k, best_score, subset_names))
     return results
+
+# %%
+#|export
+def generate_reports_main():
+    """CLI entry point: execute all analyze_* notebooks and generate markdown/PDF reports."""
+    import os, sys
+    import subprocess
+    from ai_index.const import reports_path, repo_root
+
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(args) != 1:
+        print("Usage: uv run generate-reports <run_def_name>", file=sys.stderr)
+        sys.exit(1)
+
+    run_def = args[0]
+    nbs_dir = repo_root / "nbs" / "validation"
+    analyze_nbs = sorted(nbs_dir.glob("analyze_*.ipynb"))
+
+    if not analyze_nbs:
+        print(f"No analyze_* notebooks found in {nbs_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    reports_path.mkdir(parents=True, exist_ok=True)
+
+    for nb_path in analyze_nbs:
+        # Derive report stem: analyze_arm1.ipynb -> {run_def}__arm_1
+        arm_name = nb_path.stem.replace("analyze_", "")
+        stem = f"{run_def}__{arm_name}"
+
+        print(f"\n{'=' * 60}")
+        print(f"Executing: {nb_path.name}")
+        print(f"{'=' * 60}")
+
+        # Execute the notebook in place, passing run_def via environment variable
+        env = {**os.environ, "VALIDATION_RUN_DEF": run_def}
+        result = subprocess.run(
+            ["uv", "run", "jupyter", "nbconvert",
+             "--to", "notebook", "--execute", "--inplace",
+             str(nb_path)],
+            capture_output=True, text=True, timeout=600, env=env,
+        )
+        if result.returncode != 0:
+            print(f"  ERROR executing {nb_path.name}:")
+            print(result.stderr[-500:] if len(result.stderr) > 500 else result.stderr)
+            continue
+
+        # Convert executed notebook to markdown report
+        md_path = notebook_to_report(nb_path, reports_path, stem)
+        print(f"  Report: {md_path}")

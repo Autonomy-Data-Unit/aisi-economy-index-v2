@@ -44,7 +44,8 @@ from validation.utils import (
     best_subsets,
 )
 
-run_def = "validation_5k"
+import os
+run_def = os.environ.get("VALIDATION_RUN_DEF", "validation_5k")
 
 with open(validation_config_path, "rb") as f:
     config = tomllib.load(f)
