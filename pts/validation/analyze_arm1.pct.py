@@ -348,6 +348,123 @@ arm1_spearman_summary = pd.DataFrame(spearman_summary_rows).set_index(["embeddin
 arm1_spearman_summary
 
 # %% [markdown]
+# ## Exposure scores
+#
+# The final pipeline output: per-ad exposure scores (node: `compute_job_ad_exposure`).
+# Since O\*NET occupation-level scores are identical across all runs (the scoring
+# nodes don't depend on the LLM choice), all variation comes from which candidates
+# the LLM filter kept and how the reranker weighted them.
+#
+# We compute pairwise Pearson correlation and mean absolute difference (MAD) on
+# the per-ad score vectors. High Pearson means the LLM choice barely affects the
+# final index; low MAD means the actual score values are close.
+
+# %%
+from validation.utils import pairwise_correlation_matrix
+
+score_cols = [
+    "felten_score", "presence_physical", "presence_emotional",
+    "presence_creative", "presence_composite",
+    "task_exposure_mean", "task_exposure_importance_weighted",
+]
+
+for (fixed_embed, fixed_rerank), r in arm1_results.items():
+    exposure_by_llm = {}
+    for rn, llm in [(rn, llm) for rn, rd, llm, embed, rerank in completed
+                     if embed == fixed_embed and rerank == fixed_rerank]:
+        df = load_parquet(rn, "compute_job_ad_exposure", "ad_exposure.parquet")
+        exposure_by_llm[llm] = df.dropna(subset=score_cols).set_index("ad_id")
+
+    # Common ads with valid scores across all LLMs
+    common_ads = sorted(set.intersection(*[set(df.index) for df in exposure_by_llm.values()]))
+    r["exposure_by_llm"] = exposure_by_llm
+    r["exposure_common_ads"] = common_ads
+
+print("Exposure data loaded.")
+for (embed, rerank), r in arm1_results.items():
+    print(f"  {embed} + {rerank}: {len(r['exposure_common_ads'])} common ads with valid scores")
+
+# %% [markdown]
+# ### Pearson correlation per score column
+#
+# Pearson r = 1.0 means perfect linear agreement between two LLM runs on a
+# given score. Values above 0.95 indicate that the LLM choice has minimal
+# effect on the final exposure scores.
+
+# %%
+pearson_rows = []
+for (fixed_embed, fixed_rerank), r in arm1_results.items():
+    common = r["exposure_common_ads"]
+    for col in score_cols:
+        vectors = {llm: r["exposure_by_llm"][llm].loc[common, col].values for llm in r["llm_names"]}
+        matrix = pairwise_correlation_matrix(r["llm_names"], vectors, method="pearson")
+        stats = upper_tri_stats(matrix.values)
+        stats["embedding"] = fixed_embed
+        stats["reranker"] = fixed_rerank
+        stats["score"] = col
+        pearson_rows.append(stats)
+
+arm1_pearson = pd.DataFrame(pearson_rows)
+arm1_pearson_pivot = arm1_pearson.pivot(index="score", columns=["embedding", "reranker"], values="mean")
+
+# %%
+arm1_pearson_pivot
+
+# %% [markdown]
+# ### Mean absolute difference (MAD) per score column
+#
+# How far apart are the actual score values between LLM runs? MAD as a
+# percentage of the score range gives an intuitive sense of scale: 2% means
+# the typical disagreement is 2% of the score's full range.
+
+# %%
+mad_rows = []
+for (fixed_embed, fixed_rerank), r in arm1_results.items():
+    common = r["exposure_common_ads"]
+    for col in score_cols:
+        all_vals = np.concatenate([r["exposure_by_llm"][llm].loc[common, col].values for llm in r["llm_names"]])
+        score_range = all_vals.max() - all_vals.min()
+
+        # Mean pairwise MAD
+        mads = []
+        for i, llm_a in enumerate(r["llm_names"]):
+            for j, llm_b in enumerate(r["llm_names"]):
+                if i >= j:
+                    continue
+                va = r["exposure_by_llm"][llm_a].loc[common, col].values
+                vb = r["exposure_by_llm"][llm_b].loc[common, col].values
+                mads.append(np.mean(np.abs(va - vb)))
+
+        mad_rows.append({
+            "embedding": fixed_embed, "reranker": fixed_rerank, "score": col,
+            "mad_mean": np.mean(mads),
+            "mad_max": np.max(mads),
+            "score_range": score_range,
+            "mad_pct_range": np.mean(mads) / score_range * 100 if score_range > 0 else 0,
+        })
+
+arm1_mad = pd.DataFrame(mad_rows)
+
+# %%
+arm1_mad.pivot(index="score", columns=["embedding", "reranker"], values="mad_pct_range").style.format("{:.1f}%")
+
+# %% [markdown]
+# ### Pearson matrix for primary score
+#
+# Full pairwise Pearson correlation matrix for `task_exposure_importance_weighted`,
+# the primary outcome score. Shows which LLM pairs agree most/least on final
+# exposure values.
+
+# %%
+for (fixed_embed, fixed_rerank), r in arm1_results.items():
+    common = r["exposure_common_ads"]
+    vectors = {llm: r["exposure_by_llm"][llm].loc[common, "task_exposure_importance_weighted"].values
+               for llm in r["llm_names"]}
+    matrix = pairwise_correlation_matrix(r["llm_names"], vectors, method="pearson")
+    display(IPyMarkdown(f"**Pearson: task_exposure_importance_weighted ({fixed_embed} + {fixed_rerank})**"))
+    display(matrix.style.format("{:.4f}").background_gradient(cmap="YlOrRd", vmin=0.9, vmax=1))
+
+# %% [markdown]
 # ## Summary
 #
 # Comparing filter-stage and rerank-stage agreement shows how the reranker
@@ -355,3 +472,7 @@ arm1_spearman_summary
 # than unweighted Jaccard, most disagreement is on low-scoring candidates.
 # If top-1 agreement improves after reranking, the reranker is acting as a
 # consensus mechanism.
+#
+# The exposure score analysis shows whether this disagreement matters for the
+# final output. Pearson correlations above 0.95 and MAD below 3% of range
+# indicate that the pipeline is robust to LLM choice.

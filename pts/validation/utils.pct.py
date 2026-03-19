@@ -120,6 +120,28 @@ def pairwise_top1(top1_a: dict, top1_b: dict, common_keys: list) -> float:
     return agrees / len(common_keys) if common_keys else 0.0
 
 
+def pairwise_correlation_matrix(names: list[str], vectors: dict[str, np.ndarray], method: str = "pearson") -> pd.DataFrame:
+    """Build an NxN correlation matrix from aligned score vectors.
+
+    Args:
+        names: Model names.
+        vectors: Dict mapping model name to a 1-D array of scores (same length, same ad ordering).
+        method: "pearson" or "spearman".
+    """
+    from scipy.stats import pearsonr, spearmanr
+
+    fn = pearsonr if method == "pearson" else spearmanr
+    n = len(names)
+    matrix = np.zeros((n, n))
+    for i in range(n):
+        matrix[i, i] = 1.0
+        for j in range(i + 1, n):
+            r, _ = fn(vectors[names[i]], vectors[names[j]])
+            matrix[i, j] = r
+            matrix[j, i] = r
+    return pd.DataFrame(matrix, index=names, columns=names)
+
+
 def build_pairwise_matrix(names: list[str], values: dict, common_keys: list, metric_fn) -> pd.DataFrame:
     """Build an NxN pairwise matrix by applying metric_fn(values[a], values[b], common_keys)."""
     n = len(names)
