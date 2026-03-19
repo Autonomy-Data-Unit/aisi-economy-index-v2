@@ -25,6 +25,60 @@ import pandas as pd
 from ai_index.const import pipeline_store_path
 
 
+def build_model_name_lookup() -> dict[str, str]:
+    """Build a mapping from model config keys (e.g. 'qwen-7b-sbatch') to short display names.
+
+    Reads all three model config files (llm_models.toml, embed_models.toml, rerank_models.toml),
+    extracts the HuggingFace model identifier, and returns the part after the '/'.
+    """
+    import tomllib
+    from ai_index.const import config_path
+
+    lookup = {}
+    for config_file in ["llm_models.toml", "embed_models.toml", "rerank_models.toml"]:
+        path = config_path / config_file
+        if not path.exists():
+            continue
+        with open(path, "rb") as f:
+            cfg = tomllib.load(f)
+        for key, entry in cfg.get("models", {}).items():
+            hf_name = entry.get("model", key)
+            short = hf_name.split("/")[-1] if "/" in hf_name else hf_name
+            lookup[key] = short
+    return lookup
+
+
+def build_model_info_table(keys: list[str], lookup: dict[str, str]) -> pd.DataFrame:
+    """Build a display table of model keys, short names, and full HF identifiers.
+
+    Args:
+        keys: Model config keys to include.
+        lookup: Output of build_model_name_lookup().
+    """
+    import tomllib
+    from ai_index.const import config_path
+
+    # Build full HF name lookup
+    full_names = {}
+    for config_file in ["llm_models.toml", "embed_models.toml", "rerank_models.toml"]:
+        path = config_path / config_file
+        if not path.exists():
+            continue
+        with open(path, "rb") as f:
+            cfg = tomllib.load(f)
+        for key, entry in cfg.get("models", {}).items():
+            full_names[key] = entry.get("model", key)
+
+    rows = []
+    for key in keys:
+        rows.append({
+            "key": key,
+            "model": lookup.get(key, key),
+            "hf_name": full_names.get(key, ""),
+        })
+    return pd.DataFrame(rows)
+
+
 def discover_completed_runs(run_def: str | None = None) -> list[tuple[str, str, str, str, str]]:
     """Scan store/pipeline/ for completed validation runs.
 

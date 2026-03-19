@@ -32,6 +32,8 @@ from ai_index.const import validation_config_path, pipeline_store_path
 from validation.utils import (
     discover_completed_runs,
     load_parquet,
+    build_model_name_lookup,
+    build_model_info_table,
     pairwise_jaccard,
     pairwise_top1,
     pairwise_weighted_jaccard,
@@ -51,8 +53,29 @@ completed = discover_completed_runs(run_def)
 fixed_embeddings = config["fixed_embeddings"]
 fixed_rerankers = config["fixed_rerankers"]
 
+# Model name lookup: config key -> short display name (e.g. "qwen-7b-sbatch" -> "Qwen2.5-7B-Instruct")
+mn = build_model_name_lookup()
+
 print(f"Run definition: {run_def}")
 print(f"Completed runs: {len(completed)}")
+
+# %% [markdown]
+# ### Models used
+#
+# All model keys appearing in the completed runs, with their short display names
+# and full HuggingFace identifiers.
+
+# %%
+all_llms = sorted({llm for _, _, llm, _, _ in completed})
+all_embeds = sorted({embed for _, _, _, embed, _ in completed})
+all_reranks = sorted({rerank for _, _, _, _, rerank in completed})
+
+print("LLMs:")
+display(build_model_info_table(all_llms, mn))
+print("\nEmbeddings:")
+display(build_model_info_table(all_embeds, mn))
+print("\nRerankers:")
+display(build_model_info_table(all_reranks, mn))
 
 # %% [markdown]
 # ## Load data
@@ -74,15 +97,16 @@ for fixed_embed in fixed_embeddings:
         if len(arm_runs) < 2:
             continue
 
-        llm_names = [llm for _, llm in arm_runs]
+        llm_names = [mn.get(llm, llm) for _, llm in arm_runs]
 
         # Load filtered matches: per-ad kept sets and per-ad match counts
         filter_sets = {}
         filter_counts = {}
         for rn, llm in arm_runs:
+            name = mn.get(llm, llm)
             df = load_parquet(rn, "llm_filter_candidates", "filtered_matches.parquet")
-            filter_sets[llm] = df.groupby("ad_id")["onet_code"].apply(set).to_dict()
-            filter_counts[llm] = df.groupby("ad_id").size()
+            filter_sets[name] = df.groupby("ad_id")["onet_code"].apply(set).to_dict()
+            filter_counts[name] = df.groupby("ad_id").size()
 
         # Common ads across all runs in this arm
         common_ads = sorted(set.intersection(*[set(s.keys()) for s in filter_sets.values()]))
@@ -90,8 +114,9 @@ for fixed_embed in fixed_embeddings:
         # Top-1 kept candidate per ad (highest cosine-ranked that survived the filter)
         filter_top1 = {}
         for rn, llm in arm_runs:
+            name = mn.get(llm, llm)
             df = load_parquet(rn, "llm_filter_candidates", "filtered_matches.parquet")
-            filter_top1[llm] = df.sort_values(["ad_id", "rank"]).groupby("ad_id").first()["onet_code"].to_dict()
+            filter_top1[name] = df.sort_values(["ad_id", "rank"]).groupby("ad_id").first()["onet_code"].to_dict()
 
         key = (fixed_embed, fixed_rerank)
         arm1_results[key] = {
@@ -104,7 +129,7 @@ for fixed_embed in fixed_embeddings:
 
 print(f"Arm 1: {len(arm1_results)} (embedding, reranker) groups loaded")
 for (embed, rerank), r in arm1_results.items():
-    print(f"  {embed} + {rerank}: {len(r['llm_names'])} LLMs, {len(r['common_ads'])} common ads")
+    print(f"  {mn.get(embed, embed)} + {mn.get(rerank, rerank)}: {len(r['llm_names'])} LLMs, {len(r['common_ads'])} common ads")
 
 # %% [markdown]
 # ## Filter stage
@@ -124,7 +149,7 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
     for llm in r["llm_names"]:
         c = r["filter_counts"][llm]
         selectivity_rows.append({
-            "embedding": fixed_embed, "reranker": fixed_rerank, "llm": llm,
+            "embedding": mn.get(fixed_embed, fixed_embed), "reranker": mn.get(fixed_rerank, fixed_rerank), "llm": llm,
             "mean_candidates": round(c.mean(), 1),
             "median_candidates": int(c.median()),
         })
@@ -178,8 +203,8 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
 jaccard_summary_rows = []
 for (fixed_embed, fixed_rerank), matrix in arm1_jaccard.items():
     stats = upper_tri_stats(matrix.values)
-    stats["embedding"] = fixed_embed
-    stats["reranker"] = fixed_rerank
+    stats["embedding"] = mn.get(fixed_embed, fixed_embed)
+    stats["reranker"] = mn.get(fixed_rerank, fixed_rerank)
     jaccard_summary_rows.append(stats)
 arm1_jaccard_summary = pd.DataFrame(jaccard_summary_rows).set_index(["embedding", "reranker"])
 
@@ -188,7 +213,7 @@ arm1_jaccard_summary
 
 # %%
 for (fixed_embed, fixed_rerank), matrix in arm1_jaccard.items():
-    display(IPyMarkdown(f"**Jaccard matrix ({fixed_embed} + {fixed_rerank})**"))
+    display(IPyMarkdown(f"**Jaccard matrix ({mn.get(fixed_embed, fixed_embed)} + {mn.get(fixed_rerank, fixed_rerank)})**"))
     display(matrix.style.format("{:.3f}").background_gradient(cmap="YlOrRd", vmin=0, vmax=1))
 
 # %% [markdown]
@@ -214,7 +239,7 @@ for (fixed_embed, fixed_rerank), matrix in arm1_jaccard.items():
             label = f"all except: {', '.join(removed)}" if removed else "all"
         else:
             label = ", ".join(names)
-        subset_rows.append({"embedding": fixed_embed, "reranker": fixed_rerank, "k": k, "jaccard": round(score, 3), "subset": label})
+        subset_rows.append({"embedding": mn.get(fixed_embed, fixed_embed), "reranker": mn.get(fixed_rerank, fixed_rerank), "k": k, "jaccard": round(score, 3), "subset": label})
 arm1_best_subsets = pd.DataFrame(subset_rows)
 
 # %%
@@ -238,8 +263,8 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
         r["llm_names"], r["filter_top1"], r["common_ads"], pairwise_top1,
     )
     stats = upper_tri_stats(matrix.values)
-    stats["embedding"] = fixed_embed
-    stats["reranker"] = fixed_rerank
+    stats["embedding"] = mn.get(fixed_embed, fixed_embed)
+    stats["reranker"] = mn.get(fixed_rerank, fixed_rerank)
     top1_summary_rows.append(stats)
 arm1_top1_summary = pd.DataFrame(top1_summary_rows).set_index(["embedding", "reranker"])
 
@@ -260,14 +285,15 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
     rerank_top1 = {}
     for rn, llm in [(rn, llm) for rn, rd, llm, embed, rerank in completed
                      if embed == fixed_embed and rerank == fixed_rerank]:
+        name = mn.get(llm, llm)
         df = load_parquet(rn, "rerank_candidates", "reranked_matches.parquet")
         by_ad_scores = {}
         by_ad_top1 = {}
         for ad_id, group in df.groupby("ad_id"):
             by_ad_scores[ad_id] = dict(zip(group["onet_code"], group["rerank_score"]))
             by_ad_top1[ad_id] = group.sort_values("rerank_score", ascending=False).iloc[0]["onet_code"]
-        rerank_scores[llm] = by_ad_scores
-        rerank_top1[llm] = by_ad_top1
+        rerank_scores[name] = by_ad_scores
+        rerank_top1[name] = by_ad_top1
 
     r["rerank_scores"] = rerank_scores
     r["rerank_top1"] = rerank_top1
@@ -304,8 +330,8 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
 wj_summary_rows = []
 for (fixed_embed, fixed_rerank), matrix in arm1_wj.items():
     stats = upper_tri_stats(matrix.values)
-    stats["embedding"] = fixed_embed
-    stats["reranker"] = fixed_rerank
+    stats["embedding"] = mn.get(fixed_embed, fixed_embed)
+    stats["reranker"] = mn.get(fixed_rerank, fixed_rerank)
     wj_summary_rows.append(stats)
 arm1_wj_summary = pd.DataFrame(wj_summary_rows).set_index(["embedding", "reranker"])
 
@@ -314,7 +340,7 @@ arm1_wj_summary
 
 # %%
 for (fixed_embed, fixed_rerank), matrix in arm1_wj.items():
-    display(IPyMarkdown(f"**Weighted Jaccard matrix ({fixed_embed} + {fixed_rerank})**"))
+    display(IPyMarkdown(f"**Weighted Jaccard matrix ({mn.get(fixed_embed, fixed_embed)} + {mn.get(fixed_rerank, fixed_rerank)})**"))
     display(matrix.style.format("{:.3f}").background_gradient(cmap="YlOrRd", vmin=0, vmax=1))
 
 # %% [markdown]
@@ -334,8 +360,8 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
         r["llm_names"], r["rerank_top1"], r["common_ads"], pairwise_top1,
     )
     stats = upper_tri_stats(matrix.values)
-    stats["embedding"] = fixed_embed
-    stats["reranker"] = fixed_rerank
+    stats["embedding"] = mn.get(fixed_embed, fixed_embed)
+    stats["reranker"] = mn.get(fixed_rerank, fixed_rerank)
     rerank_top1_summary_rows.append(stats)
 arm1_rerank_top1_summary = pd.DataFrame(rerank_top1_summary_rows).set_index(["embedding", "reranker"])
 
@@ -362,8 +388,8 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
         r["llm_names"], r["rerank_scores"], r["common_ads"], pairwise_spearman,
     )
     stats = upper_tri_stats(matrix.values)
-    stats["embedding"] = fixed_embed
-    stats["reranker"] = fixed_rerank
+    stats["embedding"] = mn.get(fixed_embed, fixed_embed)
+    stats["reranker"] = mn.get(fixed_rerank, fixed_rerank)
     spearman_summary_rows.append(stats)
 arm1_spearman_summary = pd.DataFrame(spearman_summary_rows).set_index(["embedding", "reranker"])
 
@@ -394,8 +420,9 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
     exposure_by_llm = {}
     for rn, llm in [(rn, llm) for rn, rd, llm, embed, rerank in completed
                      if embed == fixed_embed and rerank == fixed_rerank]:
+        name = mn.get(llm, llm)
         df = load_parquet(rn, "compute_job_ad_exposure", "ad_exposure.parquet")
-        exposure_by_llm[llm] = df.dropna(subset=score_cols).set_index("ad_id")
+        exposure_by_llm[name] = df.dropna(subset=score_cols).set_index("ad_id")
 
     # Common ads with valid scores across all LLMs
     common_ads = sorted(set.intersection(*[set(df.index) for df in exposure_by_llm.values()]))
@@ -467,7 +494,7 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
                 mads.append(np.mean(np.abs(va - vb)))
 
         mad_rows.append({
-            "embedding": fixed_embed, "reranker": fixed_rerank, "score": col,
+            "embedding": mn.get(fixed_embed, fixed_embed), "reranker": mn.get(fixed_rerank, fixed_rerank), "score": col,
             "mad_mean": np.mean(mads),
             "mad_max": np.max(mads),
             "score_range": score_range,
@@ -493,7 +520,7 @@ for (fixed_embed, fixed_rerank), r in arm1_results.items():
     vectors = {llm: r["exposure_by_llm"][llm].loc[common, "task_exposure_importance_weighted"].values
                for llm in r["llm_names"]}
     matrix = pairwise_correlation_matrix(r["llm_names"], vectors, method="pearson")
-    display(IPyMarkdown(f"**Pearson: task_exposure_importance_weighted ({fixed_embed} + {fixed_rerank})**"))
+    display(IPyMarkdown(f"**Pearson: task_exposure_importance_weighted ({mn.get(fixed_embed, fixed_embed)} + {mn.get(fixed_rerank, fixed_rerank)})**"))
     display(matrix.style.format("{:.4f}").background_gradient(cmap="YlOrRd", vmin=0.9, vmax=1))
 
 # %% [markdown]
