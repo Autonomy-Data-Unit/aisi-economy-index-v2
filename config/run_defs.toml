@@ -3,7 +3,7 @@ sample_n = 10
 sample_seed = 42
 embedding_model = "bge-large-sbatch"
 llm_model = "qwen-7b-sbatch"
-llm_batch_size = 5000
+llm_batch_size = 50000
 llm_max_new_tokens = 2048
 llm_max_concurrent_batches = 1
 sbatch_cache = true
@@ -26,16 +26,16 @@ sbatch_time = "01:00:00"
 [defaults.embed_ads]
 sbatch_time = "04:00:00"
 embed_task_prompt = ""
-chunk_size = 5000
+chunk_size = 50000
 
 [defaults.cosine_candidates]
 cosine_topk = 20
-chunk_size = 10000
+chunk_size = 50000
 
 [defaults.rerank_candidates]
 rerank_model = "qwen3-reranker-8b-sbatch"
 sbatch_time = "04:00:00"
-chunk_size = 5000
+chunk_size = 50000
 
 [defaults.llm_filter_candidates]
 sbatch_time = "08:00:00"
