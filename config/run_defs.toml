@@ -138,3 +138,23 @@ sbatch_time = "02:00:00"
 
 [runs.validation_5k.score_task_exposure]
 sbatch_time = "02:00:00"
+
+
+# ---------------
+#   Benchmark
+# ---------------
+# High-quality API-only benchmark run for evaluating pipeline output quality.
+# Uses frontier models throughout: GPT-5.4 for LLM filter, text-embedding-3-large
+# for embeddings, voyage-rerank-2.5 for reranking. Same sample as validation_5k.
+
+[runs.benchmark_5k]
+sample_n = 5000
+sample_seed = 42
+embedding_model = "text-embedding-3-large"
+llm_model = "gpt-5.4"
+
+[runs.benchmark_5k.rerank_candidates]
+rerank_model = "voyage-rerank-2.5"
+
+[runs.benchmark_5k.llm_filter_candidates]
+filter_resume = true
