@@ -137,13 +137,13 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
     net = Net(config)
     try:
         # Source nodes have no input ports, nothing to retrieve
-        node_info = net.nodes[node_name]
-        if not node_info.in_port_names:
+        node_cfg = net.get_node_config(node_name)
+        if not node_cfg.in_ports:
             if verbose:
                 print(f"set_node_func_args: '{node_name}' is a source node (no inputs)")
             return {}
 
-        cached = net.get_cached_input_salvos(node_name)
+        cached = net.cache.input_salvos(node_name)
         if cached:
             if verbose:
                 print(f"set_node_func_args: using cached inputs for '{node_name}' ({len(cached)} cached run(s))")
@@ -167,7 +167,7 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
             return {}
         return salvos[0].packets  # extract dict from TargetInputSalvo
     finally:
-        await net.stop()
+        await net.close()
 
 
 def _run_async(coro):

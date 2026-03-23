@@ -71,7 +71,7 @@
         "name": "fetch_onet",
         "description": "Download and extract O*NET 30.0 database.",
         "execution_config": {
-          "run_on_startup": true,
+          "run_on_init": true,
           "signals": [
             "epoch_finished"
           ]
@@ -100,7 +100,7 @@
       {
         "name": "fetch_adzuna",
         "execution_config": {
-          "run_on_startup": true,
+          "run_on_init": true,
           "node_vars": {
             "fetch_years": {},
             "skip_fetch": {
