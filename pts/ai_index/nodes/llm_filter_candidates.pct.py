@@ -26,8 +26,8 @@
 # - `max_concurrent_chunks` (per-node): Max concurrent batch LLM calls
 # - `filter_resume` (per-node): Resume from previous partial run
 # - `filter_max_retries` (per-node): Retry rounds for failed ads
-# - `system_prompt` (per-node): Path in prompt_library/
-# - `user_prompt` (per-node): Path in prompt_library/
+# - `system_prompt` (per-node): Path in config/prompt_library/
+# - `user_prompt` (per-node): Path in config/prompt_library/
 # - `run_name` (global): Pipeline run name
 
 # %%

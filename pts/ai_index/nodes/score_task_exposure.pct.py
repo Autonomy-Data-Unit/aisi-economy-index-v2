@@ -20,8 +20,8 @@
 # - `llm_model` (inherited global): Model key from llm_models.toml
 # - `llm_batch_size` (global): Number of prompts per LLM call
 # - `llm_max_new_tokens` (global): Max tokens per LLM response
-# - `system_prompt` (per-node): Path in prompt_library/
-# - `user_prompt` (per-node): Path in prompt_library/
+# - `system_prompt` (per-node): Path in config/prompt_library/
+# - `user_prompt` (per-node): Path in config/prompt_library/
 
 # %%
 #|default_exp score_task_exposure
