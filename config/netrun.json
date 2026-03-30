@@ -24,23 +24,26 @@
     "llm_model": {
       "type": "str"
     },
-    "cosine_mode": {
-      "type": "str"
-    },
-    "topk": {
-      "type": "int"
-    },
     "llm_batch_size": {
       "type": "int"
     },
     "llm_max_new_tokens": {
       "type": "int"
     },
-    "llm_max_concurrent_batches": {
-      "type": "int"
-    },
     "sbatch_cache": {
       "type": "bool"
+    },
+    "duckdb_memory_limit": {
+      "type": "str"
+    },
+    "temperature": {
+      "type": "float"
+    },
+    "top_p": {
+      "type": "float"
+    },
+    "top_k": {
+      "type": "int"
     }
   },
   "storage": {
@@ -60,7 +63,7 @@
   },
   "max_epochs": 1,
   "retries": 3,
-  "retry_wait": 10.0,
+  "retry_wait": 10,
   "project_root_override": "../",
   "graph": {
     "nodes": [
@@ -68,13 +71,13 @@
         "name": "fetch_onet",
         "description": "Download and extract O*NET 30.0 database.",
         "execution_config": {
-          "run_on_startup": true,
+          "run_on_init": true,
           "signals": [
             "epoch_finished"
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_onet.py",
+          "source_path": "src/ai_index/nodes/fetch_onet.py",
           "ui": {
             "descriptionExpanded": true,
             "position": {
@@ -97,16 +100,19 @@
       {
         "name": "fetch_adzuna",
         "execution_config": {
-          "run_on_startup": true,
+          "run_on_init": true,
           "node_vars": {
-            "fetch_years": {}
+            "fetch_years": {},
+            "skip_fetch": {
+              "type": "bool"
+            }
           },
           "signals": [
             "epoch_finished"
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/fetch_adzuna.py",
+          "source_path": "src/ai_index/nodes/fetch_adzuna.py",
           "ui": {
             "descriptionExpanded": true,
             "position": {
@@ -129,14 +135,14 @@
       },
       {
         "name": "sample_ads",
-        "description": "Sample job ads for processing (or pass through all if sample_n=0).",
+        "description": "Sample job ads for processing (or pass through all if sample_n=-1).",
         "execution_config": {
           "controls": [
             "start_epoch"
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/sample_ads.py",
+          "source_path": "src/ai_index/nodes/sample_ads.py",
           "ui": {
             "position": {
               "x": 220,
@@ -179,7 +185,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/prepare_onet_targets.py",
+          "source_path": "src/ai_index/nodes/prepare_onet_targets.py",
           "ui": {
             "position": {
               "x": 260,
@@ -196,183 +202,22 @@
         "type": "node"
       },
       {
-        "name": "llm_summarise",
-        "description": "Run LLM to extract structured summaries from job ads.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {
-              "type": "str"
-            },
-            "summarise_resume": {
-              "type": "bool"
-            },
-            "summarise_max_retries": {
-              "type": "int"
-            },
-            "summarise_raise_on_failure": {
-              "type": "bool"
-            },
-            "system_prompt": {},
-            "user_prompt": {}
-          }
-        },
-        "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_summarise.py",
-          "ui": {
-            "position": {
-              "x": 540,
-              "y": 80
-            },
-            "descriptionExpanded": true,
-            "dimensions": {
-              "width": 320,
-              "height": 140
-            },
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.llm_summarise.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "embed_ads",
-        "description": "Build text descriptions from LLM summaries and embed them.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {
-              "type": "str"
-            },
-            "embed_chunk_size": {
-              "type": "int"
-            }
-          },
-          "signals": [
-            "epoch_finished"
-          ]
-        },
-        "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_ads.py",
-          "ui": {
-            "position": {
-              "x": 940,
-              "y": 120
-            },
-            "descriptionExpanded": true,
-            "dimensions": {
-              "width": 325,
-              "height": 180
-            },
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.embed_ads.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "embed_onet",
-        "description": "Embed O*NET occupation text descriptions.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {
-              "type": "str"
-            }
-          },
-          "signals": [
-            "epoch_finished"
-          ],
-          "controls": [
-            "start_epoch"
-          ]
-        },
-        "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/embed_onet.py",
-          "ui": {
-            "position": {
-              "x": 880,
-              "y": 360
-            },
-            "descriptionExpanded": true,
-            "dimensions": {
-              "width": 338,
-              "height": 190
-            },
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.embed_onet.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "cosine_match",
-        "description": "Weighted dual cosine similarity matching between ads and O*NET.",
-        "execution_config": {
-          "node_vars": {
-            "sbatch_cache": {
-              "inherit": true
-            },
-            "sbatch_time": {
-              "type": "str"
-            },
-            "cosine_alpha": {
-              "type": "float"
-            },
-            "cosine_chunk_size": {
-              "type": "int"
-            }
-          },
-          "signals": [
-            "epoch_finished"
-          ]
-        },
-        "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/cosine_match.py",
-          "ui": {
-            "position": {
-              "x": 1340,
-              "y": 160
-            },
-            "descriptionExpanded": true,
-            "headerColor": "#0084ff",
-            "dimensions": {
-              "width": 282,
-              "height": 240
-            }
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.cosine_match.main"
-        },
-        "type": "node"
-      },
-      {
         "name": "llm_filter_candidates",
-        "description": "Run LLM negative selection to filter cosine match candidates.",
+        "description": "LLM negative selection on cosine candidates.",
         "execution_config": {
           "node_vars": {
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
+            "sbatch_time": {},
+            "temperature": {
+              "inherit": true
+            },
+            "top_p": {
+              "inherit": true
+            },
+            "top_k": {
+              "inherit": true
             },
             "filter_resume": {
               "type": "bool"
@@ -384,14 +229,17 @@
               "type": "bool"
             },
             "system_prompt": {},
-            "user_prompt": {}
+            "user_prompt": {},
+            "max_concurrent_chunks": {
+              "type": "int"
+            }
           }
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/llm_filter_candidates.py",
+          "source_path": "src/ai_index/nodes/llm_filter_candidates.py",
           "ui": {
             "position": {
-              "x": 1680,
+              "x": 1280,
               "y": 180
             },
             "descriptionExpanded": true,
@@ -406,7 +254,7 @@
       },
       {
         "name": "broadcast_onet_ready",
-        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet, build_aspectt_vectors, and score nodes.",
+        "description": "Fan out prepare_onet_targets epoch_finished to embed_onet and score nodes.",
         "extra": {
           "ui": {
             "shape": "triangle-left",
@@ -426,64 +274,7 @@
         },
         "factory": "netrun.node_factories.broadcast",
         "factory_args": {
-          "num_outputs": 5
-        },
-        "type": "node"
-      },
-      {
-        "name": "build_aspectt_vectors",
-        "description": "Build ASPECTT numeric vectors from O*NET database tables.",
-        "execution_config": {
-          "enabled": false,
-          "signals": [
-            "epoch_finished"
-          ],
-          "controls": [
-            "start_epoch"
-          ]
-        },
-        "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/build_aspectt_vectors.py",
-          "ui": {
-            "position": {
-              "x": 1340,
-              "y": 520
-            },
-            "descriptionExpanded": true,
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.build_aspectt_vectors.main"
-        },
-        "type": "node"
-      },
-      {
-        "name": "compute_job_ad_aspectt_vectors",
-        "description": "Compute per-ad weighted ASPECTT vectors from filtered occupation matches.",
-        "execution_config": {
-          "enabled": false,
-          "node_vars": {
-            "aspectt_chunk_size": {
-              "type": "int"
-            }
-          }
-        },
-        "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_aspectt_vectors.py",
-          "ui": {
-            "position": {
-              "x": 1800,
-              "y": 500
-            },
-            "descriptionExpanded": true,
-            "headerColor": "#0084ff"
-          }
-        },
-        "factory": "netrun.node_factories.from_function",
-        "factory_args": {
-          "func": "ai_index.nodes.compute_job_ad_aspectt_vectors.main"
+          "num_outputs": 4
         },
         "type": "node"
       },
@@ -496,7 +287,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_presence.py",
+          "source_path": "src/ai_index/nodes/score_presence.py",
           "ui": {
             "position": {
               "x": 1100,
@@ -531,7 +322,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_felten.py",
+          "source_path": "src/ai_index/nodes/score_felten.py",
           "ui": {
             "position": {
               "x": 1100,
@@ -559,10 +350,17 @@
             "sbatch_cache": {
               "inherit": true
             },
-            "sbatch_time": {
-              "type": "str"
-            },
+            "sbatch_time": {},
             "llm_model": {
+              "inherit": true
+            },
+            "temperature": {
+              "inherit": true
+            },
+            "top_p": {
+              "inherit": true
+            },
+            "top_k": {
               "inherit": true
             },
             "system_prompt": {},
@@ -573,7 +371,7 @@
           ]
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/score_task_exposure.py",
+          "source_path": "src/ai_index/nodes/score_task_exposure.py",
           "ui": {
             "position": {
               "x": 1100,
@@ -628,7 +426,7 @@
         "name": "combine_onet_exposure",
         "description": "Merge all O*NET score DataFrames into a single combined exposure table.",
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/combine_onet_exposure.py",
+          "source_path": "src/ai_index/nodes/combine_onet_exposure.py",
           "ui": {
             "position": {
               "x": 1840,
@@ -649,32 +447,6 @@
         "type": "node"
       },
       {
-        "name": "broadcast_filter_done",
-        "description": "Fan out llm_filter_candidates ad_ids to compute_job_ad_aspectt_vectors and compute_job_ad_exposure.",
-        "extra": {
-          "ui": {
-            "shape": "triangle-left",
-            "hideLabel": true,
-            "hideDescription": true,
-            "hidePortNames": true,
-            "position": {
-              "x": 2100,
-              "y": 240
-            },
-            "dimensions": {
-              "width": 150,
-              "height": 80
-            },
-            "descriptionExpanded": true
-          }
-        },
-        "factory": "netrun.node_factories.broadcast",
-        "factory_args": {
-          "num_outputs": 2
-        },
-        "type": "node"
-      },
-      {
         "name": "compute_job_ad_exposure",
         "description": "Map occupation-level exposure scores to individual job ads via weighted averaging.",
         "execution_config": {
@@ -685,7 +457,7 @@
           }
         },
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/compute_job_ad_exposure.py",
+          "source_path": "src/ai_index/nodes/compute_job_ad_exposure.py",
           "ui": {
             "position": {
               "x": 2420,
@@ -709,7 +481,7 @@
         "name": "aggregate_geo",
         "description": "Aggregate ad-level AI exposure scores by Local Authority District (LAD22CD).",
         "extra": {
-          "source_path": "/Users/lukas/dev/20260208_tb8war__aisi-economy-index-v2/src/ai_index/nodes/aggregate_geo.py",
+          "source_path": "src/ai_index/nodes/aggregate_geo.py",
           "ui": {
             "position": {
               "x": 2900,
@@ -726,6 +498,149 @@
         "factory": "netrun.node_factories.from_function",
         "factory_args": {
           "func": "ai_index.nodes.aggregate_geo.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "embed_ads",
+        "description": "Embed raw job ad text directly (no LLM summarisation).",
+        "execution_config": {
+          "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
+            "sbatch_time": {},
+            "embed_task_prompt": {},
+            "chunk_size": {
+              "type": "int"
+            },
+            "max_concurrent_chunks": {
+              "type": "int"
+            }
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/embed_ads.py",
+          "ui": {
+            "position": {
+              "x": 540,
+              "y": 80
+            },
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_ads.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "embed_onet",
+        "description": "Embed O*NET occupations as single rich documents.",
+        "execution_config": {
+          "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
+            "sbatch_time": {}
+          },
+          "signals": [
+            "epoch_finished"
+          ],
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/embed_onet.py",
+          "ui": {
+            "position": {
+              "x": 620,
+              "y": 340
+            },
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.embed_onet.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "cosine_candidates",
+        "description": "Cosine similarity top-k candidates for reranking.",
+        "execution_config": {
+          "node_vars": {
+            "cosine_topk": {
+              "type": "int"
+            },
+            "chunk_size": {
+              "type": "int"
+            }
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/cosine_candidates.py",
+          "ui": {
+            "position": {
+              "x": 940,
+              "y": 160
+            },
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.cosine_candidates.main"
+        },
+        "type": "node"
+      },
+      {
+        "name": "rerank_candidates",
+        "description": "Rerank cosine candidates with Qwen3-Reranker on GPU.",
+        "execution_config": {
+          "node_vars": {
+            "rerank_model": {},
+            "sbatch_cache": {
+              "inherit": true
+            },
+            "sbatch_time": {},
+            "chunk_size": {
+              "type": "int"
+            },
+            "max_concurrent_chunks": {
+              "type": "int"
+            }
+          },
+          "signals": [
+            "epoch_finished"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/rerank_candidates.py",
+          "ui": {
+            "position": {
+              "x": 1680,
+              "y": 180
+            },
+            "headerColor": "#0084ff",
+            "descriptionExpanded": true
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.rerank_candidates.main"
         },
         "type": "node"
       }
@@ -746,108 +661,10 @@
         "dependency": false
       },
       {
-        "source_node": "sample_ads",
-        "source_port": "ad_ids",
-        "target_node": "llm_summarise",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "llm_summarise",
-        "source_port": "successful_ad_ids",
-        "target_node": "embed_ads",
-        "target_port": "successful_ad_ids",
-        "dependency": false
-      },
-      {
         "source_node": "prepare_onet_targets",
         "source_port": "__signal_epoch_finished__",
         "target_node": "broadcast_onet_ready",
         "target_port": "in_0",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_0",
-        "target_node": "embed_onet",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_1",
-        "target_node": "build_aspectt_vectors",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "embed_ads",
-        "source_port": "ad_ids",
-        "target_node": "cosine_match",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "embed_onet",
-        "source_port": "out",
-        "target_node": "cosine_match",
-        "target_port": "onet_done",
-        "dependency": false
-      },
-      {
-        "source_node": "cosine_match",
-        "source_port": "ad_ids",
-        "target_node": "llm_filter_candidates",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "llm_filter_candidates",
-        "source_port": "successful_ad_ids",
-        "target_node": "broadcast_filter_done",
-        "target_port": "in_0",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_filter_done",
-        "source_port": "out_0",
-        "target_node": "compute_job_ad_aspectt_vectors",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_filter_done",
-        "source_port": "out_1",
-        "target_node": "compute_job_ad_exposure",
-        "target_port": "ad_ids",
-        "dependency": false
-      },
-      {
-        "source_node": "build_aspectt_vectors",
-        "source_port": "out",
-        "target_node": "compute_job_ad_aspectt_vectors",
-        "target_port": "aspectt_done",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_2",
-        "target_node": "score_presence",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_3",
-        "target_node": "score_felten",
-        "target_port": "__control_start_epoch__",
-        "dependency": false
-      },
-      {
-        "source_node": "broadcast_onet_ready",
-        "source_port": "out_4",
-        "target_node": "score_task_exposure",
-        "target_port": "__control_start_epoch__",
         "dependency": false
       },
       {
@@ -889,6 +706,76 @@
         "source_node": "compute_job_ad_exposure",
         "source_port": "ad_ids",
         "target_node": "aggregate_geo",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "sample_ads",
+        "source_port": "ad_ids",
+        "target_node": "embed_ads",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "embed_ads",
+        "source_port": "ad_ids",
+        "target_node": "cosine_candidates",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "embed_onet",
+        "source_port": "out",
+        "target_node": "cosine_candidates",
+        "target_port": "onet_done",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_0",
+        "target_node": "embed_onet",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_1",
+        "target_node": "score_presence",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_2",
+        "target_node": "score_felten",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_3",
+        "target_node": "score_task_exposure",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "cosine_candidates",
+        "source_port": "ad_ids",
+        "target_node": "llm_filter_candidates",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "llm_filter_candidates",
+        "source_port": "successful_ad_ids",
+        "target_node": "rerank_candidates",
+        "target_port": "ad_ids",
+        "dependency": false
+      },
+      {
+        "source_node": "rerank_candidates",
+        "source_port": "ad_ids",
+        "target_node": "compute_job_ad_exposure",
         "target_port": "ad_ids",
         "dependency": false
       }

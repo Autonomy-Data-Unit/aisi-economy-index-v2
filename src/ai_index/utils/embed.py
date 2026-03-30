@@ -37,7 +37,7 @@ def embed(
 
     elif mode == "api":
         from adulib.llm import batch_embeddings
-        batch_size = cfg.pop("batch_size", 1000)
+        batch_size = cfg.pop("batch_size")
         embeddings, _ = batch_embeddings(model_name, input=texts, batch_size=batch_size, **cfg)
         return np.array(embeddings)
 
@@ -84,7 +84,7 @@ async def aembed(
 
     elif mode == "api":
         from adulib.llm import async_batch_embeddings
-        batch_size = cfg.pop("batch_size", 1000)
+        batch_size = cfg.pop("batch_size")
         embeddings, _ = await async_batch_embeddings(model_name, input=texts, batch_size=batch_size, **cfg)
         return np.array(embeddings)
 

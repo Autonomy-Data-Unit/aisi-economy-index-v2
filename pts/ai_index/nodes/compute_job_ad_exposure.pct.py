@@ -18,7 +18,7 @@
 # across all exposure score columns.
 #
 # 1. Receives the combined exposure DataFrame from `combine_onet_exposure`.
-# 2. Loads filtered matches from `llm_filter_candidates/filtered_matches.parquet`.
+# 2. Loads reranked matches from `rerank_candidates/reranked_matches.parquet`.
 # 3. For each chunk of ads, computes weighted average scores.
 # 4. Writes results as `ad_exposure.parquet`.
 #
@@ -27,7 +27,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.compute_job_ad_exposure
+#|default_exp compute_job_ad_exposure
 #|export_as_func true
 
 # %%
@@ -93,8 +93,9 @@ print(f"compute_job_ad_exposure: {len(score_cols)} score columns: {score_cols}")
 
 # %%
 #|export
-filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" / "filtered_matches.parquet"
+filtered_path = const.pipeline_store_path / run_name / "rerank_candidates" / "reranked_matches.parquet"
 conn = duckdb.connect()
+conn.execute(f"CREATE VIEW reranked AS SELECT * FROM read_parquet('{filtered_path}')")
 
 n_ads = len(ad_ids)
 n_scores = len(score_cols)
@@ -113,13 +114,30 @@ for chunk_idx in range(n_chunks):
     # Load filtered matches for this chunk
     id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
     chunk_matches = conn.execute(
-        f"SELECT ad_id, onet_code, combined_score "
-        f"FROM read_parquet('{filtered_path}') "
+        f"SELECT ad_id, onet_code, rerank_score "
+        f"FROM reranked "
         f"WHERE ad_id IN ({id_list}) ORDER BY ad_id"
     ).fetchdf()
 
     if chunk_matches.empty:
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no matches)")
+        continue
+
+    # Drop candidates with negative rerank scores. Cross-encoder models
+    # produce unbounded logits that can be negative, meaning the model
+    # considers the candidate irrelevant. Negative scores would break
+    # the downstream weight normalization (sum could be near-zero or
+    # negative, producing nonsensical weights). vLLM rerankers (Qwen,
+    # BGE-Gemma) always produce scores in (0, 1) so this is a no-op
+    # for them.
+    n_before = len(chunk_matches)
+    chunk_matches = chunk_matches[chunk_matches["rerank_score"] >= 0]
+    n_dropped = n_before - len(chunk_matches)
+    if n_dropped > 0:
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: dropped {n_dropped} candidates with negative rerank scores")
+
+    if chunk_matches.empty:
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (all candidates negative)")
         continue
 
     # Inner join with exposure scores (drops unrecognized onet_codes)
@@ -129,9 +147,10 @@ for chunk_idx in range(n_chunks):
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no scores)")
         continue
 
-    # Normalize combined_score to per-ad weights
-    weight_sums = merged.groupby("ad_id")["combined_score"].transform("sum")
-    merged["_weight"] = merged["combined_score"] / weight_sums
+    # Normalize rerank_score to per-ad weights (equal weighting if all scores are 0)
+    weight_sums = merged.groupby("ad_id")["rerank_score"].transform("sum")
+    counts_per_ad = merged.groupby("ad_id")["rerank_score"].transform("count")
+    merged["_weight"] = np.where(weight_sums > 0, merged["rerank_score"] / weight_sums, 1.0 / counts_per_ad)
 
     # Multiply score columns by weight, then sum per ad
     for col in score_cols:
@@ -165,6 +184,12 @@ output_path = output_dir / "ad_exposure.parquet"
 results_df.to_parquet(output_path, index=False)
 print(f"compute_job_ad_exposure: done, {n_ok} succeeded, {n_err} failed")
 print(f"  output: {const.rel(output_path)}")
+
+import json
+meta_path = output_dir / "exposure_meta.json"
+with open(meta_path, "w") as f:
+    json.dump({"n_ads": n_ads, "n_ok": n_ok, "n_err": n_err, "score_cols": score_cols}, f, indent=2)
+print(f"  meta: {const.rel(meta_path)}")
 
 ad_ids #|func_return_line
 

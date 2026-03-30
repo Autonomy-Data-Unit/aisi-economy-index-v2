@@ -23,12 +23,18 @@ class OnetScoreSet:
         """Raise ValueError if the score set is malformed."""
         if "onet_code" not in self.scores.columns:
             raise ValueError(f"OnetScoreSet '{self.name}': missing 'onet_code' column")
+        if self.scores["onet_code"].duplicated().any():
+            n_dups = self.scores["onet_code"].duplicated().sum()
+            raise ValueError(f"OnetScoreSet '{self.name}': {n_dups} duplicate onet_code values")
         score_cols = [c for c in self.scores.columns if c != "onet_code"]
         if not score_cols:
             raise ValueError(f"OnetScoreSet '{self.name}': no score columns")
         for col in score_cols:
             if not pd.api.types.is_float_dtype(self.scores[col]):
                 raise ValueError(f"OnetScoreSet '{self.name}': column '{col}' is not float")
+            if self.scores[col].isna().any():
+                n_na = self.scores[col].isna().sum()
+                raise ValueError(f"OnetScoreSet '{self.name}': column '{col}' has {n_na} NaN values")
             vmin = self.scores[col].min()
             vmax = self.scores[col].max()
             if vmin < -0.001 or vmax > 1.001:

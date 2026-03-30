@@ -1,0 +1,12 @@
+[isambard]
+project_dir = "/projects/a5u/ai-index-v3"
+hf_cache_dir = "{project_dir}/hf_cache"
+logs_dir = "{project_dir}/logs"
+partition = "workq"
+default_gpus = 1
+default_cpus = 16
+default_mem = "80G"
+default_time = "12:00:00"
+cuda_module = "cudatoolkit/24.11_12.6"
+python_version = "3.12"
+torch_index_url = "https://download.pytorch.org/whl/cu126"

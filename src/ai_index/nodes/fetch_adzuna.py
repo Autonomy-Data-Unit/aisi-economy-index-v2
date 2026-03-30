@@ -2,6 +2,12 @@
 
 def main(ctx, print):
     """Download raw Adzuna job ads from S3, insert into DuckDB, and deduplicate."""
+    # Skip fetch if data is already ingested (avoids DuckDB contention in concurrent runs)
+    skip_fetch = ctx.vars["skip_fetch"]
+    if skip_fetch:
+        print("fetch_adzuna: skip_fetch=true, assuming data already ingested")
+        return None
+    
     import json
     import os
     import shutil
@@ -15,6 +21,7 @@ def main(ctx, print):
     
     s3_prefix = ctx.vars["adzuna_s3_prefix"]
     years_filter = ctx.vars["fetch_years"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
     # Parse bucket and key prefix from s3_prefix (format: "bucket/key/prefix")
     bucket_name, _, key_prefix = s3_prefix.partition("/")
@@ -38,10 +45,11 @@ def main(ctx, print):
         years = [y for y in years if y in requested]
         print(f"fetch_adzuna: filtered to {len(years)} year(s): {years}")
     
-    conn = get_adzuna_conn()
+    conn = get_adzuna_conn(memory_limit=duckdb_memory_limit)
     ensure_ads_table(conn)
     
     adzuna_meta = {"years": {}}
+    any_new_data = False
     
     for year in years:
         year_int = int(year)
@@ -126,9 +134,9 @@ def main(ctx, print):
             ).fetchone()
             if existing_marker:
                 marker = json.loads(existing_marker[0])
-                if marker.get("months_fingerprint") == months_fingerprint:
+                if marker["months_fingerprint"] == months_fingerprint:
                     print(f"fetch_adzuna: {year} already deduplicated (months match), skipping dedup")
-                    year_info["duplicates_removed"] = marker.get("duplicates_removed", 0)
+                    year_info["duplicates_removed"] = marker["duplicates_removed"]
                 else:
                     needs_dedup = True
             # If no marker and no new months, nothing to dedup
@@ -176,28 +184,33 @@ def main(ctx, print):
             conn.execute("CHECKPOINT")
             print(f"fetch_adzuna: {year} dedup, {dups_removed} duplicates removed ({before_count} -> {after_count} rows)")
     
+        if year_info["new_months"]:
+            any_new_data = True
         del year_info["new_months"]
         adzuna_meta["years"][year] = year_info
         total_rows = sum(year_info["row_counts"].values())
         print(f"fetch_adzuna: year {year}, {len(year_info['months'])} months, {total_rows} total rows")
     
-    # --- Global dedup: remove cross-year duplicates ---
-    before_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
-    conn.execute("""
-        DELETE FROM ads
-        WHERE rowid NOT IN (
-            SELECT arg_min(rowid, date_created)
-            FROM ads
-            GROUP BY id
-        )
-    """)
-    after_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
-    global_dups = before_total - after_total
-    if global_dups > 0:
-        conn.execute("CHECKPOINT")
-        print(f"fetch_adzuna: global dedup, {global_dups} cross-year duplicates removed ({before_total} -> {after_total} rows)")
+    # --- Global dedup: remove cross-year duplicates (only if new data was ingested) ---
+    if any_new_data:
+        before_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
+        conn.execute("""
+            DELETE FROM ads
+            WHERE rowid NOT IN (
+                SELECT arg_min(rowid, date_created)
+                FROM ads
+                GROUP BY id
+            )
+        """)
+        after_total = conn.execute("SELECT COUNT(*) FROM ads").fetchone()[0]
+        global_dups = before_total - after_total
+        if global_dups > 0:
+            conn.execute("CHECKPOINT")
+            print(f"fetch_adzuna: global dedup, {global_dups} cross-year duplicates removed ({before_total} -> {after_total} rows)")
+        else:
+            print(f"fetch_adzuna: global dedup, no cross-year duplicates")
     else:
-        print(f"fetch_adzuna: global dedup, no cross-year duplicates")
+        print(f"fetch_adzuna: no new data ingested, skipping global dedup")
     
     conn.close()
     print(f"fetch_adzuna: done, {len(adzuna_meta['years'])} year(s)")

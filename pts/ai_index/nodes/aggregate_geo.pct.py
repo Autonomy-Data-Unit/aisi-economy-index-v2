@@ -25,7 +25,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.aggregate_geo
+#|default_exp aggregate_geo
 #|export_as_func true
 
 # %%
@@ -60,6 +60,7 @@ from ai_index import const
 # %%
 #|export
 run_name = ctx.vars["run_name"]
+duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
 
 output_dir = const.outputs_path / run_name
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -76,6 +77,7 @@ ad_exposure_path = const.pipeline_store_path / run_name / "compute_job_ad_exposu
 # %%
 #|export
 conn = duckdb.connect()
+conn.execute(f"SET memory_limit = '{duckdb_memory_limit}'")
 
 # Discover score columns from parquet schema
 all_cols = [row[0] for row in conn.execute(

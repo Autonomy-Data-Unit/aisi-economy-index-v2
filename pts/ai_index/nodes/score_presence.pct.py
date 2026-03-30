@@ -23,7 +23,7 @@
 # Node variables: none (element sets are methodology, not configuration).
 
 # %%
-#|default_exp nodes.score_presence
+#|default_exp score_presence
 #|export_as_func true
 
 # %%
@@ -251,21 +251,21 @@ def _compute_dimension(dimension_elements):
     source_scores = []
 
     # Work Context elements
-    wc_ids = dimension_elements.get("work_context", [])
+    wc_ids = dimension_elements["work_context"]
     if wc_ids:
         s = _score_work_context(wc_df, wc_ids)
         if not s.empty:
             source_scores.append(s.rename(columns={"score": "wc"}))
 
     # GWA elements (from Work Activities table)
-    gwa_ids = dimension_elements.get("gwas", [])
+    gwa_ids = dimension_elements["gwas"]
     if gwa_ids:
         s = _score_im_lv(gwas_df, gwa_ids)
         if not s.empty:
             source_scores.append(s.rename(columns={"score": "gwa"}))
 
     # Skill elements (from Skills table)
-    skill_ids = dimension_elements.get("skills", [])
+    skill_ids = dimension_elements["skills"]
     if skill_ids:
         s = _score_im_lv(skills_df, skill_ids)
         if not s.empty:

@@ -1,0 +1,57 @@
+# Models held constant when varying other dimensions:
+# - Arm 1 (vary LLM):       runs each LLM with every (fixed_embedding, fixed_reranker) pair
+# - Arm 2 (vary embedding): runs each embedding with every (fixed_llm, fixed_reranker) pair
+# - Arm 3 (vary reranker):  runs each reranker with every (fixed_llm, fixed_embedding) pair
+fixed_embeddings = ["bge-large-sbatch", "e5-large-sbatch"]
+fixed_llms = ["phi-4-sbatch", "llama-70b-sbatch"]
+fixed_rerankers = ["qwen3-reranker-8b-sbatch", "bge-reranker-v2-m3-sbatch"]
+
+llm_models = [
+    # "gemma-4b-sbatch",             # Dropped: 4096 token context too small for enriched O*NET prompts
+    "qwen-7b-sbatch",
+    "qwen3-8b-sbatch",
+    "qwen-14b-sbatch",
+    "qwen-32b-sbatch",
+    "qwen-72b-sbatch",
+    # "qwen3-235b-sbatch",       # Dropped: 4-GPU, 15.5% failure rate, too aggressive (median 2/ad), no reasoning prompt support
+    # "mistral-7b-sbatch",       # Dropped: worst agreement, oldest 7B arch
+    # "ministral-8b-sbatch",     # Dropped: too permissive (median 11/ad)
+    "mistral-large-2-sbatch",
+    # "llama-8b-sbatch",         # Dropped: too permissive (median 11/ad)
+    "llama-70b-sbatch",
+    "llama-4-scout-sbatch",
+    "phi-4-sbatch",
+    "gemma-27b-sbatch",
+    "exaone-32b-sbatch",
+    # "deepseek-r1-qwen-32b-sbatch",  # Dropped: 4990/5000 prompts fail on first pass, reasoning model output incompatible with filter parsing
+    "gpt-oss-120b-sbatch",
+]
+
+embed_models = [
+    "bge-large-sbatch",
+    "e5-large-sbatch",
+    "gte-large-sbatch",
+    "nomic-embed-sbatch",
+    "embedding-gemma-sbatch",
+    # "arctic-embed-l-sbatch",          # Dropped: similar size/approach to GTE
+    "qwen3-embed-0.6b-sbatch",
+    # "qwen3-embed-4b-sbatch",          # Dropped: middle Qwen3, redundant with 0.6B and 8B
+    "qwen3-embed-8b-sbatch",
+    # "llama-embed-nemotron-sbatch",    # Dropped: redundant 8B instruction model (same niche as qwen3-embed-8b)
+]
+
+rerank_models = [
+    "bge-reranker-v2-m3-sbatch",
+    # "ms-marco-minilm-sbatch",         # Dropped: 512 token limit too small for job ad pairs
+    "gte-reranker-modernbert-sbatch",
+    "nemotron-rerank-1b-sbatch",
+    # "bge-reranker-v2-gemma-sbatch",   # Dropped: 4096 context limit too small for enriched O*NET + job ad pairs
+    # "qwen3-reranker-0.6b-sbatch",     # Dropped: have CE version at same size
+    # "qwen3-reranker-0.6b-ce-sbatch",   # Dropped: community conversion (tomaarsen), not official
+    # "qwen3-reranker-4b-sbatch",       # Dropped: middle Qwen3 vLLM
+    # "qwen3-reranker-4b-ce-sbatch",    # Dropped: middle Qwen3 CE
+    "qwen3-reranker-8b-sbatch",
+    # "qwen3-reranker-8b-ce-sbatch",    # Dropped: community conversion (tomaarsen), not official
+]
+
+rbo_p = 0.9

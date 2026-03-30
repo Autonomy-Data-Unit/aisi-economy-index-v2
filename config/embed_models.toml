@@ -1,3 +1,23 @@
+# Embedding model configurations
+#
+# Prompt/instruction support fields:
+#
+#   query_prefix / document_prefix
+#     Fixed string prepended to every query/document text. Required by some
+#     models for correct operation (e.g. e5 needs "query: " / "passage: ").
+#     Always applied unconditionally. Lives here because it's model-specific.
+#
+#   query_prompt_name / document_prompt_name
+#     Named prompt from the model's SentenceTransformer config (e.g. "query").
+#     Applied unconditionally. Lives here because it's model-specific.
+#     Mutually exclusive with query_prefix/document_prefix for the same side.
+#
+#   supports_prompt
+#     Boolean. If true, the model accepts a custom task instruction via the
+#     `prompt` parameter. The actual instruction text is defined in the
+#     pipeline node (e.g. in run_defs.toml), not here. Only instruction-
+#     following models (Qwen3-Embedding, llama-embed-nemotron) support this.
+
 # Defaults
 
 [defaults.api]
@@ -15,7 +35,9 @@ gpus = 1
 job_name = "embed"
 setup = true
 
-# Models
+# ----------------------------------------
+# API models
+# ----------------------------------------
 
 [models."text-embedding-3-small"]
 mode = "api"
@@ -25,16 +47,7 @@ model = "text-embedding-3-small"
 mode = "api"
 model = "text-embedding-3-large"
 
-[models.bge-large-local]
-mode = "local"
-model = "BAAI/bge-large-en-v1.5"
-
-[models.bge-large-mac]
-mode = "local"
-model = "BAAI/bge-large-en-v1.5"
-device = "cpu"
-dtype = "float32"
-
+# Supports task_type API parameter (not text prefix). Not yet integrated.
 [models.gemini-embed]
 mode = "api"
 model = "gemini/gemini-embedding-001"
@@ -42,52 +55,98 @@ batch_size = 10
 retry_delay = 65
 max_retries = 20
 
+# ----------------------------------------
+# Local models
+# ----------------------------------------
+
+[models.bge-large-local]
+mode = "local"
+model = "BAAI/bge-large-en-v1.5"
+query_prefix = "Represent this sentence for searching relevant passages: "
+
+[models.bge-large-mac]
+mode = "local"
+model = "BAAI/bge-large-en-v1.5"
+device = "cpu"
+dtype = "float32"
+query_prefix = "Represent this sentence for searching relevant passages: "
+
+# ----------------------------------------
+# Sbatch models
+# ----------------------------------------
+
 [models.bge-large-sbatch]
 mode = "sbatch"
 model = "BAAI/bge-large-en-v1.5"
+query_prefix = "Represent this sentence for searching relevant passages: "
 
+# Required prefixes.
 [models.e5-large-sbatch]
 mode = "sbatch"
 model = "intfloat/e5-large-v2"
+query_prefix = "query: "
+document_prefix = "passage: "
 
+# No prefix needed.
 # Custom arch (BERT + RoPE + GLU) requires trust_remote_code.
 [models.gte-large-sbatch]
 mode = "sbatch"
 model = "Alibaba-NLP/gte-large-en-v1.5"
 st_kwargs = { trust_remote_code = true }
 
-# Fully open (code+data+weights). Custom arch requires trust_remote_code.
+# Required prefixes.
+# Custom arch requires trust_remote_code.
 [models.nomic-embed-sbatch]
 mode = "sbatch"
 model = "nomic-ai/nomic-embed-text-v1.5"
 st_kwargs = { trust_remote_code = true }
+query_prefix = "search_query: "
+document_prefix = "search_document: "
 
-# Gemma 3 architecture. Does NOT support float16 — must use bfloat16.
+# Has built-in prompt_name support.
+# Gemma 3 architecture. Does NOT support float16 -- must use bfloat16.
 [models.embedding-gemma-sbatch]
 mode = "sbatch"
 model = "google/EmbeddingGemma-300M"
 dtype = "bfloat16"
+query_prompt_name = "query"
+document_prompt_name = "document"
 
+# Has built-in prompt_name support.
 # 1024-dim like BGE baseline. Custom arch requires trust_remote_code.
 [models.arctic-embed-l-sbatch]
 mode = "sbatch"
 model = "Snowflake/snowflake-arctic-embed-l-v2.0"
 st_kwargs = { trust_remote_code = true }
+query_prompt_name = "query"
 
+# Instruction-following. Supports custom task prompts via `prompt` parameter.
+# Also has built-in prompt_name="query" with a default retrieval instruction.
 [models."qwen3-embed-0.6b-sbatch"]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-0.6B"
+supports_prompt = true
+query_prompt_name = "query"
 
 [models.qwen3-embed-4b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-4B"
+supports_prompt = true
+query_prompt_name = "query"
 
 [models.qwen3-embed-8b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-8B"
+supports_prompt = true
+query_prompt_name = "query"
 
+# Instruction-following. Supports custom task prompts via `prompt` parameter.
 # Llama-3.1-8B base with bidirectional attention. Requires trust_remote_code.
+# Native dtype is bfloat16; float16 may produce NaN due to dynamic range issues.
 [models.llama-embed-nemotron-sbatch]
 mode = "sbatch"
 model = "nvidia/llama-embed-nemotron-8b"
+dtype = "bfloat16"
 st_kwargs = { trust_remote_code = true }
+supports_prompt = true
+query_prompt_name = "query"

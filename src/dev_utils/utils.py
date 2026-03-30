@@ -122,9 +122,7 @@ def _get_node_func(config: NetConfig, node_name: str):
     if node_name not in node_map:
         raise ValueError(f"Node '{node_name}' not found in graph.")
     node = node_map[node_name]
-    func_path = node.factory_args.get("func")
-    if not func_path:
-        raise ValueError(f"Node '{node_name}' has no 'func' in factory_args.")
+    func_path = node.factory_args["func"]
     module_path, _, attr_name = func_path.rpartition(".")
     mod = importlib.import_module(module_path)
     return getattr(mod, attr_name)
@@ -139,13 +137,13 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
     net = Net(config)
     try:
         # Source nodes have no input ports, nothing to retrieve
-        node_info = net.nodes[node_name]
-        if not node_info.in_port_names:
+        node_cfg = net.get_node_config(node_name)
+        if not node_cfg.in_ports:
             if verbose:
                 print(f"set_node_func_args: '{node_name}' is a source node (no inputs)")
             return {}
 
-        cached = net.get_cached_input_salvos(node_name)
+        cached = net.cache.input_salvos(node_name)
         if cached:
             if verbose:
                 print(f"set_node_func_args: using cached inputs for '{node_name}' ({len(cached)} cached run(s))")
@@ -169,7 +167,7 @@ async def _get_input_salvo(config: NetConfig, node_name: str, verbose: bool = Tr
             return {}
         return salvos[0].packets  # extract dict from TargetInputSalvo
     finally:
-        await net.stop()
+        await net.close()
 
 
 def _run_async(coro):
@@ -335,7 +333,12 @@ def show_node_vars(node_name: str, *filter_names: str, run_name: str | None = No
             value = gvar.value
             source = "global"
 
-        var_type = declared_types.get(var_name, global_vars.get(var_name, per_node_raw.get(var_name)).type)
+        if var_name in declared_types:
+            var_type = declared_types[var_name]
+        elif var_name in global_vars:
+            var_type = global_vars[var_name].type
+        else:
+            var_type = per_node_raw[var_name].type
 
         rows.append((var_name, value, var_type, source))
 

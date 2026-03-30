@@ -1,6 +1,8 @@
 # Defaults
 
 [defaults.api]
+reasoning = false
+structured_output = true
 
 [defaults.local]
 max_new_tokens = 60
@@ -8,6 +10,8 @@ device = "cuda"
 dtype = "float16"
 backend = "transformers"
 batch_size = 128
+reasoning = false
+structured_output = true
 
 [defaults.sbatch]
 max_new_tokens = 60
@@ -16,12 +20,22 @@ backend = "vllm"
 gpus = 1
 job_name = "llm_generate"
 setup = true
+reasoning = false
+structured_output = true
 
 # Models
 
 [models."gpt-5.2"]
 mode = "api"
 model = "openai/gpt-5.2"
+
+[models."gpt-5.4"]
+mode = "api"
+model = "openai/gpt-5.4"
+
+[models."claude-opus-4.6"]
+mode = "api"
+model = "anthropic/claude-opus-4-6"
 
 [models.gemini-2-flash]
 mode = "api"
@@ -38,42 +52,70 @@ device = "cpu"
 dtype = "float32"
 batch_size = 16
 
+# Sbatch models
+
 [models.qwen-7b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-7B-Instruct"
 
+# Qwen3-8B: hybrid think/fast reasoning modes, successor to Qwen 2.5.
+# structured_output=false: known vLLM issue with Qwen3 Instruct models looping during structured generation.
+[models.qwen3-8b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-8B"
+structured_output = false
+
+# Gemma 3 4B: smallest model in the set. Same family as gemma-27b.
+# Gemma's native dtype is bfloat16; FP8 less tested for this arch.
+[models.gemma-4b-sbatch]
+mode = "sbatch"
+model = "google/gemma-3-4b-it"
+dtype = "bfloat16"
+vllm_kwargs = { trust_remote_code = true }
+
+# structured_output=false: these models produce malformed output with vLLM's structured output backend.
 [models.qwen-14b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-14B-Instruct"
+structured_output = false
 
+# structured_output=false: this model produces malformed output with vLLM's structured output backend.
 [models.qwen-32b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-32B-Instruct"
+structured_output = false
 
 [models.qwen-72b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-72B-Instruct"
 
-[models.mistral-7b-sbatch]
-mode = "sbatch"
-model = "mistralai/Mistral-7B-Instruct-v0.3"
+# Dropped: worst agreement with other models on all metrics (oldest 7B architecture).
+# structured_output=false: this model produces malformed output with vLLM's structured output backend.
+# [models.mistral-7b-sbatch]
+# mode = "sbatch"
+# model = "mistralai/Mistral-7B-Instruct-v0.3"
+# structured_output = false
 
+# Dropped: too permissive (median 11 candidates/ad, precision 0.338). Provides no filtering signal.
 # Ministral uses Mistral's native format, not HuggingFace format.
-[models.ministral-8b-sbatch]
-mode = "sbatch"
-model = "mistralai/Ministral-8B-Instruct-2410"
-vllm_kwargs = { tokenizer_mode = "mistral", config_format = "mistral", load_format = "mistral" }
+# [models.ministral-8b-sbatch]
+# mode = "sbatch"
+# model = "mistralai/Ministral-8B-Instruct-2410"
+# vllm_kwargs = { tokenizer_mode = "mistral", config_format = "mistral", load_format = "mistral" }
 
+# Dropped: too permissive (median 11 candidates/ad, precision 0.354), 3.5% failure rate.
 # Gated model — requires accepting Meta's license on HuggingFace
 # and HF_TOKEN available on Isambard (already in .env).
-[models.llama-8b-sbatch]
-mode = "sbatch"
-model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+# [models.llama-8b-sbatch]
+# mode = "sbatch"
+# model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 # Gated model — requires HF_TOKEN on Isambard (already in .env).
+# structured_output=false: this model produces malformed output with vLLM's structured output backend.
 [models.llama-70b-sbatch]
 mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-70B-Instruct"
+structured_output = false
 
 [models.phi-4-sbatch]
 mode = "sbatch"
@@ -90,3 +132,51 @@ vllm_kwargs = { trust_remote_code = true }
 [models.exaone-32b-sbatch]
 mode = "sbatch"
 model = "LGAI-EXAONE/EXAONE-4.0-32B"
+
+# Reasoning model (distilled from DeepSeek-R1). Emits <think>...</think> before answer.
+# structured_output=false because json_schema conflicts with <think> tokens.
+[models.deepseek-r1-qwen-32b-sbatch]
+mode = "sbatch"
+model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+reasoning = true
+structured_output = false
+
+# ──── 2-GPU models ────
+
+# MoE (117B total, 5.1B active, 128 experts, top-4 routing).
+# Ships in native MXFP4 (~61 GB); vLLM auto-detects quantization.
+# Must override default fp8 dtype to avoid quantization conflict.
+# structured_output=false because json_schema conflicts with <think> tokens.
+[models.gpt-oss-120b-sbatch]
+mode = "sbatch"
+model = "openai/gpt-oss-120b"
+dtype = "bfloat16"
+gpus = 2
+reasoning = true
+structured_output = false
+
+# MoE (109B total, 17B active, 16 experts).
+# Gated model — requires HF_TOKEN on Isambard (already in .env).
+[models.llama-4-scout-sbatch]
+mode = "sbatch"
+model = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+gpus = 2
+
+# Dense 123B. All 123B parameters active per token.
+[models.mistral-large-2-sbatch]
+mode = "sbatch"
+model = "mistralai/Mistral-Large-Instruct-2411"
+gpus = 2
+
+# ──── 4-GPU models ────
+
+# MoE (235B total, 22B active, 128 experts).
+# 64 attention heads requires TP divisible by 64 → gpus=4 (not 3).
+# Qwen3 models have a built-in thinking mode (<think>...</think>)
+# structured_output=false because json_schema conflicts with <think> tokens.
+[models.qwen3-235b-sbatch]
+mode = "sbatch"
+model = "Qwen/Qwen3-235B-A22B"
+gpus = 4
+reasoning = true
+structured_output = false

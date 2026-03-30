@@ -13,13 +13,13 @@ def _load_model_config(config_path: Path, model_key: str) -> tuple[str, dict]:
     """
     with open(config_path, "rb") as f:
         cfg = tomllib.load(f)
-    models = cfg.get("models", {})
+    models = cfg["models"]
     if model_key not in models:
         available = ", ".join(sorted(models.keys()))
         raise ValueError(f"Unknown model key {model_key!r}. Available: {available}")
     entry = dict(models[model_key])
     mode = entry.pop("mode")
-    defaults = dict(cfg.get("defaults", {}).get(mode, {}))
+    defaults = dict(cfg["defaults"][mode])
     defaults.update(entry)
     return mode, defaults
 
@@ -34,6 +34,16 @@ _RUN_REMOTE_KEYS = {
     "cache", "upload_timeout", "gpus",
 }
 
+# Model metadata keys consumed by our pipeline code, not passed to any backend.
+# Includes prompt support fields from embed_models.toml (query_prefix, etc.)
+# which are read by pipeline nodes, not by run_embeddings/run_rerank.
+_META_KEYS = {
+    "reasoning", "structured_output",
+    "query_prefix", "document_prefix",
+    "query_prompt_name", "document_prompt_name",
+    "supports_prompt",
+}
+
 def _strip_remote_kwargs(cfg):
     """Remove run_remote-only keys from cfg in-place (for api/local modes)."""
     for k in _RUN_REMOTE_KEYS:
@@ -44,10 +54,14 @@ def _resolve_model_args(config_path, model_key, kwargs):
 
     For non-sbatch modes, strips run_remote-only keys so the cfg can be
     passed directly to llm_runner / adulib without unexpected kwargs.
+    Meta keys (e.g. 'reasoning') are always stripped since they're consumed
+    by our pipeline code, not by backends.
     """
     mode, cfg = _load_model_config(config_path, model_key)
     cfg.update(kwargs)
     model_name = cfg.pop("model")
+    for k in _META_KEYS:
+        cfg.pop(k, None)
     if mode != "sbatch":
         _strip_remote_kwargs(cfg)
     return mode, model_name, cfg

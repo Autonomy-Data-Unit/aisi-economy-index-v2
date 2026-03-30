@@ -1,8 +1,5 @@
 nbs/
 
-old-repo
-old-data
-
 # Data store (large files, not tracked)
 store/
 

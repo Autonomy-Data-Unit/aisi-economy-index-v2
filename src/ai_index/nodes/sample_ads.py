@@ -5,21 +5,23 @@ import numpy as np
 def main(ctx, print) -> {
     'ad_ids': np.ndarray
 }:
-    """Sample job ads for processing (or pass through all if sample_n=0)."""
+    """Sample job ads for processing (or pass through all if sample_n=-1)."""
     from ai_index import const
     from pathlib import Path
     from ai_index.utils import get_adzuna_conn
-    conn = get_adzuna_conn(read_only=True)
+    
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
+    conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
     res = conn.execute("""
         SELECT id as ad_id FROM ads
     """).fetchdf()
     conn.close()
     ad_ids = res['ad_id']
     if ctx.vars['sample_n'] == -1:
-        sample_ad_ids = None
+        sample_ad_ids = ad_ids.to_numpy()
     elif ctx.vars['sample_n'] < 0:
         raise ValueError(f"sample_n must be >= 0, got {ctx.vars['sample_n']}")
     else:
-        np.random.seed(ctx.vars['sample_seed'])
-        sample_ad_ids = np.random.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
+        rng = np.random.default_rng(ctx.vars['sample_seed'])
+        sample_ad_ids = rng.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
     return sample_ad_ids

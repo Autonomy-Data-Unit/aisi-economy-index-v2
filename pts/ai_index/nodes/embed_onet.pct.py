@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   kernelspec:
-#     display_name: ai-index (3.12.12)
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -9,26 +9,29 @@
 # %% [markdown]
 # # nodes.embed_onet
 #
-# Embed O*NET occupation text descriptions for cosine matching against job ads.
+# Embed O*NET occupations as single rich documents.
 #
 # 1. Reads `onet_targets.parquet` (from `prepare_onet_targets`).
-# 2. Embeds two columns:
-#    - "Job Role Description" = `"{Title} - {Description}"`
-#    - "Work Activities/Tasks/Skills" = `"{Title} - {top tasks, activities, skills}"`
-# 3. Saves embeddings as `.npy` files in `store/pipeline/{run_name}/embed_onet/`.
+# 2. Builds a single rich text per occupation:
+#    `"{Title}\n\n{Description}\n\nKey tasks and skills: {Work Activities/Tasks/Skills}"`
+# 3. Reads document-side prompt config from `embed_models.toml`:
+#    - `document_prefix`: fixed string prepended unconditionally
+#    - `document_prompt_name`: named prompt passed to SentenceTransformer
+# 4. Embeds all occupations in one call.
+# 5. Saves embeddings + codes to `store/pipeline/{run_name}/embed_onet/`.
 #
 # Node variables:
 # - `embedding_model` (global): Model key from embed_models.toml
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.embed_onet
+#|default_exp embed_onet
 #|export_as_func true
 
 # %%
 #|set_func_signature
 async def main(ctx, print) -> bool:
-    """Embed O*NET occupation text descriptions."""
+    """Embed O*NET occupations as single rich documents."""
     ...
 
 # %% [markdown]
@@ -44,6 +47,9 @@ show_node_vars('embed_onet', run_name=run_name)
 # %% [markdown]
 # # Function body
 
+# %% [markdown]
+# ## Read node variables
+
 # %%
 #|export
 import json
@@ -54,9 +60,7 @@ import pandas as pd
 
 from ai_index import const
 from ai_index.utils import aembed
-
-# %% [markdown]
-# ## Read node variables
+from ai_index.utils._model_config import _load_model_config
 
 # %%
 #|export
@@ -74,10 +78,8 @@ output_dir.mkdir(parents=True, exist_ok=True)
 # %%
 #|export
 expected_files = [
-    output_dir / "onet_codes.npy",
-    output_dir / "onet_titles.npy",
-    output_dir / "role_embeddings.npy",
-    output_dir / "taskskill_embeddings.npy",
+    output_dir / "onet_codes.json",
+    output_dir / "onet_embeddings.npy",
 ]
 
 if all(f.exists() for f in expected_files):
@@ -85,18 +87,51 @@ if all(f.exists() for f in expected_files):
     True #|func_return_line
 
 # %% [markdown]
-# ## Load O*NET targets
+# ## Read prompt config from embed_models.toml
+
+# %%
+#|export
+_, model_cfg = _load_model_config(const.embed_models_config_path, embedding_model)
+document_prefix = model_cfg.get("document_prefix", "")
+document_prompt_name = model_cfg.get("document_prompt_name", None)
+
+embed_prompt_kwargs = {}
+if document_prompt_name:
+    embed_prompt_kwargs["prompt_name"] = document_prompt_name
+    print(f"embed_onet: using named prompt: {document_prompt_name}")
+
+if document_prefix:
+    print(f"embed_onet: applying document prefix: {document_prefix!r}")
+
+# %% [markdown]
+# ## Load O*NET targets and build texts
 
 # %%
 #|export
 onet_targets = pd.read_parquet(const.onet_targets_path)
 print(f"embed_onet: loaded {len(onet_targets)} occupations from {const.rel(const.onet_targets_path)}")
 
-role_texts = onet_targets["Job Role Description"].tolist()
-taskskill_texts = onet_targets["Work Activities/Tasks/Skills"].tolist()
+onet_codes = onet_targets["O*NET-SOC Code"].tolist()
 
-print(f"  role sample: {role_texts[0][:100]}...")
-print(f"  taskskill sample: {taskskill_texts[0][:100]}...")
+# Build a single rich text per occupation for embedding.
+# Includes alternate titles (bridges vocabulary gap with job ads),
+# description, and top tasks ranked by direct importance.
+onet_texts = []
+for _, row in onet_targets.iterrows():
+    parts = [row['Title']]
+    alt_titles = row['Alternate_Titles']
+    if len(alt_titles) > 0:
+        parts.append(f"Also known as: {', '.join(alt_titles)}")
+    parts.append(row['Description'])
+    top_tasks = row['Top_Tasks']
+    if len(top_tasks) > 0:
+        parts.append("Key tasks: " + "; ".join(top_tasks))
+    text = "\n\n".join(parts)
+    onet_texts.append(document_prefix + text)
+
+print(f"  Built {len(onet_texts)} texts")
+print(f"  Mean length: {np.mean([len(t) for t in onet_texts]):.0f} chars")
+print(f"  Sample: {onet_texts[0][:120]}...")
 
 # %% [markdown]
 # ## Embed
@@ -106,15 +141,16 @@ print(f"  taskskill sample: {taskskill_texts[0][:100]}...")
 started_at = time.time()
 slurm_jobs = []
 
-_sa1 = {}
-role_embeddings = await aembed(role_texts, model=embedding_model, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa1)
-if _sa1: slurm_jobs.append(_sa1)
-print(f"embed_onet: role embeddings shape: {role_embeddings.shape}")
-
-_sa2 = {}
-taskskill_embeddings = await aembed(taskskill_texts, model=embedding_model, cache=sbatch_cache, time=sbatch_time, slurm_accounting=_sa2)
-if _sa2: slurm_jobs.append(_sa2)
-print(f"embed_onet: taskskill embeddings shape: {taskskill_embeddings.shape}")
+_sa = {}
+onet_embeddings = await aembed(
+    onet_texts, model=embedding_model,
+    cache=sbatch_cache, time=sbatch_time,
+    slurm_accounting=_sa,
+    **embed_prompt_kwargs,
+)
+if _sa:
+    slurm_jobs.append(_sa)
+print(f"embed_onet: embeddings shape: {onet_embeddings.shape}")
 
 ended_at = time.time()
 
@@ -123,20 +159,18 @@ ended_at = time.time()
 
 # %%
 #|export
-onet_codes = np.array(onet_targets["O*NET-SOC Code"].tolist(), dtype=str)
-onet_titles = np.array(onet_targets["Title"].tolist(), dtype=str)
-np.save(output_dir / "onet_codes.npy", onet_codes)
-np.save(output_dir / "onet_titles.npy", onet_titles)
-np.save(output_dir / "role_embeddings.npy", role_embeddings)
-np.save(output_dir / "taskskill_embeddings.npy", taskskill_embeddings)
+np.save(output_dir / "onet_embeddings.npy", onet_embeddings.astype(np.float32))
+
+with open(output_dir / "onet_codes.json", "w") as f:
+    json.dump(onet_codes, f)
 
 print(f"embed_onet: wrote {const.rel(output_dir)}")
-print(f"  onet_codes: {onet_codes.shape}")
-print(f"  role_embeddings: {role_embeddings.shape}")
-print(f"  taskskill_embeddings: {taskskill_embeddings.shape}")
+print(f"  onet_codes: {len(onet_codes)} codes")
+print(f"  onet_embeddings: {onet_embeddings.shape}")
 
 embed_meta = {
     "n_occupations": len(onet_targets),
+    "embedding_dim": int(onet_embeddings.shape[1]),
     "started_at": started_at,
     "ended_at": ended_at,
     "elapsed_seconds": ended_at - started_at,

@@ -14,8 +14,12 @@ from typing import Any
 
 import numpy as np
 
+from functools import partial
+
 from .config import IsambardConfig
 from .ssh import arun as async_ssh_run, _get_config, _run_sync
+
+_fprint = partial(print, flush=True)
 
 # %% nbs/isambard_utils/orchestrate.ipynb 3
 class TransferMode(str, Enum):
@@ -109,9 +113,20 @@ def _is_json_hashable(value) -> bool:
 
 # %% nbs/isambard_utils/orchestrate.ipynb 9
 _JOB_LOCKS: dict[str, asyncio.Lock] = {}
+_JOB_LOCKS_LOOP: asyncio.AbstractEventLoop | None = None
 
 def _get_job_lock(job_hash: str) -> asyncio.Lock:
-    """Get or create an asyncio.Lock for a given job hash."""
+    """Get or create an asyncio.Lock for a given job hash.
+
+    Invalidates all cached locks when the event loop changes (e.g. when
+    running multiple pipeline runs sequentially via asyncio.run or in
+    different thread pool workers).
+    """
+    global _JOB_LOCKS_LOOP
+    loop = asyncio.get_running_loop()
+    if _JOB_LOCKS_LOOP is not loop:
+        _JOB_LOCKS.clear()
+        _JOB_LOCKS_LOOP = loop
     if job_hash not in _JOB_LOCKS:
         _JOB_LOCKS[job_hash] = asyncio.Lock()
     return _JOB_LOCKS[job_hash]
@@ -150,7 +165,7 @@ async def _upload_inputs(
     transfer_modes: dict[str, TransferMode],
     *,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> dict[str, str]:
     """Serialize and upload inputs to {cache_path}/inputs/{key}/. Returns manifest dict."""
     from .transfer import (
@@ -192,7 +207,7 @@ async def _submit_job(
     time: str,
     gpus: int = 1,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> "SlurmJob":
     """Write manifest and submit SBATCH job. Returns SlurmJob."""
     from .transfer import aupload_bytes
@@ -238,7 +253,7 @@ async def _submit_job(
 
 # %% nbs/isambard_utils/orchestrate.ipynb 16
 async def _poll_job(job_id: str, *, label: str, cache_path: str,
-                    config: IsambardConfig, print_fn=print) -> dict:
+                    config: IsambardConfig, print_fn=_fprint) -> dict:
     """Poll a Slurm job until it finishes, return sacct summary."""
     from .slurm import await_job, ajob_log
 
@@ -346,8 +361,20 @@ def clear_job_cache(job_hash: str, *, config: IsambardConfig | None = None) -> N
 
 # %% nbs/isambard_utils/orchestrate.ipynb 22
 _setup_done = False
+_setup_lock: asyncio.Lock | None = None
+_setup_lock_loop: asyncio.AbstractEventLoop | None = None
 
-async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print,
+def _get_setup_lock() -> asyncio.Lock:
+    """Get the setup lock, recreating it if the event loop has changed."""
+    global _setup_lock, _setup_lock_loop, _setup_done
+    loop = asyncio.get_running_loop()
+    if _setup_lock_loop is not loop:
+        _setup_lock = asyncio.Lock()
+        _setup_lock_loop = loop
+        _setup_done = False
+    return _setup_lock
+
+async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprint,
                         force: bool = False) -> None:
     """Ensure llm_runner is deployed on Isambard (idempotent, targeted).
 
@@ -355,7 +382,7 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print,
     src/llm_runner/. Creates dirs, installs uv if needed, and runs uv sync.
 
     Skips entirely if already called successfully in this process, unless
-    force=True.
+    force=True. Uses a lock to prevent concurrent setup attempts.
 
     Args:
         config: Isambard configuration.
@@ -363,59 +390,59 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=print,
         force: Run setup even if already done this session.
     """
     global _setup_done
-    if _setup_done and not force:
-        return
-    import subprocess
-    config = _get_config(config)
-    from .env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
-    from .transfer import aupload as async_rsync_upload, aupload_bytes
-    import llm_runner
+    async with _get_setup_lock():
+        if _setup_done and not force:
+            return
+        import subprocess
+        config = _get_config(config)
+        from .env import _aensure_uv, _aensure_venv, _aensure_cuda_torch, _afix_lustre_hardlinks
+        from .transfer import aupload as async_rsync_upload, aupload_bytes
+        import llm_runner
 
-    try:
-        # 1. Create remote dirs
-        await async_ssh_run(
-            f"mkdir -p {config.project_dir}/src {config.hf_cache_dir} {config.logs_dir}",
-            config=config, retries=3, print_fn=print_fn,
-        )
+        try:
+            # 1. Create remote dirs
+            await async_ssh_run(
+                f"mkdir -p {config.project_dir}/src {config.hf_cache_dir} {config.logs_dir}",
+                config=config, retries=3, print_fn=print_fn,
+            )
 
-        # 2. Ensure uv
-        await _aensure_uv(config=config)
+            # 2. Ensure uv
+            await _aensure_uv(config=config)
 
-        # 3. Upload remote_pyproject.toml as pyproject.toml
-        runner_src = Path(llm_runner.__path__[0])
-        remote_pyproject = runner_src / "assets" / "remote_pyproject.toml"
-        await aupload_bytes(remote_pyproject.read_bytes(),
-                            f"{config.project_dir}/pyproject.toml", config=config)
+            # 3. Upload remote_pyproject.toml as pyproject.toml
+            runner_src = Path(llm_runner.__path__[0])
+            remote_pyproject = runner_src / "assets" / "remote_pyproject.toml"
+            await aupload_bytes(remote_pyproject.read_bytes(),
+                                f"{config.project_dir}/pyproject.toml", config=config)
 
-        # 4. Rsync llm_runner source
-        print_fn("runner setup: syncing llm_runner source...")
-        await async_rsync_upload(
-            str(runner_src) + "/", f"{config.project_dir}/src/llm_runner",
-            config=config, exclude=["__pycache__", "*.pyc"],
-        )
+            # 4. Rsync llm_runner source
+            print_fn("runner setup: syncing llm_runner source...")
+            await async_rsync_upload(
+                str(runner_src) + "/", f"{config.project_dir}/src/llm_runner",
+                config=config, exclude=["__pycache__", "*.pyc"],
+            )
 
-        # 5. Install deps
-        print_fn("runner setup: installing dependencies...")
-        await _aensure_venv(config=config)
+            # 5. Install deps
+            await _aensure_venv(config=config, print_fn=print_fn)
 
-        # 6. Ensure CUDA torch
-        print_fn("runner setup: ensuring CUDA torch...")
-        await _aensure_cuda_torch(config=config)
+            # 6. Ensure CUDA torch (PyPI installs CPU-only on ARM64)
+            print_fn("runner setup: ensuring CUDA torch...")
+            await _aensure_cuda_torch(config=config)
 
-        # 7. Fix Lustre hardlinks (one-time migration to copy mode)
-        await _afix_lustre_hardlinks(config=config)
-        print_fn("runner setup: done")
-        _setup_done = True
+            # 7. Fix Lustre hardlinks (one-time migration to copy mode)
+            await _afix_lustre_hardlinks(config=config)
+            print_fn("runner setup: done")
+            _setup_done = True
 
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"Runner setup failed (exit {e.returncode}).\n"
-            f"--- command ---\n{e.cmd}\n"
-            f"--- stderr ---\n{e.stderr or '(empty)'}"
-        ) from e
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"Runner setup failed (exit {e.returncode}).\n"
+                f"--- command ---\n{e.cmd}\n"
+                f"--- stderr ---\n{e.stderr or '(empty)'}"
+            ) from e
 
 # %% nbs/isambard_utils/orchestrate.ipynb 23
-def setup_runner(*, config: IsambardConfig | None = None, print_fn=print,
+def setup_runner(*, config: IsambardConfig | None = None, print_fn=_fprint,
                  force: bool = False) -> None:
     """Ensure llm_runner is deployed on Isambard (sync wrapper).
 
@@ -437,7 +464,7 @@ async def arun_remote(
     gpus: int = 1,
     required_models: list[str] | None = None,
     isambard_config: IsambardConfig | None = None,
-    print_fn=print,
+    print_fn=_fprint,
     cache: bool = True,
     upload_timeout: int = 600,
 ) -> dict[str, Any]:
@@ -485,7 +512,7 @@ async def arun_remote(
     # 2. Pre-cache models
     for model_name in (required_models or []):
         print_fn(f"run_remote [{job_name}]: ensuring model {model_name}...")
-        await aensure_model(model_name, config=ic)
+        await aensure_model(model_name, config=ic, print_fn=print_fn)
 
     if not cache:
         return await _run_remote_uncached(
@@ -541,7 +568,7 @@ async def _run_remote_cached(
     gpus: int = 1,
     upload_timeout: int,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> dict[str, Any]:
     """Idempotency state machine for content-addressed jobs."""
     import time as time_mod
@@ -733,7 +760,7 @@ async def _run_remote_uncached(
     time: str,
     gpus: int = 1,
     config: IsambardConfig,
-    print_fn=print,
+    print_fn=_fprint,
 ) -> dict[str, Any]:
     """Run a job without caching, using a UUID-based temp dir (backward compat)."""
     from .transfer import (
@@ -850,7 +877,7 @@ def run_remote(
     gpus: int = 1,
     required_models: list[str] | None = None,
     isambard_config: IsambardConfig | None = None,
-    print_fn=print,
+    print_fn=_fprint,
     cache: bool = True,
     upload_timeout: int = 600,
 ) -> dict[str, Any]:

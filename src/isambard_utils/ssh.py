@@ -6,8 +6,11 @@ __all__ = ['acheck_clifton_auth', 'acheck_connection', 'arun', 'check_clifton_au
 import asyncio
 import subprocess
 import shlex
+from functools import partial
 from pathlib import Path
 from .config import IsambardConfig
+
+_fprint = partial(print, flush=True)
 
 # %% nbs/isambard_utils/ssh.ipynb 3
 def _get_config(config: IsambardConfig | None) -> IsambardConfig:
@@ -45,46 +48,42 @@ def _build_ssh_cmd(config: IsambardConfig, *, timeout: int = 120) -> list[str]:
     return cmd
 
 # %% nbs/isambard_utils/ssh.ipynb 6
+def _run_once_sync(ssh_cmd: list[str], *, timeout: int,
+                   capture: bool) -> subprocess.CompletedProcess:
+    """Single SSH attempt using synchronous subprocess (no asyncio child watcher needed).
+
+    Uses subprocess.run instead of asyncio.create_subprocess_exec to avoid
+    the child watcher issue in thread pool workers (netrun issue #32) and
+    event loop blocking issues when sync nodes run on the main loop.
+    """
+    try:
+        return subprocess.run(
+            ssh_cmd,
+            capture_output=capture,
+            timeout=timeout,
+            text=True,
+        )
+    except subprocess.TimeoutExpired:
+        raise
+
+
 async def _arun_once(ssh_cmd: list[str], *, timeout: int,
                      capture: bool) -> subprocess.CompletedProcess:
-    """Single SSH attempt (no retries)."""
-    if capture:
-        proc = await asyncio.create_subprocess_exec(
-            *ssh_cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    else:
-        proc = await asyncio.create_subprocess_exec(*ssh_cmd)
-
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            proc.communicate(), timeout=timeout,
-        )
-    except asyncio.TimeoutError:
-        proc.kill()
-        await proc.communicate()
-        raise subprocess.TimeoutExpired(ssh_cmd, timeout)
-
-    stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
-    stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
-
-    return subprocess.CompletedProcess(
-        args=ssh_cmd, returncode=proc.returncode,
-        stdout=stdout if capture else None,
-        stderr=stderr if capture else None,
+    """Single SSH attempt. Runs subprocess in a thread to avoid blocking the event loop."""
+    return await asyncio.get_event_loop().run_in_executor(
+        None, lambda: _run_once_sync(ssh_cmd, timeout=timeout, capture=capture),
     )
 
 import os as _os
 
 _SSH_TRANSIENT_EXIT = 255
-_SSH_RETRY_DELAYS = [2, 5, 10, 30, 60]
-_SSH_DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "10"))
+_SSH_RETRY_DELAYS = [2, 5, 10, 30, 60, 120, 300]
+_SSH_DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "50"))
 
 async def arun(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
                check: bool = True, capture: bool = True,
                retries: int = 0, ssh_retries: int = _SSH_DEFAULT_RETRIES,
-               print_fn=print) -> subprocess.CompletedProcess:
+               print_fn=_fprint) -> subprocess.CompletedProcess:
     """Run a command on the Isambard login node via SSH (async).
 
     Args:
@@ -141,7 +140,7 @@ def run(cmd: str, *, config: IsambardConfig | None = None, timeout: int = 120,
 
 # %% nbs/isambard_utils/ssh.ipynb 8
 async def acheck_connection(config: IsambardConfig | None = None, *,
-                            max_retries: int = 10, print_fn=print) -> bool:
+                            max_retries: int = 10, print_fn=_fprint) -> bool:
     """Test SSH connectivity with progressive timeout retries (async).
 
     Starts with a short timeout and increases it on each retry, up to
@@ -176,19 +175,12 @@ async def acheck_clifton_auth() -> bool:
     try:
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
                "-F", str(cert_path), "a5u.aip2.isambard", "echo ok"]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: subprocess.run(cmd, capture_output=True, text=True, timeout=15),
         )
-        try:
-            await asyncio.wait_for(proc.communicate(), timeout=15)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.communicate()
-            return False
-        return proc.returncode == 0
-    except (FileNotFoundError, OSError):
+        return result.returncode == 0
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         return False
 
 # %% nbs/isambard_utils/ssh.ipynb 11

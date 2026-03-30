@@ -10,11 +10,11 @@
 # # nodes.sample_ads
 #
 # Deterministically sample a subset of job ads for development.
-# If `sample_n == 0`, reference the original deduped parquets directly (full run).
-# Otherwise, sample N ads proportionally across months and write subset parquets.
+# If `sample_n == -1`, pass through all ads (full run).
+# Otherwise, sample N ads and return their IDs.
 
 # %%
-#|default_exp nodes.sample_ads
+#|default_exp sample_ads
 #|export_as_func true
 
 # %%
@@ -26,7 +26,7 @@ import numpy as np
 def main(ctx, print) -> {
     'ad_ids': np.ndarray
 }:
-    """Sample job ads for processing (or pass through all if sample_n=0)."""
+    """Sample job ads for processing (or pass through all if sample_n=-1)."""
     ...
 
 # %% [markdown]
@@ -48,12 +48,14 @@ from ai_index import const
 from pathlib import Path
 from ai_index.utils import get_adzuna_conn
 
+duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
+
 # %% [markdown]
 # Get all ad IDs
 
 # %%
 #|export
-conn = get_adzuna_conn(read_only=True)
+conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
 res = conn.execute("""
     SELECT id as ad_id FROM ads
 """).fetchdf()
@@ -66,12 +68,12 @@ ad_ids = res['ad_id']
 # %%
 #|export
 if ctx.vars['sample_n'] == -1:
-    sample_ad_ids = None
+    sample_ad_ids = ad_ids.to_numpy()
 elif ctx.vars['sample_n'] < 0:
     raise ValueError(f"sample_n must be >= 0, got {ctx.vars['sample_n']}")
 else:
-    np.random.seed(ctx.vars['sample_seed'])
-    sample_ad_ids = np.random.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
+    rng = np.random.default_rng(ctx.vars['sample_seed'])
+    sample_ad_ids = rng.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
 
 # %%
 #|export

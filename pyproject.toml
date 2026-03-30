@@ -21,6 +21,8 @@ dependencies = [
     "duckdb>=1.0",
     "outlines>=1.2.12",
     "openpyxl>=3.1.5",
+    "matplotlib>=3.10.8",
+    "zeroentropy>=0.1.0a11",
 ]
 
 [dependency-groups]
@@ -33,6 +35,7 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "ipynbname>=2025.8.0.0",
     "ipywidgets>=8.1.8",
+    "pyinfra>=3.0",
 ]
 
 [tool.uv.sources]
@@ -43,8 +46,25 @@ netrun-ui = { git = "https://github.com/lukastk/netrun", subdirectory = "netrun-
 
 
 [project.scripts]
-ai-index = "ai_index.cli._app:app_main"
 run-pipeline = "ai_index.run_pipeline:main"
+run-calibration = "calibration.run_calibration:main"
+estimate-calibration = "calibration.estimate:main"
+calibrate-all = "calibration.calibrate_all:main"
+run-validation = "validation.run_validation:main"
+validate-all = "validation.run_all:main"
+clean-store = "ai_index.utils.pipeline:clean_store_main"
+generate-reports = "validation.utils:generate_reports_main"
+publish-reports = "validation.utils:publish_reports_main"
+remote-deploy-pipeline = "deploy.deploy_pipeline:main"
+remote-destroy = "deploy.destroy:main"
+remote-run-cmd = "deploy.run_cmd:main"
+remote-clifton-auth = "deploy.run_cmd:clifton_auth"
+remote-run-bg = "deploy.run_pipeline:run_bg"
+remote-run-pipeline = "deploy.run_pipeline:start"
+remote-bg-log = "deploy.run_pipeline:log"
+remote-bg-kill = "deploy.run_pipeline:kill_bg"
+remote-download-store = "deploy.download_store:main"
+remote-ip = "deploy.get_ip:main"
 
 [project.urls]
 Homepage = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
@@ -58,10 +78,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 ignore-vcs = true
 sources = ["src"]
-packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner"]
+packages = ["src/ai_index", "src/isambard_utils", "src/dev_utils", "src/llm_runner", "src/calibration", "src/validation", "src/deploy"]
 include = [
     "src/ai_index/scripts/**",
-    "src/isambard_utils/assets/**",
 ]
 
 [tool.pytest.ini_options]

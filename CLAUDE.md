@@ -4,58 +4,52 @@
 
 **ai-index** (AISI Economy Index v2) is a productionized data pipeline for analyzing AI exposure in the economy. It matches job advertisements to O\*NET occupations and computes AI impact metrics (ASPECTT vectors, AI exposure scores, seniority/job zone).
 
-This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`, which was a collection of manually-run notebooks. The v2 uses **netrun** for orchestrating the data pipeline and **nblite** for literate programming development.
+This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`, which was a collection of manually-run notebooks. The v2 uses **netrun** for orchestrating the data pipeline. **nblite** is used for literate programming on pipeline node notebooks, scratch notebooks, and validation notebooks only; all other code lives directly in `src/`.
 
 ## Pipeline DAG
 
-The pipeline is defined in `config/netrun.json`. It currently contains 20 nodes (17 function nodes + 2 broadcast + 1 join) and 23 edges. The pipeline has three main stages: job ad processing (blue), O\*NET exposure scoring (green), and index construction (red).
+The pipeline is defined in `config/netrun.json`. Run `uv run netrun validate -c config/netrun.json` to check the current node/edge counts. Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`). The pipeline has three parallel tracks that converge at index construction:
 
-```
-  ┌─── Job Ad Processing ───────────────────────────────────────────────────────┐
-  │                                                                             │
-  │  fetch_adzuna ──► sample_ads ──► llm_summarise ──► embed_ads ──┐            │
-  │                                                                 │            │
-  │  fetch_onet ──► prepare_onet_targets ──► broadcast_onet_ready ──┤            │
-  │                                          (1→5)  │ │ │          │            │
-  │                                                  │ │ │     embed_onet       │
-  │                                                  │ │ │          │            │
-  │                                                  │ │ │     cosine_match      │
-  │                                                  │ │ │          │            │
-  │                                                  │ │ │     llm_filter ──► broadcast_filter_done
-  │                                                  │ │ │                      (1→2)
-  └──────────────────────────────────────────────────┼─┼─┼──────────────────────┘
-                                                     │ │ │
-  ┌─── O*NET Exposure Scoring ───────────────────────┼─┼─┼──────────────────────┐
-  │                                                  │ │ │                       │
-  │  build_aspectt_vectors ◄─────────────────────────┘ │ │                       │
-  │  score_presence ◄──────────────────────────────────┘ │                       │
-  │  score_felten ◄──────────────────────────────────────┤                       │
-  │  score_task_exposure ◄───────────────────────────────┘                       │
-  │       │            │           │                                             │
-  │       └──► join_scores ◄───────┘                                             │
-  │                │                                                             │
-  │         combine_onet_exposure                                                │
-  └──────────────────────────────────────────────────────────────────────────────┘
-                        │
-  ┌─── Index Construction ──────────────────────────────────────────────────────┐
-  │                     │                                                       │
-  │  compute_job_ad_exposure ◄── broadcast_filter_done                          │
-  │         │                                                                   │
-  │    aggregate_geo                                                            │
-  │                                                                             │
-  │  compute_job_ad_aspectt_vectors ◄── broadcast_filter_done (currently disabled)│
-  └─────────────────────────────────────────────────────────────────────────────┘
-```
+### Stage 1: Data Ingestion & Preparation
 
-### Nodes (20 total: 17 function + 2 broadcast + 1 join)
+Two independent startup branches run in parallel:
 
-Each node is a module at `ai_index.nodes.<name>` (developed as `pts/ai_index/nodes/<name>.pct.py`).
+- **`fetch_adzuna`** -- Downloads Adzuna job ad data from S3, deduplicates, stores in DuckDB.
+- **`fetch_onet`** -- Downloads and extracts the O\*NET database.
+- **`sample_ads`** -- Triggered after `fetch_adzuna`. Samples N ad IDs (or passes all through if `sample_n == -1`).
+- **`prepare_onet_targets`** -- Triggered after `fetch_onet`. Filters O\*NET occupations, builds rich text descriptions combining titles, tasks, skills, and work activities. Writes `onet_targets.parquet`.
 
-**Data ingestion & preparation:** `fetch_onet`, `fetch_adzuna`, `sample_ads`, `prepare_onet_targets`
-**Job ad processing (matching):** `llm_summarise`, `embed_ads`, `embed_onet`, `cosine_match`, `llm_filter_candidates`
-**O\*NET exposure scoring:** `build_aspectt_vectors`, `score_presence`, `score_felten`, `score_task_exposure`, `combine_onet_exposure`
-**Index construction:** `compute_job_ad_exposure`, `aggregate_geo`, `compute_job_ad_aspectt_vectors` (disabled)
-**Infrastructure:** `broadcast_onet_ready` (1->5), `broadcast_filter_done` (1->2), `join_scores` (3->1)
+### Stage 2a: Job Ad Matching (blue path)
+
+Matches job ads to O\*NET occupations through a multi-stage retrieval pipeline:
+
+1. **`embed_ads`** -- Embeds raw job ad text (title + description) using the configured embedding model. Processes in chunks, stores embeddings in DuckDB.
+2. **`embed_onet`** -- Embeds O\*NET occupation descriptions. Triggered after `prepare_onet_targets` via `broadcast_onet_ready`.
+3. **`cosine_candidates`** -- Computes cosine similarity between ad and O\*NET embeddings. Selects top-k candidates per ad (default 20). Writes candidates parquet.
+4. **`llm_filter_candidates`** -- LLM-based negative selection. Presents candidates to an LLM which selects functional matches. Supports structured output, unstructured, and reasoning model prompt variants. Writes filtered matches to DuckDB.
+5. **`rerank_candidates`** -- Cross-encoder reranking of filtered candidates using Qwen3-Reranker. Produces final match scores.
+
+### Stage 2b: O\*NET Exposure Scoring (green path)
+
+Runs in parallel with job ad matching, triggered by `broadcast_onet_ready` (1-to-4 fan-out):
+
+- **`score_presence`** -- Computes humanness/presence scores (physical, emotional, creative dimensions) per occupation from O\*NET work context, GWAs, and skills data.
+- **`score_felten`** -- Computes Felten AIOE ability-application AI exposure scores per occupation, with configurable progress scenarios.
+- **`score_task_exposure`** -- LLM-based task-level AI exposure classification. Evaluates each O\*NET task for AI automation potential and aggregates to occupation level.
+- **`join_scores`** -- Synchronization barrier (3-to-1 join). Waits for all three score nodes to complete.
+- **`combine_onet_exposure`** -- Merges all score DataFrames into a single combined exposure table. Validates occupation set consistency.
+
+### Stage 3: Index Construction (red path)
+
+Converges the matching and scoring results:
+
+- **`compute_job_ad_exposure`** -- Maps occupation-level exposure scores to individual job ads via rerank-score-weighted averaging.
+- **`aggregate_geo`** -- Aggregates ad-level AI exposure scores by Local Authority District (LAD22CD). Produces the final geographic index.
+
+### Infrastructure Nodes
+
+- **`broadcast_onet_ready`** -- Fan-out (1-to-4): triggers `embed_onet`, `score_presence`, `score_felten`, `score_task_exposure` after O\*NET preparation completes.
+- **`join_scores`** -- Synchronization barrier (3-to-1): collects outputs from the three score nodes before combining.
 
 ### Node Storage Convention
 
@@ -74,6 +68,8 @@ Three storage tiers: `store/inputs/` (run-independent source data), `store/pipel
 - **isambard_utils** - Isambard HPC interaction (SSH, rsync, Slurm, env setup)
 - **llm_runner** - Local/remote GPU model execution (embeddings, LLM generate, cosine similarity)
 - **adulib[llm]** - LLM API abstraction (used in api execution mode)
+- **pyinfra** - Remote server configuration (used by deploy module)
+- **hcloud** CLI - Hetzner Cloud server provisioning (external, not a Python dep)
 
 ## Running the Pipeline
 
@@ -88,8 +84,8 @@ The pipeline is run via `run_pipeline_async(run_name)` (or the `run-pipeline` CL
 Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`.
 
 ### Key files
-- `pts/ai_index/run_pipeline.pct.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
-- `pts/ai_index/const.pct.py` — Path constants (`store_path`, `inputs_path`, `outputs_path`, `onet_exposure_scores_path`, `aspectt_vectors_path`, config paths)
+- `src/ai_index/run_pipeline.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
+- `src/ai_index/const.py` — Path constants (`store_path`, `inputs_path`, `outputs_path`, `onet_exposure_scores_path`, `aspectt_vectors_path`, config paths)
 - `config/run_defs.toml` — Run definitions
 - `config/netrun.json` — Pipeline graph with unfilled node_var placeholders
 
@@ -101,15 +97,35 @@ Defines named pipeline configurations. `[defaults]` provides base values; `[runs
 
 **Convention:** Default values for all node variables (both global and per-node) live in `run_defs.toml`, not in `netrun.json`. The `netrun.json` only declares variable names and types as unfilled placeholders.
 
-### `embed_models.toml` / `llm_models.toml` — Model configs
+### `embed_models.toml` / `llm_models.toml` / `rerank_models.toml` — Model configs
 
 Model-key-based lookup. Each model entry has a `mode` (api/local/sbatch) and model-specific params. Resolution: `_load_model_config(config_path, model_key)` looks up `models.<key>`, reads `mode`, merges `defaults.<mode>` with the model entry, returns `(mode, merged_dict)`.
+
+#### Embedding model prompt/instruction support
+
+Embedding models have three categories of prompt support, configured in `embed_models.toml`:
+
+**1. Fixed prefixes** (`query_prefix` / `document_prefix`): Strings that must always be prepended to inputs for the model to work correctly. These are model-specific and unconditional. Example: e5-large requires `query_prefix = "query: "` and `document_prefix = "passage: "`.
+
+**2. Named prompts** (`query_prompt_name` / `document_prompt_name`): Reference a named prompt from the model's SentenceTransformer config. Applied unconditionally. Example: `query_prompt_name = "query"` for arctic-embed-l-v2.
+
+**3. Custom task instructions** (`supports_prompt = true`): The model accepts a free-form task instruction via the `prompt` parameter of `embed()`. The actual instruction text is defined in the pipeline node (e.g. via `run_defs.toml`), not in the model config. Only instruction-following models support this (Qwen3-Embedding, llama-embed-nemotron).
+
+Pipeline nodes should:
+- Always apply `query_prefix`/`document_prefix` if present in the model config
+- Always apply `query_prompt_name`/`document_prompt_name` if present
+- Only pass `prompt` if `supports_prompt = true` in the model config
+- The `prompt` text itself comes from node configuration (e.g. a node var)
+
+### `deploy.toml` — Remote deployment config
+
+Settings for provisioning and managing a Hetzner Cloud server. Sections: `[server]` (name, type, location, image, SSH key), `[repo]` (remote path).
 
 ### `netrun.json` — Pipeline graph
 
 Defines the DAG, node_var placeholders, and cache settings. All node_vars (global and per-node) are declared with types only — no default values. Defaults live in `run_defs.toml`.
 
-Key global node_vars: `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `llm_max_concurrent_batches`, `run_name`, `adzuna_s3_prefix` (from `$env`).
+Key global node_vars: `sample_n`, `sample_seed`, `embedding_model`, `llm_model`, `cosine_mode`, `topk`, `llm_batch_size`, `llm_max_new_tokens`, `run_name`, `adzuna_s3_prefix` (from `$env`).
 
 ### Adding new node variables
 
@@ -188,13 +204,13 @@ gpus = 4
 ```
 
 ### Key files
-- `pts/ai_index/utils/` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
+- `src/ai_index/utils/` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
 - `config/embed_models.toml` — Embedding model configs
 - `config/llm_models.toml` — LLM model configs
 
 ## `ai_index.utils` — Pipeline utilities
 
-Model-key-based utility functions in `pts/ai_index/utils/`. Each function resolves its execution mode from the TOML config, so callers only pass a model key. All have sync and async variants (e.g. `embed`/`aembed`).
+Model-key-based utility functions in `src/ai_index/utils/`. Each function resolves its execution mode from the TOML config, so callers only pass a model key. All have sync and async variants (e.g. `embed`/`aembed`).
 
 - **`embed(texts, *, model, **kwargs) -> np.ndarray`** — Embed texts. Routes by mode (api/local/sbatch).
 - **`llm_generate(prompts, *, model, **kwargs) -> list[str]`** — Generate LLM responses. Routes by mode. All three backends support `system_message`, `max_new_tokens`, and `json_schema` kwargs.
@@ -206,11 +222,13 @@ Explicit `**kwargs` override TOML config values. All functions support an option
 
 ## Isambard HPC
 
-The `isambard_utils` package (`pts/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `src/isambard_utils/assets/config.toml` + `ISAMBARD_HOST` env var.
+The `isambard_utils` package (`src/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `config/isambard.toml` + `ISAMBARD_HOST` env var.
 
 The high-level entry point is `orchestrate.arun_remote()`, which manages the full lifecycle: setup, model caching, input transfer, SBATCH submit, poll, accounting collection, output download, and cleanup. Billing: 0.25 NHR per GPU-hour for typical 1-GPU jobs.
 
 Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton cert).
+
+**Clifton VPN certificates:** The user has access to Clifton certificates for Isambard. These expire periodically and may need to be re-certified. If sbatch commands fail with SSH/connection errors, check whether the certificate has expired.
 
 ## Project Structure
 
@@ -222,44 +240,54 @@ Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton c
 │   ├── netrun.json           # Pipeline graph with node_var placeholders
 │   ├── run_defs.toml         # Run definitions (defaults + named runs)
 │   ├── embed_models.toml     # Embedding model configs
-│   └── llm_models.toml       # LLM model configs
+│   ├── llm_models.toml       # LLM model configs
+│   └── deploy.toml           # Remote deployment config (Hetzner server, storage box)
 ├── prompt_library/           # Prompt templates (Markdown files: llm_summarise, llm_filter, score_task_exposure)
 ├── agent-context/            # Reference docs for netrun & nblite
-├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
-│   ├── const.pct.py          # Path constants
+│
+│   ## nblite-managed (edit pts/, export to nbs/ and src/)
+├── pts/ai_index/nodes/       # Node notebooks (.pct.py) - EDIT THESE
+├── nbs/ai_index/nodes/       # Node notebooks (.ipynb, auto-generated from pts)
+├── pts/scratch/              # Scratch/experiment notebooks (.pct.py) - EDIT THESE
+├── nbs/scratch/              # Scratch notebooks (.ipynb, auto-generated from pts)
+├── pts/validation/           # Validation notebooks (.pct.py) - EDIT THESE
+├── nbs/validation/           # Validation notebooks (.ipynb, auto-generated from pts)
+│
+│   ## Plain Python (edit src/ directly)
+├── src/ai_index/             # Pipeline package
+│   ├── const.py              # Path constants
+│   ├── run_pipeline.py       # Pipeline runner
 │   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
-│   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (17 nodes)
-├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
-├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
-├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
-├── nbs/isambard_utils/       # Isambard notebooks (auto-generated)
-├── src/isambard_utils/       # Isambard utils Python modules (auto-generated)
+│   └── nodes/                # Node modules (auto-generated from pts/ai_index/nodes/)
+├── src/isambard_utils/       # Isambard HPC utils
 │   └── assets/
 │       └── config.toml       # Isambard cluster config
-├── pts/llm_runner/           # LLM runner (embed, cosine, LLM generate) - EDIT THESE
-├── nbs/llm_runner/           # LLM runner notebooks (auto-generated)
-├── src/llm_runner/           # LLM runner Python modules (auto-generated)
-├── pts/dev_utils/            # Development utilities (set_node_func_args, etc.)
-├── nbs/dev_utils/            # Dev utils notebooks (auto-generated)
-├── src/dev_utils/            # Dev utils Python modules (auto-generated)
-├── pts/examples/             # Example notebooks
-├── nbs/examples/             # Example notebooks (.ipynb, auto-generated)
-├── pts/tests/                # Test notebooks (.pct.py) - EDIT THESE
-│   ├── isambard_utils/       # Isambard integration + unit tests
-│   └── llm_runner/           # LLM runner tests
-├── nbs/tests/                # Test notebooks (.ipynb, auto-generated)
-├── src/tests/                # Test modules (auto-generated)
+├── src/llm_runner/           # LLM runner (embed, cosine, LLM generate)
+├── src/dev_utils/            # Development utilities (set_node_func_args, etc.)
+├── src/calibration/          # GPU-hours calibration tools
+├── src/deploy/               # Remote deployment tools
+├── src/validation/           # Validation modules (auto-generated from pts/validation/)
+├── src/tests/                # Test modules
+│
+├── scripts/deploy_setup.py   # Standalone pyinfra deploy script (server setup)
 └── .claude/skills/           # Netrun skill docs for Claude
 ```
 
 ## Development Workflow
 
 ### Where to edit code
-- **Edit `.pct.py` files in `pts/`** - these are the source of truth
-- **Never edit files in `src/`** - they are auto-generated and will be overwritten
-- **Exception: `__init__.py` files** — nblite skips dunder-named files (`__init__`, `__main__`, etc.) during module export. These must be edited directly in `src/` and kept in sync with the corresponding `pts/.../__init__.pct.py` notebook.
-- After editing `.pct.py` files, run: `nbl export --reverse && nbl export`
+
+Only three code locations use the nblite export pipeline (pts/ <-> nbs/ <-> src/):
+- **`pts/ai_index/nodes/`** — Pipeline node notebooks. Edit `.pct.py` here, then run `nbl export --reverse && nbl export`.
+- **`pts/scratch/`** — Scratch/experiment notebooks. Syncs pts <-> nbs only (no lib export).
+- **`pts/validation/`** — Validation notebooks. Edit `.pct.py` here, then run `nbl export --reverse && nbl export`.
+
+Everything else lives directly in `src/` and is edited there:
+- `src/ai_index/utils/`, `src/ai_index/const.py`, `src/ai_index/run_pipeline.py`
+- `src/isambard_utils/`, `src/llm_runner/`, `src/dev_utils/`
+- `src/calibration/`, `src/deploy/`, `src/tests/`
+
+**Exception: `__init__.py` files** — nblite skips dunder-named files during module export. For nblite-managed locations, edit `__init__.py` directly in `src/` and keep in sync with the corresponding `pts/.../__init__.pct.py` notebook.
 
 ### nblite commands
 ```bash
@@ -267,23 +295,17 @@ nbl export                    # Export nbs -> pts -> src
 nbl export --reverse          # Sync pts changes back to nbs
 nbl test                      # Test notebooks execute without errors
 nbl fill                      # Execute notebooks and save outputs
-nbl new pts/ai_index/foo.pct.py  # Create new notebook
-nbl new --template dev/templates/func_node.pct.py.jinja pts/ai_index/nodes/foo.pct.py  # Create new node notebook from template
+nbl new pts/ai_index/nodes/foo.pct.py  # Create new node notebook
+nbl new --template dev/templates/func_node.pct.py.jinja pts/ai_index/nodes/foo.pct.py  # Create new node from template
 ```
 
 ### Export pipeline (from nblite.toml)
 ```
-nbs -> lib        (nbs/ai_index/*.ipynb -> src/ai_index/*.py)
-nbs -> pts        (nbs/ai_index/*.ipynb -> pts/ai_index/*.pct.py)
-nbs_tests -> lib_tests          (nbs/tests/ -> src/tests/)
-nbs_tests -> pts_tests          (nbs/tests/ -> pts/tests/)
-nbs_isambard -> lib_isambard    (nbs/isambard_utils/ -> src/isambard_utils/)
-nbs_isambard -> pts_isambard
-nbs_dev -> lib_dev              (nbs/dev_utils/ -> src/dev_utils/)
-nbs_dev -> pts_dev
-nbs_examples -> pts_examples    (nbs/examples/ -> pts/examples/, no lib)
-nbs_runner -> lib_runner        (nbs/llm_runner/ -> src/llm_runner/)
-nbs_runner -> pts_runner
+nbs_nodes -> lib_nodes          (nbs/ai_index/nodes/ -> src/ai_index/nodes/)
+nbs_nodes -> pts_nodes          (nbs/ai_index/nodes/ -> pts/ai_index/nodes/)
+nbs_scratch -> pts_scratch      (nbs/scratch/ -> pts/scratch/, no lib)
+nbs_validation -> lib_validation (nbs/validation/ -> src/validation/)
+nbs_validation -> pts_validation (nbs/validation/ -> pts/validation/)
 ```
 
 ### Testing
@@ -325,6 +347,18 @@ result = compute_something()
 
 # %%
 result #|func_return_line   # BUG: this won't appear in the generated module!
+```
+
+## Top-level await in notebooks
+
+Notebooks (`.ipynb` / `.pct.py` via nblite) run in an async context. You can use `await` directly at the top level without wrapping in `asyncio.run()`. In fact, `asyncio.run()` will **error** in a notebook because an event loop is already running. Always use bare `await` for async calls in notebook cells.
+
+```python
+# WRONG — RuntimeError: cannot run event loop while another loop is running
+result = asyncio.run(some_async_func())
+
+# RIGHT — top-level await works in notebooks
+result = await some_async_func()
 ```
 
 ## Important: Suspected netrun bugs
@@ -449,19 +483,19 @@ def process(data: Batch(str, count=3)):  # collects up to 3 packets into list[st
 
 ## GPU-Hours Calibration
 
-The `calibration/` directory contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard.
+The `src/calibration/` module contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard. Results are stored in `store/calibration/results/` (gitignored, regeneratable).
 
 ### Running calibration
 ```bash
-uv run python calibration/run_calibration.py <llm_model_key> <embedding_model_key>
-# Example: uv run python calibration/run_calibration.py qwen-7b-sbatch bge-large-sbatch
+uv run run-calibration <llm_model_key> <embedding_model_key>
+# Example: uv run run-calibration qwen-7b-sbatch bge-large-sbatch
 ```
 
-This runs the pipeline with the `[runs.calibration]` definition from `config/run_defs.toml` (`sample_n=1000`, shorter sbatch times, `resume=false` for LLM nodes). Cleans `store/pipeline/calibration/` before each run. The LLM and embedding model keys are injected dynamically. Results written to `calibration/results/{llm,embed}/`.
+This runs the pipeline with the `[runs.calibration]` definition from `config/run_defs.toml` (`sample_n=1000`, shorter sbatch times, `resume=false` for LLM nodes). Cleans `store/pipeline/calibration/` before each run. The LLM and embedding model keys are injected dynamically. Results written to `store/calibration/results/{llm,embed}/`.
 
 ### Estimating GPU-hours
 ```bash
-uv run python calibration/estimate.py [N_ADS]  # default: 30,000,000
+uv run estimate-calibration [N_ADS]  # default: 30,000,000
 ```
 
 Reads all result JSONs and prints estimated hours, node-hours (NHR), and per-ad cost. When Slurm accounting data is available (from `sacct`), uses actual GPU execution time. Falls back to wall-clock time (which includes transfer overhead).
@@ -479,10 +513,45 @@ Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. 
 Nodes pass `time=sbatch_time` as a kwarg to `embed()`/`llm_generate()`/`cosine_topk()`, which overrides any `time` in the model TOML. In api/local modes, `time` is harmlessly stripped by `_strip_remote_kwargs()`.
 
 ### Key files
-- `calibration/run_calibration.py` — CLI script: run pipeline, collect timing, save results
-- `calibration/calibrate_all.py` — Run all uncalibrated sbatch models
-- `calibration/estimate.py` — Read results, print GPU-hour estimates
-- `calibration/results/{llm,embed}/*.json` — Per-model timing results
+- `src/calibration/run_calibration.py` — CLI (`run-calibration`): run pipeline, collect timing, save results
+- `src/calibration/calibrate_all.py` — CLI (`calibrate-all`): run all uncalibrated sbatch models
+- `src/calibration/estimate.py` — CLI (`estimate-calibration`): read results, print GPU-hour estimates
+- `store/calibration/results/{llm,embed}/*.json` — Per-model timing results (gitignored)
+
+## Remote Deployment (Hetzner)
+
+The `src/deploy/` module provisions a Hetzner Cloud server and deploys the pipeline for remote execution. The `store/` directory is created on the server's local disk. Configuration lives in `config/deploy.toml`. Requires `hcloud` CLI to be installed and authenticated.
+
+### CLI commands
+```bash
+uv run remote-deploy-pipeline                          # Provision + deploy (idempotent)
+uv run remote-destroy                                  # Delete server
+uv run remote-run-cmd <command...>                     # Run command on remote (streams output)
+uv run remote-run-bg <command...>                      # Run command in background (detached from SSH)
+uv run remote-run-pipeline <run_name>                  # Shortcut: remote-run-bg run-pipeline <run_name>
+uv run remote-bg-log [--follow] [N]                    # Tail background job log
+uv run remote-bg-kill                                  # Kill background job
+uv run remote-download-store <rel_path> <local_path>   # rsync store files to local
+uv run remote-ip                                       # Print server IP
+```
+
+### Deploy flow (`remote-deploy-pipeline`)
+1. Ensure SSH key registered in hcloud
+2. Create server if not exists (hcloud)
+3. Wait for SSH
+4. Run pyinfra setup (`scripts/deploy_setup.py`): install system packages, uv
+5. rsync code to remote (excludes `store/`, `.venv/`, `.env`)
+6. Create `store` directory on local disk
+7. Run `uv sync` on remote
+
+Re-running is idempotent. If the server already exists, it skips provisioning and re-syncs code.
+
+### Key files
+- `config/deploy.toml` -- server and repo settings
+- `scripts/deploy_setup.py` -- standalone pyinfra deploy script
+- `src/deploy/config.py` -- config loading, hcloud helpers, SSH utilities
+- `src/deploy/deploy_pipeline.py` -- main deploy orchestration
+- `src/deploy/destroy.py`, `run_cmd.py`, `download_store.py`, `get_ip.py` -- other CLI commands
 
 ## Old Repository Reference
 

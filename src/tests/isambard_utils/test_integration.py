@@ -14,6 +14,7 @@ from isambard_utils.transfer import upload, download, upload_bytes
 from isambard_utils.slurm import submit, status, wait, cancel, job_log, SlurmJob
 from isambard_utils.sbatch import generate, SbatchConfig
 from isambard_utils.orchestrate import setup_runner
+from isambard_utils.models import ensure_model
 
 # %% nbs/tests/isambard_utils/test_integration.ipynb 4
 def _print_step(msg: str):
@@ -325,13 +326,15 @@ def test_llm_inference(cfg: IsambardConfig):
     """Run a small LLM on GPU to verify the full inference stack."""
     _print_step("7. Testing LLM inference on GPU (TinyLlama 1.1B)")
 
+    # Pre-cache model on login node (compute nodes have no internet)
+    model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    ensure_model(model_name, config=cfg)
+    _print_ok(f"Model '{model_name}' cached on login node")
+
     # Upload the test script
     remote_script = f"{cfg.project_dir}/.test_llm_check.py"
     upload_bytes(_LLM_TEST_SCRIPT.encode(), remote_script, config=cfg)
     _print_ok("Uploaded LLM test script")
-
-    # Generate and submit SBATCH job
-    # Request slightly more time + memory for model download on first run
     sc = SbatchConfig(
         job_name="iutils_llm_test",
         time="00:15:00",
@@ -345,7 +348,7 @@ def test_llm_inference(cfg: IsambardConfig):
     job = submit(script, config=cfg)
     _print_ok(f"Submitted job: {job.job_id}")
 
-    # Wait for completion (longer timeout since model download may take a while first time)
+    # Wait for completion
     _print_ok("Waiting for job to complete (polling every 10s, up to 10min)...")
     def _on_poll(s):
         if s:

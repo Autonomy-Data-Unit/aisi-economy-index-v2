@@ -6,28 +6,30 @@ from typing import List
 from pydantic import BaseModel, field_validator
 
 class FilterResponseModel(BaseModel):
-    drop: List[int]
+    keep: List[int]
 
-    @field_validator("drop")
+    @field_validator("keep")
     @classmethod
-    def drop_indices_positive(cls, v):
+    def keep_indices_positive(cls, v):
+        if len(v) < 1:
+            raise ValueError("must keep at least 1 candidate")
         for idx in v:
             if idx < 1:
-                raise ValueError(f"drop indices must be 1-based positive integers, got {idx}")
+                raise ValueError(f"keep indices must be 1-based positive integers, got {idx}")
         return v
 
 async def main(ctx, print, ad_ids: list[int]) -> {
     'successful_ad_ids': list[int]
 }:
-    """Run LLM negative selection to filter cosine match candidates."""
+    """Run LLM negative selection to filter cosine candidates."""
     import duckdb
     import pandas as pd
     
     from ai_index import const
-    from ai_index.nodes.llm_summarise import JobInfoModel
     from ai_index.utils import (
         ResultStore, run_batched, strict_format, load_prompt, allm_generate,
-        get_adzuna_conn,
+        extract_json, is_reasoning_model, uses_structured_output,
+        get_adzuna_conn, duckdb_connect_retry,
     )
     run_name = ctx.vars["run_name"]
     llm_model = ctx.vars["llm_model"]
@@ -35,44 +37,66 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     sbatch_time = ctx.vars["sbatch_time"]
     batch_size = ctx.vars["llm_batch_size"]
     max_new_tokens = ctx.vars["llm_max_new_tokens"]
-    max_concurrent = ctx.vars["llm_max_concurrent_batches"]
+    temperature = ctx.vars["temperature"]
+    top_p = ctx.vars["top_p"]
+    top_k = ctx.vars["top_k"]
+    max_concurrent = ctx.vars["max_concurrent_chunks"]
     resume = ctx.vars["filter_resume"]
     max_retries = ctx.vars["filter_max_retries"]
     raise_on_failure = ctx.vars["filter_raise_on_failure"]
+    duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
     
-    SYSTEM_PROMPT = load_prompt(ctx.vars["system_prompt"])
-    USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
+    _is_reasoning = is_reasoning_model(llm_model)
+    _use_structured_output = uses_structured_output(llm_model)
+    
+    _system_prompt_key = ctx.vars["system_prompt"]
+    _user_prompt_key = ctx.vars["user_prompt"]
+    if not _use_structured_output:
+        suffix = "_reasoning" if _is_reasoning else "_unstructured"
+        _system_prompt_key += suffix
+        _user_prompt_key += suffix
+    
+    SYSTEM_PROMPT = load_prompt(_system_prompt_key)
+    USER_PROMPT_TEMPLATE = load_prompt(_user_prompt_key)
     
     output_dir = const.pipeline_store_path / run_name / "llm_filter_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "filter_results.duckdb"
-    matches_path = const.pipeline_store_path / run_name / "cosine_match" / "matches.parquet"
-    summaries_db = const.pipeline_store_path / run_name / "llm_summarise" / "summaries.duckdb"
+    matches_path = const.pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
     
-    _matches_conn = duckdb.connect()  # in-memory, queries parquet directly
-    _summaries_conn = duckdb.connect(str(summaries_db), read_only=True)
-    _ads_conn = get_adzuna_conn(read_only=True)
+    _matches_conn = duckdb.connect()  # in-memory
+    _matches_conn.execute(f"CREATE VIEW candidates AS SELECT * FROM read_parquet('{matches_path}')")
+    _ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
+    
+    # Build O*NET candidate text for the LLM prompt: description + top 5 tasks.
+    # No alternate titles (they blow up the context without helping the LLM's
+    # keep/drop decision; the O*NET title is already shown separately).
+    _onet_targets = pd.read_parquet(const.onet_targets_path)
+    
+    def _build_onet_text(row):
+        parts = [row["Description"]]
+        tasks = row["Top_Tasks"]
+        if len(tasks) > 0:
+            parts.append("Key tasks: " + "; ".join(tasks[:5]))
+        return " ".join(parts)
+    
+    _onet_descriptions = dict(zip(_onet_targets["O*NET-SOC Code"], _onet_targets.apply(_build_onet_text, axis=1)))
     
     print(f"llm_filter: {len(ad_ids)} ads to process")
+    print(f"llm_filter: reading candidates from {const.rel(matches_path)}")
     
     
     def _load_chunk_context(chunk_ids):
-        """Load matches, summaries, and raw ads for a chunk of ad IDs."""
+        """Load matches and raw ads for a chunk of ad IDs."""
         id_list = ",".join(str(int(i)) for i in chunk_ids)
     
         # Matches from parquet
         chunk_matches = _matches_conn.execute(
-            f"SELECT * FROM read_parquet('{matches_path}') WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+            f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
         ).fetchdf()
         matches_by_ad = {}
         for ad_id, group in chunk_matches.groupby("ad_id"):
             matches_by_ad[int(ad_id)] = group.to_dict("records")
-    
-        # Summaries
-        summary_rows = _summaries_conn.execute(
-            f"SELECT id, data FROM results WHERE error IS NULL AND id IN ({id_list})"
-        ).fetchall()
-        summaries_by_ad = {int(rid): JobInfoModel.model_validate_json(data) for rid, data in summary_rows}
     
         # Raw ads
         _ads_conn.execute(f"CREATE OR REPLACE TEMP TABLE _chunk_ids AS SELECT unnest([{id_list}]::BIGINT[]) AS id")
@@ -81,22 +105,25 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         ).fetchall()
         raw_ads_by_id = {int(r[0]): {"title": r[1], "category_name": r[2], "description": r[3]} for r in raw_rows}
     
-        return matches_by_ad, summaries_by_ad, raw_ads_by_id
-    def _build_prompt(ad_id, candidates, summary, raw_ad):
+        return matches_by_ad, raw_ads_by_id
+    def _build_prompt(ad_id, candidates, raw_ad):
         """Build the negative selection prompt for one ad."""
-        tasks_str = ", ".join(summary.tasks + summary.skills)[:800]
-        candidates_str = "\n".join(
-            f"{i+1}. {c['onet_title']}" for i, c in enumerate(candidates)
-        )
-        full_ad_excerpt = (raw_ad["description"] or "")[:700].strip()
+        candidate_lines = []
+        for i, c in enumerate(candidates):
+            desc = _onet_descriptions[c["onet_code"]]
+            candidate_lines.append(f"{i+1}. {c['onet_title']}: {desc}" if desc else f"{i+1}. {c['onet_title']}")
+        candidates_str = "\n".join(candidate_lines)
+        # Cap at 6000 chars: covers p95+ of ads (median 2217, p95 5544, p99 7955).
+        # The old limit of 1200 truncated 82% of ads. With 20 candidates at ~300
+        # chars each, the total prompt stays under ~3K tokens for most ads, well
+        # within all models' context windows (smallest is gemma-4b at 8K).
+        full_ad_excerpt = (raw_ad["description"] or "")[:6000].strip()
     
         return strict_format(
             USER_PROMPT_TEMPLATE,
             n_candidates=len(candidates),
             job_ad_title=raw_ad["title"] or "",
             job_sector_category=raw_ad["category_name"] or "",
-            domain=summary.domain,
-            tasks_str=tasks_str,
             full_ad_excerpt=full_ad_excerpt,
             candidates_str=candidates_str,
         )
@@ -107,13 +134,9 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         try:
             parsed = FilterResponseModel.model_validate_json(raw)
             # Check indices are in valid range
-            for idx in parsed.drop:
+            for idx in parsed.keep:
                 if idx < 1 or idx > n_candidates:
-                    return f"drop index {idx} out of range [1, {n_candidates}]"
-            # Check at least 1 candidate is kept
-            n_kept = n_candidates - len(set(parsed.drop))
-            if n_kept < 1:
-                return f"would drop all candidates ({n_candidates} dropped, 0 kept)"
+                    return f"keep index {idx} out of range [1, {n_candidates}]"
             return None
         except Exception as e:
             return f"{type(e).__name__}: {e}"
@@ -123,22 +146,26 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     
     async def _work_fn(chunk_ids):
         """Load chunk context, build prompts, call LLM, validate, return DataFrame."""
-        matches_by_ad, summaries_by_ad, raw_ads_by_id = _load_chunk_context(chunk_ids)
+        matches_by_ad, raw_ads_by_id = _load_chunk_context(chunk_ids)
     
         prompts = []
         n_candidates_per_ad = []
         for ad_id in chunk_ids:
             candidates = matches_by_ad[ad_id]
-            prompts.append(_build_prompt(ad_id, candidates, summaries_by_ad[ad_id], raw_ads_by_id[ad_id]))
+            prompts.append(_build_prompt(ad_id, candidates, raw_ads_by_id[ad_id]))
             n_candidates_per_ad.append(len(candidates))
     
         _sa = {}
+        schema = FilterResponseModel.model_json_schema() if _use_structured_output else None
         responses = await allm_generate(
             prompts,
             model=llm_model,
             system_message=SYSTEM_PROMPT,
             max_new_tokens=max_new_tokens,
-            json_schema=FilterResponseModel.model_json_schema(),
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            json_schema=schema,
             cache=sbatch_cache,
             time=sbatch_time,
             slurm_accounting=_sa,
@@ -147,6 +174,12 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     
         records = []
         for ad_id, response, n_cands in zip(chunk_ids, responses, n_candidates_per_ad):
+            if _is_reasoning or not _use_structured_output:
+                parsed = extract_json(response, validator=FilterResponseModel.model_validate)
+                if parsed is None:
+                    records.append({"id": ad_id, "data": response, "error": "Failed to extract valid JSON from model output"})
+                    continue
+                response = json.dumps(parsed)
             error = _validate_response(response, n_cands)
             records.append({"id": ad_id, "data": response, "error": error})
         return pd.DataFrame(records)
@@ -154,7 +187,7 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         "id": "BIGINT NOT NULL",
         "data": "VARCHAR NOT NULL",
         "error": "VARCHAR",
-    })
+    }, memory_limit=duckdb_memory_limit)
     
     filter_meta = await run_batched(
         ad_ids, store, _work_fn,
@@ -176,14 +209,39 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     with open(meta_path, "w") as f:
         json.dump(filter_meta, f, indent=2)
     print(f"llm_filter: wrote {const.rel(meta_path)}")
-    filter_conn = duckdb.connect(str(db_path), read_only=True)
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    
+    filter_conn = duckdb.connect(str(db_path))
     filter_rows = filter_conn.execute(
         "SELECT id, data FROM results WHERE error IS NULL"
     ).fetchall()
     filter_conn.close()
     
+    filtered_schema = pa.schema([
+        ("ad_id", pa.int64()),
+        ("rank", pa.int32()),
+        ("onet_code", pa.string()),
+        ("onet_title", pa.string()),
+        ("cosine_score", pa.float32()),
+    ])
+    dropped_schema = pa.schema([
+        ("ad_id", pa.int64()),
+        ("onet_code", pa.string()),
+        ("onet_title", pa.string()),
+        ("cosine_score", pa.float32()),
+        ("original_rank", pa.int32()),
+    ])
+    
+    filtered_path = output_dir / "filtered_matches.parquet"
+    dropped_path = output_dir / "dropped_matches.parquet"
+    filtered_writer = pq.ParquetWriter(filtered_path, filtered_schema)
+    dropped_writer = pq.ParquetWriter(dropped_path, dropped_schema)
+    
+    total_kept = 0
+    total_dropped = 0
+    
     FILTER_CHUNK_SIZE = 5000
-    filtered_rows = []
     for chunk_start in range(0, len(filter_rows), FILTER_CHUNK_SIZE):
         chunk = filter_rows[chunk_start:chunk_start + FILTER_CHUNK_SIZE]
         chunk_ad_ids = [int(row[0]) for row in chunk]
@@ -191,44 +249,60 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         # Load matches for this chunk from parquet
         id_list = ",".join(str(i) for i in chunk_ad_ids)
         chunk_matches = _matches_conn.execute(
-            f"SELECT * FROM read_parquet('{matches_path}') WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+            f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
         ).fetchdf()
         matches_by_ad = {}
         for ad_id, group in chunk_matches.groupby("ad_id"):
             matches_by_ad[int(ad_id)] = group.to_dict("records")
     
+        kept_rows = []
+        drop_rows = []
         for ad_id_raw, data_str in chunk:
             ad_id = int(ad_id_raw)
             if ad_id not in matches_by_ad:
                 continue
             parsed = json.loads(data_str)
-            drop_set = set(parsed["drop"])  # 1-based indices
+            keep_set = set(parsed["keep"])  # 1-based indices
             candidates = matches_by_ad[ad_id]
-            kept = [c for i, c in enumerate(candidates) if (i + 1) not in drop_set]
-            for rank, c in enumerate(kept):
-                filtered_rows.append({
-                    "ad_id": ad_id,
-                    "rank": rank,
-                    "onet_code": c["onet_code"],
-                    "onet_title": c["onet_title"],
-                    "role_score": c["role_score"],
-                    "taskskill_score": c["taskskill_score"],
-                    "combined_score": c["combined_score"],
-                })
     
+            rank = 0
+            for i, c in enumerate(candidates):
+                if (i + 1) in keep_set:
+                    kept_rows.append({
+                        "ad_id": ad_id,
+                        "rank": rank,
+                        "onet_code": c["onet_code"],
+                        "onet_title": c["onet_title"],
+                        "cosine_score": float(c["cosine_score"]),
+                    })
+                    rank += 1
+                else:
+                    drop_rows.append({
+                        "ad_id": ad_id,
+                        "onet_code": c["onet_code"],
+                        "onet_title": c["onet_title"],
+                        "cosine_score": float(c["cosine_score"]),
+                        "original_rank": i,
+                    })
+    
+        if kept_rows:
+            filtered_writer.write_table(pa.Table.from_pylist(kept_rows, schema=filtered_schema))
+            total_kept += len(kept_rows)
+        if drop_rows:
+            dropped_writer.write_table(pa.Table.from_pylist(drop_rows, schema=dropped_schema))
+            total_dropped += len(drop_rows)
+    
+    filtered_writer.close()
+    dropped_writer.close()
     _matches_conn.close()
-    _summaries_conn.close()
     _ads_conn.close()
-    
-    filtered_df = pd.DataFrame(filtered_rows)
-    filtered_path = output_dir / "filtered_matches.parquet"
-    filtered_df.to_parquet(filtered_path, index=False)
     
     failed_set = set(filter_meta["failed_ids"])
     successful_ad_ids = [i for i in ad_ids if i not in failed_set]
     
-    print(f"llm_filter: {len(filtered_df)} filtered match rows for {len(successful_ad_ids)} ads")
-    print(f"  mean candidates kept: {len(filtered_df) / max(len(successful_ad_ids), 1):.1f}")
-    print(f"  output: {filtered_path}")
+    print(f"llm_filter: {total_kept} kept, {total_dropped} dropped for {len(successful_ad_ids)} ads")
+    print(f"  mean candidates kept: {total_kept / max(len(successful_ad_ids), 1):.1f}")
+    print(f"  filtered: {filtered_path}")
+    print(f"  dropped: {dropped_path}")
     
     return successful_ad_ids

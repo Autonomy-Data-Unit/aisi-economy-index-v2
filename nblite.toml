@@ -1,93 +1,52 @@
 # nblite configuration
 export_pipeline = """
-nbs -> lib
-nbs -> pts
+nbs_nodes -> lib_nodes
+nbs_nodes -> pts_nodes
 
-nbs_tests -> lib_tests
-nbs_tests -> pts_tests
+nbs_scratch -> pts_scratch
 
-nbs_isambard -> lib_isambard
-nbs_isambard -> pts_isambard
-
-nbs_dev -> lib_dev
-nbs_dev -> pts_dev
-
-nbs_examples -> pts_examples
-
-nbs_runner -> lib_runner
-nbs_runner -> pts_runner
+nbs_validation -> lib_validation
+nbs_validation -> pts_validation
 """
 
-[cl.nbs]
-path = "nbs/ai_index"
+[fill]
+code_locations = [
+    "nbs_nodes",
+]
+exclude_patterns = [
+    "**/*_v1.ipynb",
+]
+
+[cl.nbs_nodes]
+path = "nbs/ai_index/nodes"
 format = "ipynb"
 
-[cl.pts]
-path = "pts/ai_index"
+[cl.pts_nodes]
+path = "pts/ai_index/nodes"
 format = "percent"
 
-[cl.lib]
-path = "src/ai_index"
+[cl.lib_nodes]
+path = "src/ai_index/nodes"
 format = "module"
 
 
-[cl.nbs_tests]
-path = "nbs/tests"
+[cl.nbs_scratch]
+path = "nbs/scratch"
 format = "ipynb"
 
-[cl.pts_tests]
-path = "pts/tests"
-format = "percent"
-
-[cl.lib_tests]
-path = "src/tests"
-format = "module"
-
-
-[cl.nbs_isambard]
-path = "nbs/isambard_utils"
-format = "ipynb"
-
-[cl.pts_isambard]
-path = "pts/isambard_utils"
-format = "percent"
-
-[cl.lib_isambard]
-path = "src/isambard_utils"
-format = "module"
-
-
-
-[cl.nbs_dev]
-path = "nbs/dev_utils"
-format = "ipynb"
-
-[cl.pts_dev]
-path = "pts/dev_utils"
-format = "percent"
-
-[cl.lib_dev]
-path = "src/dev_utils"
-format = "module"
-
-
-[cl.nbs_examples]
-path = "nbs/examples"
-format = "ipynb"
-
-[cl.pts_examples]
-path = "pts/examples"
+[cl.pts_scratch]
+path = "pts/scratch"
 format = "percent"
 
 
-[cl.nbs_runner]
-path = "nbs/llm_runner"
+[cl.nbs_validation]
+path = "nbs/validation"
 format = "ipynb"
 
-[cl.pts_runner]
-path = "pts/llm_runner"
+[cl.pts_validation]
+path = "pts/validation"
 format = "percent"
 
-[cl.lib_runner]
-path = "src/llm_runner"
+[cl.lib_validation]
+path = "src/validation"
 format = "module"
