@@ -61,7 +61,7 @@ Matches each job ad to O\*NET occupations through a multi-stage retrieval pipeli
 
 1. **`embed_ads`** / **`embed_onet`**: Embed ad text and O\*NET descriptions using the configured embedding model.
 2. **`cosine_candidates`**: Top-k cosine similarity between ad and O\*NET embeddings (default k=20).
-3. **`llm_filter_candidates`**: LLM negative selection. Drops candidates that are not functional matches.
+3. **`llm_filter_candidates`**: LLM-based filtering. Selects candidates that are functional matches for the job ad.
 4. **`rerank_candidates`**: Cross-encoder reranking of filtered candidates to produce final match scores.
 
 ### Stage 2b: O\*NET exposure scoring
