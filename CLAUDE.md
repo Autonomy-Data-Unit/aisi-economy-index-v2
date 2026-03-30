@@ -4,7 +4,7 @@
 
 **ai-index** (AISI Economy Index v2) is a productionized data pipeline for analyzing AI exposure in the economy. It matches job advertisements to O\*NET occupations and computes AI impact metrics (ASPECTT vectors, AI exposure scores, seniority/job zone).
 
-This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`, which was a collection of manually-run notebooks. The v2 uses **netrun** for orchestrating the data pipeline and **nblite** for literate programming development.
+This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`, which was a collection of manually-run notebooks. The v2 uses **netrun** for orchestrating the data pipeline. **nblite** is used for literate programming on pipeline node notebooks, scratch notebooks, and validation notebooks only; all other code lives directly in `src/`.
 
 ## Pipeline DAG
 
@@ -84,8 +84,8 @@ The pipeline is run via `run_pipeline_async(run_name)` (or the `run-pipeline` CL
 Run name is determined by: explicit argument > `RUN_NAME` env var > `"baseline"`.
 
 ### Key files
-- `pts/ai_index/run_pipeline.pct.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
-- `pts/ai_index/const.pct.py` — Path constants (`store_path`, `inputs_path`, `outputs_path`, `onet_exposure_scores_path`, `aspectt_vectors_path`, config paths)
+- `src/ai_index/run_pipeline.py` — `run_pipeline_async()`, `_load_run_defs()`, `_resolve_run_defs()`
+- `src/ai_index/const.py` — Path constants (`store_path`, `inputs_path`, `outputs_path`, `onet_exposure_scores_path`, `aspectt_vectors_path`, config paths)
 - `config/run_defs.toml` — Run definitions
 - `config/netrun.json` — Pipeline graph with unfilled node_var placeholders
 
@@ -204,13 +204,13 @@ gpus = 4
 ```
 
 ### Key files
-- `pts/ai_index/utils/` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
+- `src/ai_index/utils/` — `embed()`, `llm_generate()`, `cosine_topk()`, `_load_model_config()`, `_resolve_model_args()`
 - `config/embed_models.toml` — Embedding model configs
 - `config/llm_models.toml` — LLM model configs
 
 ## `ai_index.utils` — Pipeline utilities
 
-Model-key-based utility functions in `pts/ai_index/utils/`. Each function resolves its execution mode from the TOML config, so callers only pass a model key. All have sync and async variants (e.g. `embed`/`aembed`).
+Model-key-based utility functions in `src/ai_index/utils/`. Each function resolves its execution mode from the TOML config, so callers only pass a model key. All have sync and async variants (e.g. `embed`/`aembed`).
 
 - **`embed(texts, *, model, **kwargs) -> np.ndarray`** — Embed texts. Routes by mode (api/local/sbatch).
 - **`llm_generate(prompts, *, model, **kwargs) -> list[str]`** — Generate LLM responses. Routes by mode. All three backends support `system_message`, `max_new_tokens`, and `json_schema` kwargs.
@@ -222,7 +222,7 @@ Explicit `**kwargs` override TOML config values. All functions support an option
 
 ## Isambard HPC
 
-The `isambard_utils` package (`pts/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `config/isambard.toml` + `ISAMBARD_HOST` env var.
+The `isambard_utils` package (`src/isambard_utils/`) automates GPU workloads on the Isambard AI Phase 2 cluster (NVIDIA GH200 120GB, ARM64, Slurm). It handles SSH, file transfer, environment bootstrap, SBATCH job submission/polling, HuggingFace model caching, and Slurm accounting. Config: `config/isambard.toml` + `ISAMBARD_HOST` env var.
 
 The high-level entry point is `orchestrate.arun_remote()`, which manages the full lifecycle: setup, model caching, input transfer, SBATCH submit, poll, accounting collection, output download, and cleanup. Billing: 0.25 NHR per GPU-hour for typical 1-GPU jobs.
 
@@ -244,48 +244,50 @@ Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton c
 │   └── deploy.toml           # Remote deployment config (Hetzner server, storage box)
 ├── prompt_library/           # Prompt templates (Markdown files: llm_summarise, llm_filter, score_task_exposure)
 ├── agent-context/            # Reference docs for netrun & nblite
-├── pts/ai_index/             # Source of truth (.pct.py files) - EDIT THESE
-│   ├── const.pct.py          # Path constants
+│
+│   ## nblite-managed (edit pts/, export to nbs/ and src/)
+├── pts/ai_index/nodes/       # Node notebooks (.pct.py) - EDIT THESE
+├── nbs/ai_index/nodes/       # Node notebooks (.ipynb, auto-generated from pts)
+├── pts/scratch/              # Scratch/experiment notebooks (.pct.py) - EDIT THESE
+├── nbs/scratch/              # Scratch notebooks (.ipynb, auto-generated from pts)
+├── pts/validation/           # Validation notebooks (.pct.py) - EDIT THESE
+├── nbs/validation/           # Validation notebooks (.ipynb, auto-generated from pts)
+│
+│   ## Plain Python (edit src/ directly)
+├── src/ai_index/             # Pipeline package
+│   ├── const.py              # Path constants
+│   ├── run_pipeline.py       # Pipeline runner
 │   ├── utils/                # embed(), llm_generate(), cosine_topk(), etc.
-│   ├── run_pipeline.pct.py   # Pipeline runner
-│   └── nodes/                # Node functions (17 nodes)
-├── nbs/ai_index/             # Jupyter notebooks (auto-generated from pts)
-├── src/ai_index/             # Python modules (auto-generated) - DO NOT EDIT
-├── pts/isambard_utils/       # Isambard HPC utils (.pct.py) - EDIT THESE
-├── nbs/isambard_utils/       # Isambard notebooks (auto-generated)
-├── src/isambard_utils/       # Isambard utils Python modules (auto-generated)
+│   └── nodes/                # Node modules (auto-generated from pts/ai_index/nodes/)
+├── src/isambard_utils/       # Isambard HPC utils
 │   └── assets/
 │       └── config.toml       # Isambard cluster config
-├── pts/llm_runner/           # LLM runner (embed, cosine, LLM generate) - EDIT THESE
-├── nbs/llm_runner/           # LLM runner notebooks (auto-generated)
-├── src/llm_runner/           # LLM runner Python modules (auto-generated)
-├── pts/dev_utils/            # Development utilities (set_node_func_args, etc.)
-├── nbs/dev_utils/            # Dev utils notebooks (auto-generated)
-├── src/dev_utils/            # Dev utils Python modules (auto-generated)
-├── pts/calibration/          # GPU-hours calibration tools (.pct.py) - EDIT THESE
-├── nbs/calibration/          # Calibration notebooks (auto-generated)
-├── src/calibration/          # Calibration Python modules (auto-generated)
-├── pts/deploy/               # Remote deployment tools (.pct.py) - EDIT THESE
-├── nbs/deploy/               # Deploy notebooks (auto-generated)
-├── src/deploy/               # Deploy Python modules (auto-generated)
+├── src/llm_runner/           # LLM runner (embed, cosine, LLM generate)
+├── src/dev_utils/            # Development utilities (set_node_func_args, etc.)
+├── src/calibration/          # GPU-hours calibration tools
+├── src/deploy/               # Remote deployment tools
+├── src/validation/           # Validation modules (auto-generated from pts/validation/)
+├── src/tests/                # Test modules
+│
 ├── scripts/deploy_setup.py   # Standalone pyinfra deploy script (server setup)
-├── pts/examples/             # Example notebooks
-├── nbs/examples/             # Example notebooks (.ipynb, auto-generated)
-├── pts/tests/                # Test notebooks (.pct.py) - EDIT THESE
-│   ├── isambard_utils/       # Isambard integration + unit tests
-│   └── llm_runner/           # LLM runner tests
-├── nbs/tests/                # Test notebooks (.ipynb, auto-generated)
-├── src/tests/                # Test modules (auto-generated)
 └── .claude/skills/           # Netrun skill docs for Claude
 ```
 
 ## Development Workflow
 
 ### Where to edit code
-- **Edit `.pct.py` files in `pts/`** - these are the source of truth
-- **Never edit files in `src/`** - they are auto-generated and will be overwritten
-- **Exception: `__init__.py` files** — nblite skips dunder-named files (`__init__`, `__main__`, etc.) during module export. These must be edited directly in `src/` and kept in sync with the corresponding `pts/.../__init__.pct.py` notebook.
-- After editing `.pct.py` files, run: `nbl export --reverse && nbl export`
+
+Only three code locations use the nblite export pipeline (pts/ <-> nbs/ <-> src/):
+- **`pts/ai_index/nodes/`** — Pipeline node notebooks. Edit `.pct.py` here, then run `nbl export --reverse && nbl export`.
+- **`pts/scratch/`** — Scratch/experiment notebooks. Syncs pts <-> nbs only (no lib export).
+- **`pts/validation/`** — Validation notebooks. Edit `.pct.py` here, then run `nbl export --reverse && nbl export`.
+
+Everything else lives directly in `src/` and is edited there:
+- `src/ai_index/utils/`, `src/ai_index/const.py`, `src/ai_index/run_pipeline.py`
+- `src/isambard_utils/`, `src/llm_runner/`, `src/dev_utils/`
+- `src/calibration/`, `src/deploy/`, `src/tests/`
+
+**Exception: `__init__.py` files** — nblite skips dunder-named files during module export. For nblite-managed locations, edit `__init__.py` directly in `src/` and keep in sync with the corresponding `pts/.../__init__.pct.py` notebook.
 
 ### nblite commands
 ```bash
@@ -293,25 +295,17 @@ nbl export                    # Export nbs -> pts -> src
 nbl export --reverse          # Sync pts changes back to nbs
 nbl test                      # Test notebooks execute without errors
 nbl fill                      # Execute notebooks and save outputs
-nbl new pts/ai_index/foo.pct.py  # Create new notebook
-nbl new --template dev/templates/func_node.pct.py.jinja pts/ai_index/nodes/foo.pct.py  # Create new node notebook from template
+nbl new pts/ai_index/nodes/foo.pct.py  # Create new node notebook
+nbl new --template dev/templates/func_node.pct.py.jinja pts/ai_index/nodes/foo.pct.py  # Create new node from template
 ```
 
 ### Export pipeline (from nblite.toml)
 ```
-nbs -> lib        (nbs/ai_index/*.ipynb -> src/ai_index/*.py)
-nbs -> pts        (nbs/ai_index/*.ipynb -> pts/ai_index/*.pct.py)
-nbs_tests -> lib_tests          (nbs/tests/ -> src/tests/)
-nbs_tests -> pts_tests          (nbs/tests/ -> pts/tests/)
-nbs_isambard -> lib_isambard    (nbs/isambard_utils/ -> src/isambard_utils/)
-nbs_isambard -> pts_isambard
-nbs_dev -> lib_dev              (nbs/dev_utils/ -> src/dev_utils/)
-nbs_dev -> pts_dev
-nbs_examples -> pts_examples    (nbs/examples/ -> pts/examples/, no lib)
-nbs_runner -> lib_runner        (nbs/llm_runner/ -> src/llm_runner/)
-nbs_runner -> pts_runner
-nbs_deploy -> lib_deploy        (nbs/deploy/ -> src/deploy/)
-nbs_deploy -> pts_deploy
+nbs_nodes -> lib_nodes          (nbs/ai_index/nodes/ -> src/ai_index/nodes/)
+nbs_nodes -> pts_nodes          (nbs/ai_index/nodes/ -> pts/ai_index/nodes/)
+nbs_scratch -> pts_scratch      (nbs/scratch/ -> pts/scratch/, no lib)
+nbs_validation -> lib_validation (nbs/validation/ -> src/validation/)
+nbs_validation -> pts_validation (nbs/validation/ -> pts/validation/)
 ```
 
 ### Testing
@@ -489,7 +483,7 @@ def process(data: Batch(str, count=3)):  # collects up to 3 packets into list[st
 
 ## GPU-Hours Calibration
 
-The `pts/calibration/` module contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard. Results are stored in `store/calibration/results/` (gitignored, regeneratable).
+The `src/calibration/` module contains tools for measuring per-ad GPU timing and estimating costs for full pipeline runs on Isambard. Results are stored in `store/calibration/results/` (gitignored, regeneratable).
 
 ### Running calibration
 ```bash
@@ -519,14 +513,14 @@ Global node var (`config/netrun.json`) inherited by all 6 sbatch-capable nodes. 
 Nodes pass `time=sbatch_time` as a kwarg to `embed()`/`llm_generate()`/`cosine_topk()`, which overrides any `time` in the model TOML. In api/local modes, `time` is harmlessly stripped by `_strip_remote_kwargs()`.
 
 ### Key files
-- `pts/calibration/run_calibration.pct.py` — CLI (`run-calibration`): run pipeline, collect timing, save results
-- `pts/calibration/calibrate_all.pct.py` — CLI (`calibrate-all`): run all uncalibrated sbatch models
-- `pts/calibration/estimate.pct.py` — CLI (`estimate-calibration`): read results, print GPU-hour estimates
+- `src/calibration/run_calibration.py` — CLI (`run-calibration`): run pipeline, collect timing, save results
+- `src/calibration/calibrate_all.py` — CLI (`calibrate-all`): run all uncalibrated sbatch models
+- `src/calibration/estimate.py` — CLI (`estimate-calibration`): read results, print GPU-hour estimates
 - `store/calibration/results/{llm,embed}/*.json` — Per-model timing results (gitignored)
 
 ## Remote Deployment (Hetzner)
 
-The `pts/deploy/` module provisions a Hetzner Cloud server and deploys the pipeline for remote execution. The `store/` directory is created on the server's local disk. Configuration lives in `config/deploy.toml`. Requires `hcloud` CLI to be installed and authenticated.
+The `src/deploy/` module provisions a Hetzner Cloud server and deploys the pipeline for remote execution. The `store/` directory is created on the server's local disk. Configuration lives in `config/deploy.toml`. Requires `hcloud` CLI to be installed and authenticated.
 
 ### CLI commands
 ```bash
@@ -554,10 +548,10 @@ Re-running is idempotent. If the server already exists, it skips provisioning an
 
 ### Key files
 - `config/deploy.toml` -- server and repo settings
-- `scripts/deploy_setup.py` -- standalone pyinfra deploy script (not managed by nblite)
-- `pts/deploy/config.pct.py` -- config loading, hcloud helpers, SSH utilities
-- `pts/deploy/deploy_pipeline.pct.py` -- main deploy orchestration
-- `pts/deploy/destroy.pct.py`, `run_cmd.pct.py`, `download_store.pct.py`, `get_ip.pct.py` -- other CLI commands
+- `scripts/deploy_setup.py` -- standalone pyinfra deploy script
+- `src/deploy/config.py` -- config loading, hcloud helpers, SSH utilities
+- `src/deploy/deploy_pipeline.py` -- main deploy orchestration
+- `src/deploy/destroy.py`, `run_cmd.py`, `download_store.py`, `get_ip.py` -- other CLI commands
 
 ## Old Repository Reference
 
