@@ -23,7 +23,7 @@
 # Node variables: none (element sets are methodology, not configuration).
 
 # %%
-#|default_exp nodes.score_presence
+#|default_exp score_presence
 #|export_as_func true
 
 # %%

@@ -27,7 +27,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.compute_job_ad_exposure
+#|default_exp compute_job_ad_exposure
 #|export_as_func true
 
 # %%

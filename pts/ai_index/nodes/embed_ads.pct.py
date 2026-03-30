@@ -28,7 +28,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.embed_ads
+#|default_exp embed_ads
 #|export_as_func true
 
 # %%

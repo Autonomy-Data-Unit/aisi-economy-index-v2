@@ -17,7 +17,7 @@
 # Node variables: none
 
 # %%
-#|default_exp nodes.combine_onet_exposure
+#|default_exp combine_onet_exposure
 #|export_as_func true
 
 # %%

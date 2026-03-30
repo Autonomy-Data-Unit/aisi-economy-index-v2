@@ -25,7 +25,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.aggregate_geo
+#|default_exp aggregate_geo
 #|export_as_func true
 
 # %%

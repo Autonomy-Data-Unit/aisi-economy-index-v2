@@ -31,7 +31,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.llm_filter_candidates
+#|default_exp llm_filter_candidates
 #|export_as_func true
 
 # %%

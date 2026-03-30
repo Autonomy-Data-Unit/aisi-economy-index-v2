@@ -24,7 +24,7 @@
 # - `user_prompt` (per-node): Path in prompt_library/
 
 # %%
-#|default_exp nodes.score_task_exposure
+#|default_exp score_task_exposure
 #|export_as_func true
 
 # %%

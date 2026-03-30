@@ -13,7 +13,7 @@
 # Returns all tables as a dict of DataFrames.
 
 # %%
-#|default_exp nodes.fetch_onet
+#|default_exp fetch_onet
 #|export_as_func true
 
 # %%

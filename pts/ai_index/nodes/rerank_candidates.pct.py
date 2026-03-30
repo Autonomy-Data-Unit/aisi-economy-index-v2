@@ -25,7 +25,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.rerank_candidates
+#|default_exp rerank_candidates
 #|export_as_func true
 
 # %%

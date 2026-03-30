@@ -22,7 +22,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.cosine_candidates
+#|default_exp cosine_candidates
 #|export_as_func true
 
 # %%

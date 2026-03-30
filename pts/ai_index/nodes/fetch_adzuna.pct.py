@@ -14,7 +14,7 @@
 # Hive-partitioned: `s3://{prefix}/year={Y}/month={M}/day={D}/*.jsonl`
 
 # %%
-#|default_exp nodes.fetch_adzuna
+#|default_exp fetch_adzuna
 #|export_as_func true
 
 # %%

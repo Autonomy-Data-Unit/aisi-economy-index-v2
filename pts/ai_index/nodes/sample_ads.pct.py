@@ -14,7 +14,7 @@
 # Otherwise, sample N ads and return their IDs.
 
 # %%
-#|default_exp nodes.sample_ads
+#|default_exp sample_ads
 #|export_as_func true
 
 # %%

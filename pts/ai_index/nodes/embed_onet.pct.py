@@ -25,7 +25,7 @@
 # - `run_name` (global): Pipeline run name
 
 # %%
-#|default_exp nodes.embed_onet
+#|default_exp embed_onet
 #|export_as_func true
 
 # %%

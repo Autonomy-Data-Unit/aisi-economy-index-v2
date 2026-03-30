@@ -25,7 +25,7 @@
 # - `felten_scenario` (str): Progress scenario name (default "baseline_2025")
 
 # %%
-#|default_exp nodes.score_felten
+#|default_exp score_felten
 #|export_as_func true
 
 # %%

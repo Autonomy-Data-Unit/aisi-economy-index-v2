@@ -23,7 +23,7 @@
 # - `onet_top_n` (per-node): Top-N tasks per occupation (default 10)
 
 # %%
-#|default_exp nodes.prepare_onet_targets
+#|default_exp prepare_onet_targets
 #|export_as_func true
 
 # %%
