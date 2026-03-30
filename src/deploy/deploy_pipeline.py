@@ -59,7 +59,7 @@ def _run_pyinfra_setup(ip: str) -> None:
     subprocess.run(["ssh-keygen", "-R", ip], capture_output=True)
     print("Running pyinfra server setup...")
     subprocess.run(
-        ["uv", "run", "pyinfra", ip, "--ssh-user", "root", "scripts/deploy_setup.py", "-y"],
+        ["uv", "run", "pyinfra", ip, "--ssh-user", "root", "src/deploy/deploy_setup.py", "-y"],
         check=True,
     )
 
