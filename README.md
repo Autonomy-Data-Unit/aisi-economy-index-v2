@@ -236,6 +236,14 @@ Key concepts:
 - **Epochs**: One execution cycle of a node. The pipeline runs until no more progress can be made.
 - **Node variables**: Typed configuration values declared in `netrun.json` and populated from `run_defs.toml`. Accessed via `ctx.vars["name"]` in node code.
 
+### Editing the pipeline graph
+
+Use [netrun-ui](https://github.com/lukastk/netrun) to visually edit `config/netrun.json`:
+
+```bash
+uv run netrun-ui config/netrun.json
+```
+
 ### Useful netrun CLI commands
 
 ```bash
