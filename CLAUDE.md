@@ -241,8 +241,8 @@ Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton c
 │   ├── run_defs.toml         # Run definitions (defaults + named runs)
 │   ├── embed_models.toml     # Embedding model configs
 │   ├── llm_models.toml       # LLM model configs
-│   └── deploy.toml           # Remote deployment config (Hetzner server, storage box)
-├── prompt_library/           # Prompt templates (Markdown files: llm_summarise, llm_filter, score_task_exposure)
+│   ├── deploy.toml           # Remote deployment config (Hetzner server, storage box)
+│   └── prompt_library/       # Prompt templates (Markdown files: llm_filter, score_task_exposure)
 ├── agent-context/            # Reference docs for netrun & nblite
 │
 │   ## nblite-managed (edit pts/, export to nbs/ and src/)
@@ -548,7 +548,7 @@ Re-running is idempotent. If the server already exists, it skips provisioning an
 
 ### Key files
 - `config/deploy.toml` -- server and repo settings
-- `scripts/deploy_setup.py` -- standalone pyinfra deploy script
+- `src/deploy/deploy_setup.py` -- pyinfra deploy script (server setup)
 - `src/deploy/config.py` -- config loading, hcloud helpers, SSH utilities
 - `src/deploy/deploy_pipeline.py` -- main deploy orchestration
 - `src/deploy/destroy.py`, `run_cmd.py`, `download_store.py`, `get_ip.py` -- other CLI commands
