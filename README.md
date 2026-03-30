@@ -1,8 +1,8 @@
-# AISI Economy Index v2
+# AISI Exposure Index
 
 A data pipeline for measuring AI exposure across the UK economy. It matches ~30 million Adzuna job advertisements to 861 O\*NET occupations using embedding similarity, LLM filtering, and cross-encoder reranking, then computes multi-dimensional AI exposure scores and aggregates them by geography.
 
-[View interactive pipeline graph](https://htmlpreview.github.io/?https://github.com/Autonomy-Data-Unit/aisi-economy-index-v2/blob/main/pipeline.html)
+[View interactive pipeline graph](https://htmlpreview.github.io/?https://github.com/Autonomy-Data-Unit/aisi-exposure-index/blob/main/pipeline.html)
 
 ## Setup
 
@@ -47,7 +47,7 @@ Run definitions are composable: each named run inherits from `[defaults]` and ov
 
 ## Pipeline overview
 
-The pipeline is a 17-node DAG orchestrated by [netrun](https://github.com/lukastk/netrun). It has three stages that run partly in parallel. See the [interactive pipeline graph](https://htmlpreview.github.io/?https://github.com/Autonomy-Data-Unit/aisi-economy-index-v2/blob/main/pipeline.html) for the full DAG visualization.
+The pipeline is a 17-node DAG orchestrated by [netrun](https://github.com/lukastk/netrun). It has three stages that run partly in parallel. See the [interactive pipeline graph](https://htmlpreview.github.io/?https://github.com/Autonomy-Data-Unit/aisi-exposure-index/blob/main/pipeline.html) for the full DAG visualization.
 
 ### Stage 1: Data ingestion
 

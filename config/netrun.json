@@ -1,6 +1,6 @@
 {
   "extra": {
-    "description": "AISI Economy Index v2 \u2014 AI exposure scoring pipeline. Matches job ads to O*NET occupations, computes multi-dimensional AI exposure scores, and aggregates results."
+    "description": "AISI Exposure Index. AI exposure scoring pipeline. Matches job ads to O*NET occupations, computes multi-dimensional AI exposure scores, and aggregates results."
   },
   "node_vars": {
     "adzuna_s3_prefix": {

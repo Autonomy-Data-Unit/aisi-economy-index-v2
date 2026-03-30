@@ -2,9 +2,7 @@
 
 ## Project Overview
 
-**ai-index** (AISI Economy Index v2) is a productionized data pipeline for analyzing AI exposure in the economy. It matches job advertisements to O\*NET occupations and computes AI impact metrics (ASPECTT vectors, AI exposure scores, seniority/job zone).
-
-This is a clean rewrite of the old repository at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index`, which was a collection of manually-run notebooks. The v2 uses **netrun** for orchestrating the data pipeline. **nblite** is used for literate programming on pipeline node notebooks, scratch notebooks, and validation notebooks only; all other code lives directly in `src/`.
+**ai-index** (AISI Exposure Index) is a productionized data pipeline for analyzing AI exposure in the economy. It matches job advertisements to O\*NET occupations and computes AI impact metrics (ASPECTT vectors, AI exposure scores, seniority/job zone).
 
 ## Pipeline DAG
 
@@ -552,7 +550,3 @@ Re-running is idempotent. If the server already exists, it skips provisioning an
 - `src/deploy/config.py` -- config loading, hcloud helpers, SSH utilities
 - `src/deploy/deploy_pipeline.py` -- main deploy orchestration
 - `src/deploy/destroy.py`, `run_cmd.py`, `download_store.py`, `get_ip.py` -- other CLI commands
-
-## Old Repository Reference
-
-The old codebase is at `/Users/lukas/dev/20260208_e22t36__aisi-economy-index` (manually-run notebooks, now fully rebuilt in v2).

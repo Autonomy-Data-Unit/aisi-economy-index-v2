@@ -63,9 +63,9 @@ remote-download-store = "deploy.download_store:main"
 remote-ip = "deploy.get_ip:main"
 
 [project.urls]
-Homepage = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
-Documentation = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
-Repository = "https://github.com/Autonomy-Data-Unit/aisi-economy-index"
+Homepage = "https://github.com/Autonomy-Data-Unit/aisi-exposure-index"
+Documentation = "https://github.com/Autonomy-Data-Unit/aisi-exposure-index"
+Repository = "https://github.com/Autonomy-Data-Unit/aisi-exposure-index"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,5 +1,5 @@
 [server]
-name = "aisi-economy-index"
+name = "aisi-exposure-index"
 type = "cpx62"
 location = "fsn1"
 image = "ubuntu-24.04"
@@ -7,4 +7,4 @@ ssh_key_name = "main"
 ssh_pubkey_path = "~/.ssh/id_ed25519.pub"
 
 [repo]
-path = "/root/aisi-economy-index"
+path = "/root/aisi-exposure-index"
