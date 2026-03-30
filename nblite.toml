@@ -1,90 +1,32 @@
 # nblite configuration
 export_pipeline = """
-nbs_ai_index -> lib_ai_index
-nbs_ai_index -> pts_ai_index
-
-nbs_tests -> lib_tests
-nbs_tests -> pts_tests
-
-nbs_isambard -> lib_isambard
-nbs_isambard -> pts_isambard
-
-nbs_dev -> lib_dev
-nbs_dev -> pts_dev
+nbs_nodes -> lib_nodes
+nbs_nodes -> pts_nodes
 
 nbs_scratch -> pts_scratch
 
-nbs_runner -> lib_runner
-nbs_runner -> pts_runner
-
-nbs_calibration -> lib_calibration
-nbs_calibration -> pts_calibration
-
 nbs_validation -> lib_validation
 nbs_validation -> pts_validation
-
-nbs_deploy -> lib_deploy
-nbs_deploy -> pts_deploy
 """
 
 [fill]
 code_locations = [
-    "nbs_ai_index",
+    "nbs_nodes",
 ]
 exclude_patterns = [
     "**/*_v1.ipynb",
 ]
 
-[cl.nbs_ai_index]
-path = "nbs/ai_index"
+[cl.nbs_nodes]
+path = "nbs/ai_index/nodes"
 format = "ipynb"
 
-[cl.pts_ai_index]
-path = "pts/ai_index"
+[cl.pts_nodes]
+path = "pts/ai_index/nodes"
 format = "percent"
 
-[cl.lib_ai_index]
-path = "src/ai_index"
-format = "module"
-
-
-[cl.nbs_tests]
-path = "nbs/tests"
-format = "ipynb"
-
-[cl.pts_tests]
-path = "pts/tests"
-format = "percent"
-
-[cl.lib_tests]
-path = "src/tests"
-format = "module"
-
-
-[cl.nbs_isambard]
-path = "nbs/isambard_utils"
-format = "ipynb"
-
-[cl.pts_isambard]
-path = "pts/isambard_utils"
-format = "percent"
-
-[cl.lib_isambard]
-path = "src/isambard_utils"
-format = "module"
-
-
-
-[cl.nbs_dev]
-path = "nbs/dev_utils"
-format = "ipynb"
-
-[cl.pts_dev]
-path = "pts/dev_utils"
-format = "percent"
-
-[cl.lib_dev]
-path = "src/dev_utils"
+[cl.lib_nodes]
+path = "src/ai_index/nodes"
 format = "module"
 
 
@@ -97,32 +39,6 @@ path = "pts/scratch"
 format = "percent"
 
 
-[cl.nbs_runner]
-path = "nbs/llm_runner"
-format = "ipynb"
-
-[cl.pts_runner]
-path = "pts/llm_runner"
-format = "percent"
-
-[cl.lib_runner]
-path = "src/llm_runner"
-format = "module"
-
-
-[cl.nbs_calibration]
-path = "nbs/calibration"
-format = "ipynb"
-
-[cl.pts_calibration]
-path = "pts/calibration"
-format = "percent"
-
-[cl.lib_calibration]
-path = "src/calibration"
-format = "module"
-
-
 [cl.nbs_validation]
 path = "nbs/validation"
 format = "ipynb"
@@ -133,17 +49,4 @@ format = "percent"
 
 [cl.lib_validation]
 path = "src/validation"
-format = "module"
-
-
-[cl.nbs_deploy]
-path = "nbs/deploy"
-format = "ipynb"
-
-[cl.pts_deploy]
-path = "pts/deploy"
-format = "percent"
-
-[cl.lib_deploy]
-path = "src/deploy"
 format = "module"
