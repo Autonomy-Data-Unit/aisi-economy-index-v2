@@ -64,6 +64,8 @@ def _init_vllm_reranker(model_name, tokenizer, tensor_parallel_size, dtype, vllm
         dtype="half" if dtype == "float16" else dtype,
     )
 
+    style_ctx = {}
+
     if vllm_prompt_style == "qwen":
         true_token = tokenizer("yes", add_special_tokens=False).input_ids[0]
         false_token = tokenizer("no", add_special_tokens=False).input_ids[0]
@@ -80,10 +82,27 @@ def _init_vllm_reranker(model_name, tokenizer, tensor_parallel_size, dtype, vllm
         sampling_params = SamplingParams(
             temperature=0, max_tokens=1, logprobs=20,
         )
+    elif vllm_prompt_style == "lb-reranker":
+        true_token = None
+        false_token = None
+        suffix_tokens = []
+        style_ctx["score_token_ids"] = [tokenizer.encode(str(i), add_special_tokens=False)[0] for i in range(1, 8)]
+        sampling_params = SamplingParams(
+            temperature=0, max_tokens=1, logprobs=14,
+        )
+    elif vllm_prompt_style == "rank1":
+        true_token = tokenizer(" true", add_special_tokens=False).input_ids[0]
+        false_token = tokenizer(" false", add_special_tokens=False).input_ids[0]
+        suffix_tokens = []
+        sampling_params = SamplingParams(
+            temperature=0, max_tokens=8192, logprobs=20,
+            stop=["</think> true", "</think> false"],
+            skip_special_tokens=False,
+        )
     else:
         raise ValueError(f"Unknown vllm_prompt_style: {vllm_prompt_style!r}")
 
-    return engine, sampling_params, true_token, false_token, suffix_tokens
+    return engine, sampling_params, true_token, false_token, suffix_tokens, style_ctx
 
 
 def _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, suffix_tokens, max_model_len):
@@ -104,11 +123,24 @@ def _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, su
         text = f"A: {query}\nB: {doc}\n{instruction}"
         token_ids = [tokenizer.bos_token_id] + tokenizer.encode(text, add_special_tokens=False)
         token_ids = token_ids[:max_model_len]
+    elif vllm_prompt_style == "lb-reranker":
+        messages = [
+            {"role": "system", "content": "Given a query and a piece of text, output a score of 1-7 based on how related the query is to the text. 1 means least related and 7 is most related."},
+            {"role": "user", "content": f"<<<Query>>>\n{query}\n\n<<<Context>>>\n{doc}"},
+        ]
+        token_ids = tokenizer.apply_chat_template(
+            messages, tokenize=True, add_generation_prompt=True,
+        )
+        token_ids = token_ids[:max_model_len]
+    elif vllm_prompt_style == "rank1":
+        text = f"Determine if the following passage is relevant to the query. Answer only with 'true' or 'false'.\nQuery: {query}\nPassage: {doc}\n<think>\n"
+        token_ids = tokenizer.encode(text, add_special_tokens=True)
+        token_ids = token_ids[:max_model_len]
 
     return TokensPrompt(prompt_token_ids=token_ids)
 
 
-def _extract_vllm_score(output, true_token, false_token, vllm_prompt_style):
+def _extract_vllm_score(output, true_token, false_token, vllm_prompt_style, style_ctx=None):
     """Extract a relevance score from a vLLM generation output."""
     logprobs = output.outputs[0].logprobs[-1]
 
@@ -120,6 +152,16 @@ def _extract_vllm_score(output, true_token, false_token, vllm_prompt_style):
         return true_score / (true_score + false_score)
     elif vllm_prompt_style == "bge-gemma":
         return math.exp(logprobs[true_token].logprob) if true_token in logprobs else 0.0
+    elif vllm_prompt_style == "lb-reranker":
+        score_token_ids = style_ctx["score_token_ids"]
+        probs = [math.exp(logprobs[tid].logprob) if tid in logprobs else 0.0 for tid in score_token_ids]
+        return sum((i + 1) * p for i, p in enumerate(probs))
+    elif vllm_prompt_style == "rank1":
+        true_logit = logprobs[true_token].logprob if true_token in logprobs else -10
+        false_logit = logprobs[false_token].logprob if false_token in logprobs else -10
+        true_score = math.exp(true_logit)
+        false_score = math.exp(false_logit)
+        return true_score / (true_score + false_score)
 
 
 def _rerank_vllm(
@@ -149,7 +191,7 @@ def _rerank_vllm(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = "left"
 
-    engine, sampling_params, true_token, false_token, suffix_tokens = _init_vllm_reranker(
+    engine, sampling_params, true_token, false_token, suffix_tokens, style_ctx = _init_vllm_reranker(
         model_name, tokenizer, tensor_parallel_size, dtype, vllm_prompt_style, max_model_len,
     )
 
@@ -171,7 +213,7 @@ def _rerank_vllm(
             batch = token_prompts[i:i + batch_size]
             outputs = engine.generate(batch, sampling_params, use_tqdm=False)
             for output in outputs:
-                scores.append(_extract_vllm_score(output, true_token, false_token, vllm_prompt_style))
+                scores.append(_extract_vllm_score(output, true_token, false_token, vllm_prompt_style, style_ctx))
 
         scores = np.array(scores, dtype=np.float32)
         top_idx = np.argsort(-scores)[:top_k]
@@ -308,7 +350,7 @@ def _rerank_pairs_vllm(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = "left"
 
-    engine, sampling_params, true_token, false_token, suffix_tokens = _init_vllm_reranker(
+    engine, sampling_params, true_token, false_token, suffix_tokens, style_ctx = _init_vllm_reranker(
         model_name, tokenizer, tensor_parallel_size, dtype, vllm_prompt_style, max_model_len,
     )
 
@@ -331,7 +373,7 @@ def _rerank_pairs_vllm(
         batch = all_prompts[i:i + batch_size]
         outputs = engine.generate(batch, sampling_params, use_tqdm=False)
         for output in outputs:
-            all_scores.append(_extract_vllm_score(output, true_token, false_token, vllm_prompt_style))
+            all_scores.append(_extract_vllm_score(output, true_token, false_token, vllm_prompt_style, style_ctx))
 
     # Split back by group
     return [

@@ -224,6 +224,97 @@ def load_parquet(run_name: str, node: str, filename: str) -> pd.DataFrame:
 
 # %%
 #|export
+SOC_MAJOR_GROUPS = {
+    "11": "Management",
+    "13": "Business & Financial",
+    "15": "Computer & Mathematical",
+    "17": "Architecture & Engineering",
+    "19": "Life, Physical & Social Science",
+    "21": "Community & Social Service",
+    "23": "Legal",
+    "25": "Education & Library",
+    "27": "Arts, Design & Media",
+    "29": "Healthcare Practitioners",
+    "31": "Healthcare Support",
+    "33": "Protective Service",
+    "35": "Food Preparation & Serving",
+    "37": "Building & Grounds",
+    "39": "Personal Care & Service",
+    "41": "Sales",
+    "43": "Office & Administrative",
+    "45": "Farming, Fishing & Forestry",
+    "47": "Construction & Extraction",
+    "49": "Installation & Maintenance",
+    "51": "Production",
+    "53": "Transportation & Material Moving",
+    "55": "Military",
+}
+
+
+def collect_arm_groups(completed, config, mn):
+    """Collect all arm groups across the three sensitivity arms.
+
+    Each arm group has one fixed model combination and varies one dimension.
+    Returns a list of dicts with keys: arm, varied, fixed, runs, names.
+    """
+    fixed_embeddings = config["fixed_embeddings"]
+    fixed_llms = config["fixed_llms"]
+    fixed_rerankers = config["fixed_rerankers"]
+
+    arm_groups = []
+
+    # Arm 1: vary LLM, fix embedding + reranker
+    for fixed_embed in fixed_embeddings:
+        for fixed_rerank in fixed_rerankers:
+            arm_runs = [
+                (rn, llm) for rn, rd, llm, embed, rerank in completed
+                if embed == fixed_embed and rerank == fixed_rerank
+            ]
+            if len(arm_runs) < 2:
+                continue
+            arm_groups.append({
+                "arm": 1, "varied": "LLM",
+                "fixed": f"{mn.get(fixed_embed, fixed_embed)} + {mn.get(fixed_rerank, fixed_rerank)}",
+                "runs": arm_runs,
+                "names": [mn.get(k, k) for _, k in arm_runs],
+            })
+
+    # Arm 2: vary embedding, fix LLM + reranker
+    for fixed_llm in fixed_llms:
+        for fixed_rerank in fixed_rerankers:
+            arm_runs = [
+                (rn, embed) for rn, rd, llm, embed, rerank in completed
+                if llm == fixed_llm and rerank == fixed_rerank
+            ]
+            if len(arm_runs) < 2:
+                continue
+            arm_groups.append({
+                "arm": 2, "varied": "Embedding",
+                "fixed": f"{mn.get(fixed_llm, fixed_llm)} + {mn.get(fixed_rerank, fixed_rerank)}",
+                "runs": arm_runs,
+                "names": [mn.get(k, k) for _, k in arm_runs],
+            })
+
+    # Arm 3: vary reranker, fix LLM + embedding
+    for fixed_llm in fixed_llms:
+        for fixed_embed in fixed_embeddings:
+            arm_runs = [
+                (rn, rerank) for rn, rd, llm, embed, rerank in completed
+                if llm == fixed_llm and embed == fixed_embed
+            ]
+            if len(arm_runs) < 2:
+                continue
+            arm_groups.append({
+                "arm": 3, "varied": "Reranker",
+                "fixed": f"{mn.get(fixed_llm, fixed_llm)} + {mn.get(fixed_embed, fixed_embed)}",
+                "runs": arm_runs,
+                "names": [mn.get(k, k) for _, k in arm_runs],
+            })
+
+    return arm_groups
+
+# %%
+#|export
 def pairwise_jaccard(sets_a: dict, sets_b: dict, common_keys: list) -> float:
     """Mean Jaccard similarity of set-valued dicts over common keys."""
     jaccards = []
