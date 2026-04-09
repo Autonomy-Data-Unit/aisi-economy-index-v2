@@ -70,10 +70,22 @@ def main(ctx, print, ad_ids: list[int], exposure_scores: "pd.DataFrame") -> {
             print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no scores)")
             continue
     
-        # Normalize rerank_score to per-ad weights (equal weighting if all scores are 0)
-        weight_sums = merged.groupby("ad_id")["rerank_score"].transform("sum")
-        counts_per_ad = merged.groupby("ad_id")["rerank_score"].transform("count")
-        merged["_weight"] = np.where(weight_sums > 0, merged["rerank_score"] / weight_sums, 1.0 / counts_per_ad)
+        # Normalize rerank_score to per-ad weights using softmax on min-max scaled scores.
+        # Min-max scales each ad's scores to [0, 1], then softmax(s/T) converts to weights.
+        # Temperature T=0.7 balances two competing goals:
+        #   - Lower T (more peaked): better within-group stability across LLMs/embeddings
+        #   - Higher T (flatter): better cross-reranker agreement (Ruzicka, Pearson)
+        # T=0.7 achieves Qwen3-family Ruzicka >0.70 while keeping per-group Pearson
+        # degradation modest relative to L1 normalization.
+        SOFTMAX_TEMPERATURE = 0.7
+        ad_groups = merged.groupby("ad_id")["rerank_score"]
+        ad_mins = ad_groups.transform("min")
+        ad_maxs = ad_groups.transform("max")
+        ad_range = ad_maxs - ad_mins
+        scaled = np.where(ad_range > 0, (merged["rerank_score"] - ad_mins) / ad_range, 0.5)
+        exp_scaled = np.exp(scaled / SOFTMAX_TEMPERATURE)
+        exp_sums = merged.assign(_exp=exp_scaled).groupby("ad_id")["_exp"].transform("sum")
+        merged["_weight"] = exp_scaled / exp_sums
     
         # Multiply score columns by weight, then sum per ad
         for col in score_cols:

@@ -41,17 +41,22 @@ embed_models = [
 ]
 
 rerank_models = [
+    # Cross-encoders
     "bge-reranker-v2-m3-sbatch",
     # "ms-marco-minilm-sbatch",         # Dropped: 512 token limit too small for job ad pairs
     "gte-reranker-modernbert-sbatch",
     "nemotron-rerank-1b-sbatch",
     # "bge-reranker-v2-gemma-sbatch",   # Dropped: 4096 context limit too small for enriched O*NET + job ad pairs
-    # "qwen3-reranker-0.6b-sbatch",     # Dropped: have CE version at same size
-    # "qwen3-reranker-0.6b-ce-sbatch",   # Dropped: community conversion (tomaarsen), not official
-    # "qwen3-reranker-4b-sbatch",       # Dropped: middle Qwen3 vLLM
-    # "qwen3-reranker-4b-ce-sbatch",    # Dropped: middle Qwen3 CE
+    # Generative (Qwen3 family)
+    "qwen3-reranker-0.6b-sbatch",
+    "qwen3-reranker-4b-sbatch",
     "qwen3-reranker-8b-sbatch",
+    # "qwen3-reranker-0.6b-ce-sbatch",   # Dropped: community conversion (tomaarsen), not official
+    # "qwen3-reranker-4b-ce-sbatch",    # Dropped: middle Qwen3 CE
     # "qwen3-reranker-8b-ce-sbatch",    # Dropped: community conversion (tomaarsen), not official
+    # Generative (other families)
+    "lb-reranker-0.5b-sbatch",
+    "rank1-3b-sbatch",
 ]
 
 rbo_p = 0.9

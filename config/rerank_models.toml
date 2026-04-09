@@ -142,7 +142,7 @@ batch_size = 32
 instruction = "Given a job advertisement, determine if the occupation description accurately describes the type of work in the advertisement"
 
 # lightblue LB-Reranker (Qwen2.5-0.5B fine-tune, 1-7 scale scoring)
-[models.lb-reranker-0.5b-sbatch]
+[models."lb-reranker-0.5b-sbatch"]
 mode = "sbatch"
 model = "lightblue/lb-reranker-0.5B-v1.0"
 backend = "vllm"
