@@ -141,6 +141,7 @@ def duckdb_connect_retry(
     while True:
         try:
             conn = duckdb.connect(str(db_path), read_only=read_only)
+            conn.execute("SET arrow_large_buffer_size = true")
             if memory_limit is not None:
                 conn.execute(f"SET memory_limit = '{memory_limit}'")
             return conn
@@ -261,13 +262,22 @@ def get_ads_by_id(
         columns = ["id"] + list(columns)
 
     col_clause = ", ".join(columns) if columns else "*"
-    placeholders = ", ".join(["?"] * len(ids))
 
     conn = get_adzuna_conn(read_only=True, memory_limit=memory_limit)
     try:
-        result = conn.execute(
-            f"SELECT {col_clause} FROM ads WHERE id IN ({placeholders})", ids
-        ).fetch_arrow_table()
+        if len(ids) > 1_000:
+            # For large ID lists, use a registered Arrow table instead of IN (?, ?, ...)
+            import numpy as np
+            conn.register("_lookup_ids", pa.table({"id": np.array(ids, dtype=np.int64)}))
+            result = conn.execute(
+                f"SELECT {col_clause} FROM ads WHERE id IN (SELECT id FROM _lookup_ids)"
+            ).fetch_arrow_table()
+            conn.unregister("_lookup_ids")
+        else:
+            placeholders = ", ".join(["?"] * len(ids))
+            result = conn.execute(
+                f"SELECT {col_clause} FROM ads WHERE id IN ({placeholders})", ids
+            ).fetch_arrow_table()
     finally:
         conn.close()
     return result

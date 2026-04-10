@@ -82,6 +82,11 @@ if years_filter and years_filter != "all":
     print(f"fetch_adzuna: filtered to {len(years)} year(s): {years}")
 
 conn = get_adzuna_conn(memory_limit=duckdb_memory_limit)
+# Tune DuckDB for large dedup operations within tight memory
+from ai_index.const import inputs_path as _inputs_path
+conn.execute(f"SET temp_directory = '{_inputs_path / 'duckdb_tmp'}'")
+conn.execute("SET threads = 4")
+conn.execute("SET preserve_insertion_order = false")
 ensure_ads_table(conn)
 
 adzuna_meta = {"years": {}}
@@ -247,6 +252,9 @@ if any_new_data:
         print(f"fetch_adzuna: global dedup, no cross-year duplicates")
 else:
     print(f"fetch_adzuna: no new data ingested, skipping global dedup")
+
+conn.execute("VACUUM")
+print(f"fetch_adzuna: vacuumed database")
 
 conn.close()
 print(f"fetch_adzuna: done, {len(adzuna_meta['years'])} year(s)")
