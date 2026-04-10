@@ -136,7 +136,7 @@ sbatch_time = "01:00:00"
 sbatch_time = "02:00:00"
 
 [runs.validation_5k.rerank_candidates]
-sbatch_time = "02:00:00"
+sbatch_time = "08:00:00"
 
 [runs.validation_5k.score_task_exposure]
 sbatch_time = "02:00:00"
@@ -161,6 +161,37 @@ chunk_size = 500
 
 [runs.benchmark_5k.llm_filter_candidates]
 filter_resume = true
+
+# ---------------
+#   Production
+# ---------------
+# 5M ad run using models selected from validation:
+#   Embedding: Qwen3-Embedding-8B (best benchmark Pearson: 0.961)
+#   LLM filter: Gemma-3-27B (2nd best Pearson: 0.942, 1-GPU, 0.261 s/ad)
+#   Reranker: Qwen3-Reranker-8B (best Pearson: 0.949, dominant on all metrics)
+# Estimated ~500 GPU-hrs total.
+
+[runs.production_5m]
+sample_n = 5000000
+embedding_model = "qwen3-embed-8b-sbatch"
+llm_model = "gemma-27b-sbatch"
+duckdb_memory_limit = "8GB"
+
+[runs.production_5m.fetch_adzuna]
+skip_fetch = false
+
+[runs.production_5m.embed_ads]
+max_concurrent_chunks = 1
+chunk_size = 50000
+
+[runs.production_5m.llm_filter_candidates]
+filter_resume = true
+max_concurrent_chunks = 3
+
+[runs.production_5m.rerank_candidates]
+rerank_model = "qwen3-reranker-8b-sbatch"
+max_concurrent_chunks = 3
+
 
 [runs.benchmark_5k_opus]
 sample_n = 5000
