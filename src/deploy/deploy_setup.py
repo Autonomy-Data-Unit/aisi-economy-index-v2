@@ -47,6 +47,21 @@ server.shell(
     ],
 )
 
+# --- Swap (safety net for DuckDB memory spikes) ---
+
+server.shell(
+    name="Create 16GB swap file (if not present)",
+    commands=[
+        "test -f /swapfile || (fallocate -l 16G /swapfile && chmod 600 /swapfile && mkswap /swapfile)",
+        "swapon /swapfile 2>/dev/null || true",
+        "grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab",
+        "sysctl -w vm.swappiness=100",
+        "sysctl -w vm.overcommit_memory=1",
+        "grep -q 'vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=100' >> /etc/sysctl.conf",
+        "grep -q 'vm.overcommit_memory' /etc/sysctl.conf || echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf",
+    ],
+)
+
 # --- Generate SSH key for Isambard ---
 
 server.shell(

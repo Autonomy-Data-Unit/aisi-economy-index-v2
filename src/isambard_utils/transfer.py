@@ -17,13 +17,28 @@ _SSH_TRANSIENT_EXIT = 255  # SSH connection error (reset, refused, timeout, etc.
 _DEFAULT_RETRIES = int(_os.environ.get("ISAMBARD_SSH_RETRIES", "10"))
 _RETRY_DELAYS = [2, 5, 10, 30, 60]  # seconds between retries; last element repeats
 
-async def _retry_on_ssh_error(coro_fn, *, retries: int = _DEFAULT_RETRIES):
-    """Retry an async callable on transient SSH errors (exit code 255).
+import time as _time
 
-    Args:
-        coro_fn: Zero-argument callable returning an awaitable.
-        retries: Max number of retries (default 3).
+def _retry_on_ssh_error_sync(fn, *, retries: int = _DEFAULT_RETRIES):
+    """Retry a sync callable on transient SSH errors (exit code 255).
+
+    Uses subprocess.run instead of asyncio.create_subprocess_exec to avoid
+    the child watcher hang in netrun thread pool workers.
     """
+    last_exc = None
+    for attempt in range(1 + retries):
+        try:
+            return fn()
+        except subprocess.CalledProcessError as e:
+            if e.returncode != _SSH_TRANSIENT_EXIT or attempt >= retries:
+                raise
+            last_exc = e
+            delay = _RETRY_DELAYS[min(attempt, len(_RETRY_DELAYS) - 1)]
+            _time.sleep(delay)
+    raise last_exc
+
+async def _retry_on_ssh_error(coro_fn, *, retries: int = _DEFAULT_RETRIES):
+    """Retry an async callable on transient SSH errors (exit code 255)."""
     last_exc = None
     for attempt in range(1 + retries):
         try:
@@ -68,26 +83,18 @@ async def aupload(local_path: str, remote_path: str, *,
     """Upload local files/dirs to Isambard via rsync (async).
 
     Retries on transient SSH errors (exit code 255).
-
-    Args:
-        local_path: Local file or directory path.
-        remote_path: Destination path on Isambard.
-        config: Isambard configuration.
-        exclude: rsync exclude patterns.
-        delete: Delete remote files not present locally.
-        dry_run: Show what would be transferred without doing it.
+    Uses subprocess.run to avoid asyncio child watcher hang in thread pools.
     """
     config = _get_config(config)
     cmd = _build_rsync_cmd(
         config, local_path, _remote_path(config, remote_path),
         exclude=exclude, delete=delete, dry_run=dry_run,
     )
-    async def _attempt():
-        proc = await asyncio.create_subprocess_exec(*cmd)
-        await proc.communicate()
-        if proc.returncode != 0:
-            raise subprocess.CalledProcessError(proc.returncode, cmd)
-    await _retry_on_ssh_error(_attempt)
+    def _attempt():
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, cmd)
+    _retry_on_ssh_error_sync(_attempt)
 
 # %% nbs/isambard_utils/transfer.ipynb 7
 def upload(local_path: str, remote_path: str, *,
@@ -115,24 +122,18 @@ async def adownload(remote_path: str, local_path: str, *,
     """Download files/dirs from Isambard via rsync (async).
 
     Retries on transient SSH errors (exit code 255).
-
-    Args:
-        remote_path: Source path on Isambard.
-        local_path: Local destination path.
-        config: Isambard configuration.
-        exclude: rsync exclude patterns.
+    Uses subprocess.run to avoid asyncio child watcher hang in thread pools.
     """
     config = _get_config(config)
     cmd = _build_rsync_cmd(
         config, _remote_path(config, remote_path), local_path,
         exclude=exclude,
     )
-    async def _attempt():
-        proc = await asyncio.create_subprocess_exec(*cmd)
-        await proc.communicate()
-        if proc.returncode != 0:
-            raise subprocess.CalledProcessError(proc.returncode, cmd)
-    await _retry_on_ssh_error(_attempt)
+    def _attempt():
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, cmd)
+    _retry_on_ssh_error_sync(_attempt)
 
 # %% nbs/isambard_utils/transfer.ipynb 9
 def download(remote_path: str, local_path: str, *,
@@ -154,25 +155,18 @@ async def aupload_bytes(data: bytes, remote_path: str, *,
     """Upload in-memory bytes to a remote file via SSH stdin pipe (async).
 
     Retries on transient SSH errors (exit code 255).
-
-    Args:
-        data: Bytes to write to the remote file.
-        remote_path: Destination file path on Isambard.
-        config: Isambard configuration.
+    Uses subprocess.run to avoid asyncio child watcher hang in thread pools.
     """
     config = _get_config(config)
     ssh_cmd = ["ssh"]
     if config.ssh_user:
         ssh_cmd.extend(["-l", config.ssh_user])
     ssh_cmd.extend([config.ssh_host, f"cat > {shlex.quote(remote_path)}"])
-    async def _attempt():
-        proc = await asyncio.create_subprocess_exec(
-            *ssh_cmd, stdin=asyncio.subprocess.PIPE,
-        )
-        await proc.communicate(input=data)
-        if proc.returncode != 0:
-            raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
-    await _retry_on_ssh_error(_attempt)
+    def _attempt():
+        result = subprocess.run(ssh_cmd, input=data)
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, ssh_cmd)
+    _retry_on_ssh_error_sync(_attempt)
 
 # %% nbs/isambard_utils/transfer.ipynb 11
 def upload_bytes(data: bytes, remote_path: str, *,
@@ -193,40 +187,23 @@ async def aupload_tar_pipe(local_dir: str, remote_dir: str, *,
 
     Streams the contents without persistent intermediate files.
     Retries on transient SSH errors (exit code 255).
-
-    Args:
-        local_dir: Local directory to upload.
-        remote_dir: Remote destination directory.
-        config: Isambard configuration.
+    Uses subprocess.Popen to avoid asyncio child watcher hang in thread pools.
     """
-    import os
     config = _get_config(config)
     remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
     tar_cmd = ["tar", "cf", "-", "-C", local_dir, "."]
     ssh_cmd = ["ssh", remote, f"mkdir -p {shlex.quote(remote_dir)} && tar xf - -C {shlex.quote(remote_dir)}"]
 
-    async def _attempt():
-        read_fd, write_fd = os.pipe()
-        try:
-            tar_proc = await asyncio.create_subprocess_exec(
-                *tar_cmd, stdout=write_fd,
-            )
-            os.close(write_fd); write_fd = -1
-            ssh_proc = await asyncio.create_subprocess_exec(
-                *ssh_cmd, stdin=read_fd,
-            )
-            os.close(read_fd); read_fd = -1
-        except:
-            if write_fd >= 0: os.close(write_fd)
-            if read_fd >= 0: os.close(read_fd)
-            raise
-
-        await asyncio.gather(tar_proc.wait(), ssh_proc.wait())
-
+    def _attempt():
+        tar_proc = subprocess.Popen(tar_cmd, stdout=subprocess.PIPE)
+        ssh_proc = subprocess.Popen(ssh_cmd, stdin=tar_proc.stdout)
+        tar_proc.stdout.close()
+        ssh_proc.wait()
+        tar_proc.wait()
         if ssh_proc.returncode != 0:
             raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
 
-    await _retry_on_ssh_error(_attempt)
+    _retry_on_ssh_error_sync(_attempt)
 
 # %% nbs/isambard_utils/transfer.ipynb 14
 def upload_tar_pipe(local_dir: str, remote_dir: str, *,
@@ -246,11 +223,7 @@ async def adownload_tar_pipe(remote_dir: str, local_dir: str, *,
     """Download a remote directory to local via tar + SSH pipe (async).
 
     Retries on transient SSH errors (exit code 255).
-
-    Args:
-        remote_dir: Remote source directory.
-        local_dir: Local destination directory.
-        config: Isambard configuration.
+    Uses subprocess.Popen to avoid asyncio child watcher hang in thread pools.
     """
     import os
     config = _get_config(config)
@@ -259,30 +232,18 @@ async def adownload_tar_pipe(remote_dir: str, local_dir: str, *,
     ssh_cmd = ["ssh", remote, f"tar cf - -C {shlex.quote(remote_dir)} ."]
     tar_cmd = ["tar", "xf", "-", "-C", local_dir]
 
-    async def _attempt():
-        read_fd, write_fd = os.pipe()
-        try:
-            ssh_proc = await asyncio.create_subprocess_exec(
-                *ssh_cmd, stdout=write_fd,
-            )
-            os.close(write_fd); write_fd = -1
-            tar_proc = await asyncio.create_subprocess_exec(
-                *tar_cmd, stdin=read_fd,
-            )
-            os.close(read_fd); read_fd = -1
-        except:
-            if write_fd >= 0: os.close(write_fd)
-            if read_fd >= 0: os.close(read_fd)
-            raise
-
-        await asyncio.gather(ssh_proc.wait(), tar_proc.wait())
-
+    def _attempt():
+        ssh_proc = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE)
+        tar_proc = subprocess.Popen(tar_cmd, stdin=ssh_proc.stdout)
+        ssh_proc.stdout.close()
+        tar_proc.wait()
+        ssh_proc.wait()
         if ssh_proc.returncode != 0:
             raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
         if tar_proc.returncode != 0:
             raise subprocess.CalledProcessError(tar_proc.returncode, tar_cmd)
 
-    await _retry_on_ssh_error(_attempt)
+    _retry_on_ssh_error_sync(_attempt)
 
 # %% nbs/isambard_utils/transfer.ipynb 16
 def download_tar_pipe(remote_dir: str, local_dir: str, *,
@@ -405,12 +366,7 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
         tmp_path = tmp.name
 
     try:
-        tar_proc = await asyncio.create_subprocess_exec(
-            "tar", "czf", tmp_path, "-C", local_dir, ".",
-        )
-        await tar_proc.communicate()
-        if tar_proc.returncode != 0:
-            raise subprocess.CalledProcessError(tar_proc.returncode, ["tar", "czf"])
+        subprocess.run(["tar", "czf", tmp_path, "-C", local_dir, "."], check=True)
 
         # Stream tar.gz to remote and extract
         remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
@@ -424,16 +380,13 @@ async def aupload_compressed(local_dir: str, remote_base: str, content_hash: str
         )
         ssh_cmd = ["ssh", remote, extract_cmd]
 
-        async def _attempt():
+        def _attempt():
             with open(tmp_path, "rb") as tar_file:
-                ssh_proc = await asyncio.create_subprocess_exec(
-                    *ssh_cmd, stdin=tar_file,
-                )
-                await ssh_proc.communicate()
-            if ssh_proc.returncode != 0:
-                raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+                result = subprocess.run(ssh_cmd, stdin=tar_file)
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(result.returncode, ssh_cmd)
 
-        await _retry_on_ssh_error(_attempt)
+        _retry_on_ssh_error_sync(_attempt)
     finally:
         os.unlink(tmp_path)
 
@@ -463,27 +416,19 @@ async def _aupload_compressed_direct(local_dir: str, remote_dir: str, *,
         tmp_path = tmp.name
 
     try:
-        tar_proc = await asyncio.create_subprocess_exec(
-            "tar", "czf", tmp_path, "-C", local_dir, ".",
-        )
-        await tar_proc.communicate()
-        if tar_proc.returncode != 0:
-            raise subprocess.CalledProcessError(tar_proc.returncode, ["tar", "czf"])
+        subprocess.run(["tar", "czf", tmp_path, "-C", local_dir, "."], check=True)
 
         remote = f"{config.ssh_host}" if not config.ssh_user else f"{config.ssh_user}@{config.ssh_host}"
         extract_cmd = f"tar xzf - -C {shlex.quote(remote_dir)}"
         ssh_cmd = ["ssh", remote, extract_cmd]
 
-        async def _attempt():
+        def _attempt():
             with open(tmp_path, "rb") as tar_file:
-                ssh_proc = await asyncio.create_subprocess_exec(
-                    *ssh_cmd, stdin=tar_file,
-                )
-                await ssh_proc.communicate()
-            if ssh_proc.returncode != 0:
-                raise subprocess.CalledProcessError(ssh_proc.returncode, ssh_cmd)
+                result = subprocess.run(ssh_cmd, stdin=tar_file)
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(result.returncode, ssh_cmd)
 
-        await _retry_on_ssh_error(_attempt)
+        _retry_on_ssh_error_sync(_attempt)
     finally:
         os.unlink(tmp_path)
 

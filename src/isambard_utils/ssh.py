@@ -69,10 +69,8 @@ def _run_once_sync(ssh_cmd: list[str], *, timeout: int,
 
 async def _arun_once(ssh_cmd: list[str], *, timeout: int,
                      capture: bool) -> subprocess.CompletedProcess:
-    """Single SSH attempt. Runs subprocess in a thread to avoid blocking the event loop."""
-    return await asyncio.get_event_loop().run_in_executor(
-        None, lambda: _run_once_sync(ssh_cmd, timeout=timeout, capture=capture),
-    )
+    """Single SSH attempt. Uses sync subprocess to avoid child watcher hang in thread pools."""
+    return _run_once_sync(ssh_cmd, timeout=timeout, capture=capture)
 
 import os as _os
 
