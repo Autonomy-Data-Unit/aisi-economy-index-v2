@@ -24,4 +24,26 @@ def main(ctx, print) -> {
     else:
         rng = np.random.default_rng(ctx.vars['sample_seed'])
         sample_ad_ids = rng.choice(ad_ids, size=ctx.vars['sample_n'], replace=False)
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    
+    run_name = ctx.vars["run_name"]
+    ad_texts_dir = const.pipeline_store_path / run_name / "sample_ads"
+    ad_texts_dir.mkdir(parents=True, exist_ok=True)
+    ad_texts_path = ad_texts_dir / "ad_texts.parquet"
+    
+    conn_texts = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
+    # Register the sampled IDs as an Arrow table so DuckDB can join efficiently
+    _sample_table = pa.table({"id": pa.array(sample_ad_ids, type=pa.int64())})
+    conn_texts.register("_sample", _sample_table)
+    conn_texts.execute(f"""
+        COPY (
+            SELECT a.id, a.title, a.description
+            FROM ads a
+            INNER JOIN _sample s ON a.id = s.id
+        ) TO '{ad_texts_path}' (FORMAT PARQUET, COMPRESSION ZSTD)
+    """)
+    conn_texts.close()
+    del _sample_table
+    print(f"sample_ads: wrote {len(sample_ad_ids)} ad texts to {const.rel(ad_texts_path)}")
     return sample_ad_ids

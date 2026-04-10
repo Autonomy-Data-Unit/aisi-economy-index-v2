@@ -11,6 +11,7 @@ from .models import load_embedding_model
 def run_embeddings(texts: list[str], *, model_name: str = "BAAI/bge-large-en-v1.5",
                    device: str = "cuda", dtype: str = "float16",
                    batch_size: int = 64,
+                   max_seq_length: int | None = None,
                    prompt: str | None = None,
                    prompt_name: str | None = None,
                    st_kwargs: dict | None = None) -> np.ndarray:
@@ -22,6 +23,9 @@ def run_embeddings(texts: list[str], *, model_name: str = "BAAI/bge-large-en-v1.
         device: Device ("cuda", "cpu").
         dtype: Model precision ("float16", "bfloat16", "float32").
         batch_size: Batch size for encoding.
+        max_seq_length: If set, override the model's max_seq_length to clamp
+            worst-case memory usage. Essential for large instruction-following
+            models like Qwen3-Embedding-8B whose native max is 40960 tokens.
         prompt: Optional instruction string prepended to each text. Used by
             instruction-following embedding models (e.g. Qwen3-Embedding).
         prompt_name: Optional named prompt from the model's config (e.g. "query").
@@ -36,6 +40,8 @@ def run_embeddings(texts: list[str], *, model_name: str = "BAAI/bge-large-en-v1.
         offline=(device != "cpu"),
         st_kwargs=st_kwargs,
     )
+    if max_seq_length is not None:
+        model.max_seq_length = max_seq_length
     encode_kwargs = {}
     if prompt is not None:
         encode_kwargs["prompt"] = prompt

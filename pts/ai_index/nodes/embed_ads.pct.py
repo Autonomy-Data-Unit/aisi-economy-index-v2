@@ -12,7 +12,8 @@
 # Embed raw job ad text directly using the configured embedding model.
 # No LLM summarisation needed.
 #
-# 1. Loads raw ad text (title + description) from Adzuna DuckDB.
+# 1. Loads raw ad text (title + description) from the `ad_texts.parquet`
+#    written by `sample_ads`.
 # 2. Reads prompt support config from `embed_models.toml` for the model:
 #    - `query_prefix`: fixed string prepended unconditionally
 #    - `query_prompt_name`: named prompt passed to SentenceTransformer
@@ -64,7 +65,7 @@ import numpy as np
 import pandas as pd
 
 from ai_index import const
-from ai_index.utils import aembed, get_ads_by_id
+from ai_index.utils import aembed
 from ai_index.utils._model_config import _load_model_config
 from ai_index.utils.batch import run_batched
 from ai_index.utils.result_store import ResultStore
@@ -106,48 +107,44 @@ if query_prefix:
     print(f"embed_ads: applying query prefix: {query_prefix!r}")
 
 # %% [markdown]
-# ## Load raw ad texts
+# ## Prepare ad IDs and load texts from parquet
 
 # %%
 #|export
-ad_ids_list = [int(i) for i in ad_ids]
-ads_table = get_ads_by_id(ad_ids_list, columns=["title", "description"], memory_limit=duckdb_memory_limit)
-ads_df = ads_table.to_pandas().set_index("id")
-
-# Build texts: query_prefix + title + ". " + description
-texts_by_id = {}
-for ad_id in ad_ids_list:
-    row = ads_df.loc[ad_id]
-    title = str(row["title"] or "")
-    desc = str(row["description"] or "")
-    text = f"{title}. {desc}"
-    texts_by_id[ad_id] = query_prefix + text
-
-# Maintain order matching ad_ids
-ordered_ids = [i for i in ad_ids_list if i in texts_by_id]
-ordered_texts = [texts_by_id[i] for i in ordered_ids]
+ordered_ids = [int(i) for i in ad_ids]
 
 n_total = len(ordered_ids)
-print(f"embed_ads: loaded {n_total} ad texts")
-if n_total > 0:
-    sample = ordered_texts[0][:120]
-    print(f"  sample: {sample}...")
+print(f"embed_ads: {n_total} total, {n_total} to process (batch_size={chunk_size}, max_concurrent={max_concurrent_chunks})")
+
+# Load ad texts from parquet (written by sample_ads)
+ad_texts_path = const.pipeline_store_path / run_name / "sample_ads" / "ad_texts.parquet"
+print(f"embed_ads: loading ad texts from {const.rel(ad_texts_path)}")
+_texts_df = pd.read_parquet(ad_texts_path, columns=["id", "title", "description"])
+_texts_df = _texts_df.set_index("id")
+texts_by_id = {
+    int(ad_id): query_prefix + f"{str(row['title'] or '')}. {str(row['description'] or '')}"
+    for ad_id, row in _texts_df.iterrows()
+}
+del _texts_df
+print(f"embed_ads: loaded {len(texts_by_id)} ad texts into memory")
+
+# Print a sample text for logging
+if ordered_ids:
+    _s = texts_by_id[ordered_ids[0]]
+    print(f"  sample: {_s[:120]}...")
 
 # %% [markdown]
 # ## Embed in chunks
 #
-# Embeds ads in chunks via `run_batched`, which handles resume, concurrency,
-# and retry. Each chunk calls `aembed()` and returns a DataFrame for the
-# ResultStore.
+# Ad texts are pre-loaded from parquet into `texts_by_id`. Each chunk looks up
+# texts from the dict (fast), then sends them to the embedding model.
 
 # %%
 #|export
-texts_by_id = dict(zip(ordered_ids, ordered_texts))
-
 _slurm_jobs = []
 
 async def _work_fn(chunk_ids):
-    chunk_texts = [texts_by_id[i] for i in chunk_ids]
+    chunk_texts = [texts_by_id[ad_id] for ad_id in chunk_ids]
 
     _sa = {}
     embeddings = await aembed(
