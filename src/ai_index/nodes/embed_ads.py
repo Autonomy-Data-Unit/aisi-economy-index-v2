@@ -26,6 +26,16 @@ async def main(ctx, print, ad_ids: "np.ndarray") -> {
     
     output_dir = const.pipeline_store_path / run_name / "embed_ads"
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Skip if output already exists and matches the current ad count
+    meta_path = output_dir / "embed_meta.json"
+    if meta_path.exists():
+        with open(meta_path) as f:
+            _meta = json.load(f)
+        if _meta["n_total"] == len(ad_ids):
+            print(f"embed_ads: output already exists ({_meta['n_total']} ads), skipping")
+            ordered_ids = [int(i) for i in ad_ids]
+            return ordered_ids
     _, model_cfg = _load_model_config(const.embed_models_config_path, embedding_model)
     query_prefix = model_cfg.get("query_prefix", "")
     query_prompt_name = model_cfg.get("query_prompt_name", None)
@@ -47,94 +57,59 @@ async def main(ctx, print, ad_ids: "np.ndarray") -> {
     n_total = len(ordered_ids)
     print(f"embed_ads: {n_total} total, {n_total} to process (batch_size={chunk_size}, max_concurrent={max_concurrent_chunks})")
     
-    # Load ad texts from parquet. Keep as a DataFrame indexed by id (not as
-    # 5M Python str objects) to minimize memory: 5M strings as Python str
-    # use ~15-20GB, but as a pandas object DataFrame ~10GB. Strings are
-    # constructed per-chunk when needed.
+    # Load ad texts from parquet (written by sample_ads)
     ad_texts_path = const.pipeline_store_path / run_name / "sample_ads" / "ad_texts.parquet"
     print(f"embed_ads: loading ad texts from {const.rel(ad_texts_path)}")
-    texts_df = pd.read_parquet(ad_texts_path, columns=["id", "title", "description"])
-    texts_df["id"] = texts_df["id"].astype("int64")
-    texts_df = texts_df.set_index("id")
-    print(f"embed_ads: loaded {len(texts_df)} ad texts into memory")
-
+    _texts_df = pd.read_parquet(ad_texts_path, columns=["id", "title", "description"])
+    _texts_df = _texts_df.set_index("id")
+    texts_by_id = {
+        int(ad_id): query_prefix + f"{str(row['title'] or '')}. {str(row['description'] or '')}"
+        for ad_id, row in _texts_df.iterrows()
+    }
+    del _texts_df
+    print(f"embed_ads: loaded {len(texts_by_id)} ad texts into memory")
+    
     # Print a sample text for logging
     if ordered_ids:
-        _row = texts_df.loc[ordered_ids[0]]
-        _s = query_prefix + f"{str(_row['title'] or '')}. {str(_row['description'] or '')}"
+        _s = texts_by_id[ordered_ids[0]]
         print(f"  sample: {_s[:120]}...")
-    # Sync loop: netrun's thread pool event loop can't handle nested async
-    # subprocess calls (arun_remote). Process chunks sequentially, running
-    # each aembed in a fresh thread with its own event loop via asyncio.run().
-    import concurrent.futures
-    import time as _time
-
+    _slurm_jobs = []
+    
+    async def _work_fn(chunk_ids):
+        chunk_texts = [texts_by_id[ad_id] for ad_id in chunk_ids]
+    
+        _sa = {}
+        embeddings = await aembed(
+            chunk_texts, model=embedding_model,
+            cache=sbatch_cache, time=sbatch_time,
+            slurm_accounting=_sa,
+            **embed_prompt_kwargs,
+        )
+        if _sa:
+            _slurm_jobs.append(_sa)
+    
+        return pd.DataFrame({
+            "id": list(chunk_ids),
+            "embedding": [row.astype(np.float32).tobytes() for row in embeddings],
+            "error": [None] * len(chunk_ids),
+        })
     db_path = output_dir / "embeddings.duckdb"
     store = ResultStore(db_path, {
         "id": "BIGINT NOT NULL",
         "embedding": "BLOB NOT NULL",
         "error": "VARCHAR",
     }, memory_limit=duckdb_memory_limit)
-
-    done_ids = store.done_ids()
-    remaining_ids = [i for i in ordered_ids if i not in done_ids]
-    if len(done_ids):
-        print(f"embed_ads: resuming, {len(done_ids)}/{n_total} already done, {len(remaining_ids)} remaining")
-    print(f"embed_ads: {n_total} total, {len(remaining_ids)} to process (batch_size={chunk_size})")
-
-    chunks = [remaining_ids[i:i + chunk_size] for i in range(0, len(remaining_ids), chunk_size)]
-    _slurm_jobs = []
-    started_at = _time.time()
-
-    for i, chunk in enumerate(chunks):
-        print(f"embed_ads: chunk {i+1}/{len(chunks)} ({len(chunk)} items)")
-        # Build texts for this chunk only
-        _chunk_df = texts_df.loc[chunk]
-        chunk_texts = [
-            (query_prefix + f"{str(_chunk_df.iloc[j]['title'] or '')}. {str(_chunk_df.iloc[j]['description'] or '')}")[:20000]
-            for j in range(len(_chunk_df))
-        ]
-        del _chunk_df
-
-        _sa = {}
-        def _run_embed(_texts=chunk_texts, _sa=_sa):
-            import asyncio as _aio
-            return _aio.run(aembed(
-                _texts, model=embedding_model,
-                cache=sbatch_cache, time=sbatch_time,
-                slurm_accounting=_sa,
-                **embed_prompt_kwargs,
-            ))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            embeddings = pool.submit(_run_embed).result()
-
-        if _sa:
-            _slurm_jobs.append(_sa)
-
-        chunk_df = pd.DataFrame({
-            "id": list(chunk),
-            "embedding": [row.astype(np.float32).tobytes() for row in embeddings],
-            "error": [None] * len(chunk),
-        })
-        store.insert(chunk_df)
-        del chunk_texts, embeddings, chunk_df
-        print(f"embed_ads: chunk {i+1} done, {len(chunk)} ok")
-
-    n_ok, n_err = store.counts()
+    
+    embed_meta = await run_batched(
+        ordered_ids, store, _work_fn,
+        batch_size=chunk_size,
+        max_concurrent=max_concurrent_chunks,
+        resume=True,
+        node_name="embed_ads",
+        print_fn=print,
+    )
     store.close()
     del store
-    ended_at = _time.time()
-
-    embed_meta = {
-        "db_path": str(db_path),
-        "n_total": n_total,
-        "n_success": n_ok,
-        "n_failed": n_err,
-        "failed_ids": [],
-        "started_at": started_at,
-        "ended_at": ended_at,
-        "elapsed_seconds": ended_at - started_at,
-    }
     embed_meta["slurm_jobs"] = _slurm_jobs
     embed_meta["slurm_total_seconds"] = sum(j.get("elapsed_seconds", 0) for j in _slurm_jobs)
     

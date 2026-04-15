@@ -18,6 +18,15 @@ async def main(ctx, print, ad_ids: list[int], onet_done: bool) -> {
     
     output_dir = const.pipeline_store_path / run_name / "cosine_candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Skip if output already exists and matches the current ad count
+    meta_path = output_dir / "cosine_meta.json"
+    if meta_path.exists():
+        with open(meta_path) as f:
+            _meta = json.load(f)
+        if _meta["n_total"] == len(ad_ids):
+            print(f"cosine_candidates: output already exists ({_meta['n_total']} ads, topk={_meta['cosine_topk']}), skipping")
+            return ad_ids
     onet_dir = const.pipeline_store_path / run_name / "embed_onet"
     
     with open(onet_dir / "onet_codes.json") as f:

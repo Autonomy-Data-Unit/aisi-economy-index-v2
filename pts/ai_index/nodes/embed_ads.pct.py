@@ -84,6 +84,16 @@ duckdb_memory_limit = ctx.vars["duckdb_memory_limit"]
 output_dir = const.pipeline_store_path / run_name / "embed_ads"
 output_dir.mkdir(parents=True, exist_ok=True)
 
+# Skip if output already exists and matches the current ad count
+meta_path = output_dir / "embed_meta.json"
+if meta_path.exists():
+    with open(meta_path) as f:
+        _meta = json.load(f)
+    if _meta["n_total"] == len(ad_ids):
+        print(f"embed_ads: output already exists ({_meta['n_total']} ads), skipping")
+        ordered_ids = [int(i) for i in ad_ids]
+        ordered_ids #|func_return_line
+
 # %% [markdown]
 # ## Read prompt config from embed_models.toml
 

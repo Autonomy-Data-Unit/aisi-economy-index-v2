@@ -69,6 +69,15 @@ chunk_size = ctx.vars["chunk_size"]
 output_dir = const.pipeline_store_path / run_name / "cosine_candidates"
 output_dir.mkdir(parents=True, exist_ok=True)
 
+# Skip if output already exists and matches the current ad count
+meta_path = output_dir / "cosine_meta.json"
+if meta_path.exists():
+    with open(meta_path) as f:
+        _meta = json.load(f)
+    if _meta["n_total"] == len(ad_ids):
+        print(f"cosine_candidates: output already exists ({_meta['n_total']} ads, topk={_meta['cosine_topk']}), skipping")
+        ad_ids #|func_return_line
+
 # %% [markdown]
 # ## Load O*NET embeddings
 

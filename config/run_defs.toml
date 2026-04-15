@@ -181,16 +181,16 @@ duckdb_memory_limit = "8GB"
 skip_fetch = false
 
 [runs.production_5m.embed_ads]
-max_concurrent_chunks = 1
+max_concurrent_chunks = 3
 chunk_size = 50000
 
 [runs.production_5m.llm_filter_candidates]
 filter_resume = true
-max_concurrent_chunks = 3
+max_concurrent_chunks = 10
 
 [runs.production_5m.rerank_candidates]
 rerank_model = "qwen3-reranker-8b-sbatch"
-max_concurrent_chunks = 3
+max_concurrent_chunks = 10
 
 
 [runs.benchmark_5k_opus]

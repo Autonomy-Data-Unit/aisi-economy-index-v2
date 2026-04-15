@@ -59,6 +59,12 @@
         "type": "thread",
         "num_workers": 4
       }
+    },
+    "heavy": {
+      "spec": {
+        "type": "thread",
+        "num_workers": 1
+      }
     }
   },
   "max_epochs": 1,
@@ -346,6 +352,7 @@
         "name": "score_task_exposure",
         "description": "Classify O*NET tasks by AI exposure level via LLM and aggregate to occupations.",
         "execution_config": {
+          "pools": ["heavy"],
           "node_vars": {
             "sbatch_cache": {
               "inherit": true
@@ -505,6 +512,7 @@
         "name": "embed_ads",
         "description": "Embed raw job ad text directly (no LLM summarisation).",
         "execution_config": {
+          "pools": ["heavy"],
           "node_vars": {
             "sbatch_cache": {
               "inherit": true

@@ -139,7 +139,7 @@ mode = "sbatch"
 model = "Qwen/Qwen3-Embedding-8B"
 supports_prompt = true
 query_prompt_name = "query"
-batch_size = 32
+batch_size = 16
 max_seq_length = 2048
 
 # Instruction-following. Supports custom task prompts via `prompt` parameter.
