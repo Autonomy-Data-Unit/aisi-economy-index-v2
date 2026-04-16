@@ -101,6 +101,13 @@ USER_PROMPT_TEMPLATE = load_prompt(ctx.vars["user_prompt"])
 output_dir = const.onet_exposure_scores_path / "score_task_exposure" / llm_model
 output_dir.mkdir(parents=True, exist_ok=True)
 
+# Skip if output already exists
+scores_path = output_dir / "scores.csv"
+if scores_path.exists():
+    scores = pd.read_csv(scores_path)
+    print(f"score_task_exposure: output already exists ({len(scores)} occupations), skipping")
+    scores #|func_return_line
+
 # %% [markdown]
 # ## Load O\*NET task statements
 #

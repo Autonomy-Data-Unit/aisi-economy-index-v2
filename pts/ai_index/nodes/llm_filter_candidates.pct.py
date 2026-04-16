@@ -234,6 +234,10 @@ async def _work_fn(chunk_ids):
         prompts.append(_build_prompt(ad_id, candidates, raw_ads_by_id[ad_id]))
         n_candidates_per_ad.append(len(candidates))
 
+    # Free heavy context data before the (potentially hours-long) LLM call.
+    # Only prompts + n_candidates_per_ad are needed from here on.
+    del matches_by_ad, raw_ads_by_id
+
     _sa = {}
     schema = FilterResponseModel.model_json_schema() if _use_structured_output else None
     responses = await allm_generate(

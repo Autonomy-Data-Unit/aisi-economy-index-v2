@@ -159,6 +159,25 @@ async def _check_job_alive(job_id: str, *, config: IsambardConfig) -> str:
     return await ajob_state(job_id, config=config)
 
 # %% nbs/isambard_utils/orchestrate.ipynb 14
+def _release_inputs(inputs: dict[str, Any]) -> None:
+    """Release heavy data from an inputs dict to free memory during polling.
+
+    Clears list contents in-place (so all references to those lists, including
+    in suspended caller frames, release the actual string/element data) and
+    sets all dict values to None.  Called after inputs have been uploaded to
+    the remote and are no longer needed locally.
+    """
+    for key in list(inputs.keys()):
+        val = inputs[key]
+        if isinstance(val, list):
+            val.clear()
+        elif isinstance(val, np.ndarray):
+            # Replace with a tiny empty array of the same dtype
+            inputs[key] = np.empty(0, dtype=val.dtype)
+            continue
+        inputs[key] = None
+
+
 async def _upload_inputs(
     cache_path: str,
     inputs: dict[str, Any],
@@ -584,6 +603,8 @@ async def _run_remote_cached(
             cache_path, inputs, transfer_modes,
             config=config, print_fn=print_fn,
         )
+        _release_inputs(inputs)  # free heavy data before the long poll
+
         job = await _submit_job(
             cache_path, operation, config_dict, manifest,
             slurm_job_name=slurm_job_name, time=time, gpus=gpus,
@@ -613,6 +634,7 @@ async def _run_remote_cached(
 
     if state == "completed":
         # Cache hit: download from cache
+        _release_inputs(inputs)  # not needed for cache hit
         print_fn(f"run_remote [{slurm_job_name}]: cache hit (completed), downloading outputs...")
         result = await _download_outputs(cache_path, output_transfer, config=config)
         cached_accounting = status.get("slurm_accounting")
@@ -627,6 +649,7 @@ async def _run_remote_cached(
             slurm_state = await _check_job_alive(job_id, config=config)
             if slurm_state in ("PENDING", "RUNNING"):
                 # Attach to running job
+                _release_inputs(inputs)  # free heavy data before the long poll
                 print_fn(f"run_remote [{slurm_job_name}]: attaching to running job {job_id}...")
                 sacct = await _poll_job(job_id, label=slurm_job_name, cache_path=cache_path, config=config, print_fn=print_fn)
                 accounting = _extract_accounting(sacct)
@@ -720,6 +743,8 @@ async def _run_remote_cached(
                 cache_path, inputs, transfer_modes,
                 config=config, print_fn=print_fn,
             )
+
+        _release_inputs(inputs)  # free heavy data before the long poll
 
         job = await _submit_job(
             cache_path, operation, config_dict, manifest,

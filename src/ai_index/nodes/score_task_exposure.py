@@ -44,6 +44,13 @@ async def main(ctx, print) -> "pd.DataFrame":
     
     output_dir = const.onet_exposure_scores_path / "score_task_exposure" / llm_model
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Skip if output already exists
+    scores_path = output_dir / "scores.csv"
+    if scores_path.exists():
+        scores = pd.read_csv(scores_path)
+        print(f"score_task_exposure: output already exists ({len(scores)} occupations), skipping")
+        return scores
     extract_dir = const.onet_store_path / "db_30_0_text"
     onet_targets = pd.read_parquet(const.onet_targets_path)
     valid_codes = set(onet_targets["O*NET-SOC Code"].tolist())
