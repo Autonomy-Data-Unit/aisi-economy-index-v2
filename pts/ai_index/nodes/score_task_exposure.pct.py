@@ -35,6 +35,7 @@ from pydantic import BaseModel, field_validator
 class TaskExposureModel(BaseModel):
     occupation: str
     task: str
+    reasoning: str
     exposure: int
     confidence_0to1: float
 
@@ -193,9 +194,12 @@ for idx, raw in enumerate(all_responses):
         row = tasks_df.iloc[idx]
         parsed.append({
             "onet_code": row["O*NET-SOC Code"],
+            "occupation_title": code_to_title[row["O*NET-SOC Code"]],
             "task_id": row["Task ID"],
+            "task_text": row["Task"],
             "exposure": result.exposure,
             "confidence": result.confidence_0to1,
+            "reasoning": result.reasoning,
             "task_importance": float(row["task_importance"]),
         })
     except Exception:
@@ -203,6 +207,15 @@ for idx, raw in enumerate(all_responses):
 
 results_df = pd.DataFrame(parsed)
 print(f"score_task_exposure: {len(results_df)} parsed, {n_failed} failed")
+
+# %% [markdown]
+# ## Save per-task granular results
+
+# %%
+#|export
+results_df.to_parquet(output_dir / "task_results.parquet", index=False)
+print(f"score_task_exposure: wrote {const.rel(output_dir / 'task_results.parquet')} "
+      f"({len(results_df)} rows)")
 
 # %% [markdown]
 # ## Compute occupation-level scores

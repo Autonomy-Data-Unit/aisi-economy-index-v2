@@ -5,6 +5,7 @@ from pydantic import BaseModel, field_validator
 class TaskExposureModel(BaseModel):
     occupation: str
     task: str
+    reasoning: str
     exposure: int
     confidence_0to1: float
 
@@ -110,9 +111,12 @@ async def main(ctx, print) -> "pd.DataFrame":
             row = tasks_df.iloc[idx]
             parsed.append({
                 "onet_code": row["O*NET-SOC Code"],
+                "occupation_title": code_to_title[row["O*NET-SOC Code"]],
                 "task_id": row["Task ID"],
+                "task_text": row["Task"],
                 "exposure": result.exposure,
                 "confidence": result.confidence_0to1,
+                "reasoning": result.reasoning,
                 "task_importance": float(row["task_importance"]),
             })
         except Exception:
@@ -120,6 +124,9 @@ async def main(ctx, print) -> "pd.DataFrame":
     
     results_df = pd.DataFrame(parsed)
     print(f"score_task_exposure: {len(results_df)} parsed, {n_failed} failed")
+    results_df.to_parquet(output_dir / "task_results.parquet", index=False)
+    print(f"score_task_exposure: wrote {const.rel(output_dir / 'task_results.parquet')} "
+          f"({len(results_df)} rows)")
     g = results_df.groupby("onet_code")
     
     mean_exp = g["exposure"].mean()

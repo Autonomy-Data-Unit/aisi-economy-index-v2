@@ -41,6 +41,10 @@ model = "anthropic/claude-opus-4-6"
 mode = "api"
 model = "gemini/gemini-2.0-flash"
 
+[models."gpt-4.1-mini"]
+mode = "api"
+model = "openai/gpt-4.1-mini"
+
 [models.qwen-7b-local]
 mode = "local"
 model = "Qwen/Qwen2.5-7B-Instruct"

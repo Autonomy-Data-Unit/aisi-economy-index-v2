@@ -280,7 +280,7 @@
         },
         "factory": "netrun.node_factories.broadcast",
         "factory_args": {
-          "num_outputs": 4
+          "num_outputs": 5
         },
         "type": "node"
       },
@@ -370,6 +370,9 @@
             "top_k": {
               "inherit": true
             },
+            "llm_max_new_tokens": {
+              "inherit": true
+            },
             "system_prompt": {},
             "user_prompt": {}
           },
@@ -399,6 +402,74 @@
         "type": "node"
       },
       {
+        "name": "score_task_exposure_bt",
+        "description": "Pairwise BT scoring of O*NET tasks by AI exposure.",
+        "execution_config": {
+          "pools": ["heavy"],
+          "node_vars": {
+            "sbatch_cache": {
+              "inherit": true
+            },
+            "sbatch_time": {},
+            "llm_model": {
+              "inherit": true
+            },
+            "llm_max_new_tokens": {
+              "inherit": true
+            },
+            "llm_batch_size": {
+              "inherit": true
+            },
+            "temperature": {
+              "inherit": true
+            },
+            "top_p": {
+              "inherit": true
+            },
+            "top_k": {
+              "inherit": true
+            },
+            "n_rounds": {
+              "type": "int"
+            },
+            "comparisons_per_item_r1": {
+              "type": "int"
+            },
+            "comparisons_per_item_r2": {
+              "type": "int"
+            },
+            "comparisons_per_item_r3": {
+              "type": "int"
+            },
+            "system_prompt": {},
+            "user_prompt": {}
+          },
+          "controls": [
+            "start_epoch"
+          ]
+        },
+        "extra": {
+          "source_path": "src/ai_index/nodes/score_task_exposure_bt.py",
+          "ui": {
+            "position": {
+              "x": 1100,
+              "y": 1620
+            },
+            "descriptionExpanded": true,
+            "headerColor": "#009e7e",
+            "dimensions": {
+              "width": 337,
+              "height": 208
+            }
+          }
+        },
+        "factory": "netrun.node_factories.from_function",
+        "factory_args": {
+          "func": "ai_index.nodes.score_task_exposure_bt.main"
+        },
+        "type": "node"
+      },
+      {
         "name": "join_scores",
         "description": "Synchronization barrier: wait for all O*NET score nodes to complete.",
         "extra": {
@@ -424,7 +495,8 @@
           "ports": [
             "presence",
             "felten",
-            "task_exposure"
+            "task_exposure",
+            "task_exposure_bt"
           ]
         },
         "type": "node"
@@ -764,6 +836,20 @@
         "source_port": "out_3",
         "target_node": "score_task_exposure",
         "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "broadcast_onet_ready",
+        "source_port": "out_4",
+        "target_node": "score_task_exposure_bt",
+        "target_port": "__control_start_epoch__",
+        "dependency": false
+      },
+      {
+        "source_node": "score_task_exposure_bt",
+        "source_port": "out",
+        "target_node": "join_scores",
+        "target_port": "task_exposure_bt",
         "dependency": false
       },
       {

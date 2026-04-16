@@ -57,8 +57,21 @@ felten_scenario = "baseline_2025"
 [defaults.score_task_exposure]
 sbatch_time = "02:00:00"
 llm_model = "gpt-5.2"
+llm_max_new_tokens = 4096
 system_prompt = "score_task_exposure/main/system"
 user_prompt = "score_task_exposure/main/user"
+
+[defaults.score_task_exposure_bt]
+sbatch_time = "02:00:00"
+llm_model = "gpt-4.1-mini"
+llm_max_new_tokens = 256
+llm_batch_size = 10000
+n_rounds = 3
+comparisons_per_item_r1 = 5
+comparisons_per_item_r2 = 4
+comparisons_per_item_r3 = 3
+system_prompt = "score_task_exposure/pairwise/system"
+user_prompt = "score_task_exposure/pairwise/user"
 
 # ---------------
 #   Calibration
