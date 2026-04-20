@@ -39,7 +39,7 @@ chunk_size = 50000
 max_concurrent_chunks = 10
 
 [defaults.llm_filter_candidates]
-sbatch_time = "08:00:00"
+sbatch_time = "12:00:00"
 max_concurrent_chunks = 10
 filter_resume = true
 filter_max_retries = 3
@@ -194,16 +194,17 @@ duckdb_memory_limit = "8GB"
 skip_fetch = false
 
 [runs.production_5m.embed_ads]
-max_concurrent_chunks = 3
+max_concurrent_chunks = 100
 chunk_size = 50000
 
 [runs.production_5m.llm_filter_candidates]
 filter_resume = true
-max_concurrent_chunks = 10
+max_concurrent_chunks = 100
+filter_max_retries = 0
 
 [runs.production_5m.rerank_candidates]
 rerank_model = "qwen3-reranker-8b-sbatch"
-max_concurrent_chunks = 10
+max_concurrent_chunks = 100
 
 
 [runs.benchmark_5k_opus]
