@@ -8,6 +8,7 @@ import hashlib
 import json
 import tempfile
 import uuid
+from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -18,6 +19,7 @@ from functools import partial
 
 from .config import IsambardConfig
 from .ssh import arun as async_ssh_run, _get_config, _run_sync
+from .staging import StagedRef
 
 _fprint = partial(print, flush=True)
 
@@ -27,6 +29,26 @@ class TransferMode(str, Enum):
     DIRECT = "direct"           # Tar + SSH pipe, no remote persistence
     UPLOAD = "upload"            # rsync to content-hashed folder, idempotent
     COMPRESSED = "compressed"   # tar.gz + SSH pipe to content-hashed folder, idempotent
+
+
+@dataclass(frozen=True)
+class StagedInput:
+    """A reference to pre-staged data on Isambard, resolved at job runtime.
+
+    Instead of uploading 500MB of serialized items per job, a StagedInput
+    contains lightweight references to files already on Isambard plus a
+    small chunk specification (e.g. ad IDs). The llm_runner resolver
+    builds the actual model inputs on the GPU node from the staged files.
+
+    Attributes:
+        resolver: Name of a resolver registered in llm_runner.staged
+                  (e.g. "rerank_pairs_items").
+        sources: Named references to staged files on Isambard.
+        params: Chunk-specific parameters (e.g. {"ad_ids": [1, 2, 3]}).
+    """
+    resolver: str
+    sources: dict[str, StagedRef]
+    params: dict
 
 # %% nbs/isambard_utils/orchestrate.ipynb 5
 _ORCHESTRATION_ONLY_KEYS = frozenset({
@@ -77,6 +99,17 @@ def compute_job_hash(operation: str, inputs: dict[str, Any], config_dict: dict) 
 # %% nbs/isambard_utils/orchestrate.ipynb 6
 def _hash_value(value: Any) -> bytes:
     """Compute a hash contribution for a single input value."""
+    if isinstance(value, StagedInput):
+        # Hash resolver name + sorted source content hashes + params JSON.
+        # This is instant regardless of data size (no json.dumps of 500MB).
+        vh = hashlib.sha256()
+        vh.update(b"staged:")
+        vh.update(value.resolver.encode())
+        for src_name in sorted(value.sources):
+            vh.update(src_name.encode())
+            vh.update(value.sources[src_name].content_hash.encode())
+        vh.update(json.dumps(value.params, sort_keys=True, separators=(',', ':')).encode())
+        return vh.digest()
     if isinstance(value, np.ndarray):
         # String/object arrays -> normalize to list for consistent hashing
         if value.dtype.kind in ('U', 'S', 'O'):
@@ -93,7 +126,7 @@ def _hash_value(value: Any) -> bytes:
         ).digest()
     raise TypeError(
         f"Cannot hash value of type {type(value).__name__}. "
-        f"Supported types: numpy.ndarray, and JSON-serializable "
+        f"Supported types: StagedInput, numpy.ndarray, and JSON-serializable "
         f"(list, dict, str, int, float, bool, None)."
     )
 
@@ -166,9 +199,13 @@ def _release_inputs(inputs: dict[str, Any]) -> None:
     in suspended caller frames, release the actual string/element data) and
     sets all dict values to None.  Called after inputs have been uploaded to
     the remote and are no longer needed locally.
+
+    StagedInput values are skipped (they hold no heavy data).
     """
     for key in list(inputs.keys()):
         val = inputs[key]
+        if isinstance(val, StagedInput):
+            continue  # lightweight reference, nothing to release
         if isinstance(val, list):
             val.clear()
         elif isinstance(val, np.ndarray):
@@ -185,8 +222,13 @@ async def _upload_inputs(
     *,
     config: IsambardConfig,
     print_fn=_fprint,
-) -> dict[str, str]:
-    """Serialize and upload inputs to {cache_path}/inputs/{key}/. Returns manifest dict."""
+) -> dict[str, str | dict]:
+    """Serialize and upload inputs to {cache_path}/inputs/{key}/. Returns manifest dict.
+
+    For StagedInput values, no data is uploaded. Instead, the manifest entry
+    is a dict with type="staged" that the llm_runner resolver will use to
+    build the actual inputs on the GPU node.
+    """
     from .transfer import (
         aupload_tar_pipe, aupload_idempotent, aupload_compressed,
         compute_content_hash,
@@ -195,6 +237,20 @@ async def _upload_inputs(
 
     manifest = {}
     for key, value in inputs.items():
+        if isinstance(value, StagedInput):
+            # No upload needed: write a staged manifest entry
+            manifest[key] = {
+                "type": "staged",
+                "resolver": value.resolver,
+                "sources": {
+                    name: {"remote_path": ref.remote_path, "content_hash": ref.content_hash}
+                    for name, ref in value.sources.items()
+                },
+                "params": value.params,
+            }
+            print_fn(f"run_remote: input '{key}' is staged (resolver={value.resolver})")
+            continue
+
         mode = transfer_modes.get(key, TransferMode.DIRECT)
         with tempfile.TemporaryDirectory() as tmp:
             local_dir = Path(tmp) / key

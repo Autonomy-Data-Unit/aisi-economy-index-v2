@@ -20,21 +20,30 @@ _OPERATIONS = {
 
 # %% nbs/llm_runner/cli.ipynb 4
 def _load_inputs(args) -> dict:
-    """Load inputs from either --inputs-dir or --manifest."""
+    """Load inputs from either --inputs-dir or --manifest.
+
+    Manifest entries can be:
+    - A string (remote directory path): deserialized via llm_runner.serialization
+    - A dict with type="staged": resolved via llm_runner.staged resolver
+    """
     if args.manifest:
         from .serialization import deserialize
         manifest_path = Path(args.manifest)
         with open(manifest_path) as f:
             manifest = json.load(f)
-        # Manifest maps input keys to directories
         inputs = {}
-        for key, remote_dir in manifest.items():
-            key_data = deserialize(Path(remote_dir))
-            # If the directory contains a single key matching the dir key, unwrap
-            if list(key_data.keys()) == [key]:
-                inputs[key] = key_data[key]
+        for key, entry in manifest.items():
+            if isinstance(entry, dict) and entry.get("type") == "staged":
+                # Staged input: resolve from pre-staged files on Lustre
+                from .staged import resolve_staged_input
+                inputs[key] = resolve_staged_input(entry)
             else:
-                inputs.update(key_data)
+                # Legacy: entry is a string path to a serialized directory
+                key_data = deserialize(Path(entry))
+                if list(key_data.keys()) == [key]:
+                    inputs[key] = key_data[key]
+                else:
+                    inputs.update(key_data)
         return inputs
     else:
         from .serialization import deserialize

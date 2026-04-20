@@ -56,17 +56,20 @@ show_node_vars('rerank_candidates', run_name=run_name)
 #|export
 import asyncio
 import json
+import tempfile
 import time
 
-import duckdb
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from ai_index import const
 from ai_index.utils import arerank_pairs, get_ads_by_id
 from ai_index.utils.batch import _dispatch_wave
+from isambard_utils.orchestrate import StagedInput
+from isambard_utils.staging import astage_files
 
 # %%
 #|export
@@ -81,7 +84,11 @@ output_dir = const.pipeline_store_path / run_name / "rerank_candidates"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # %% [markdown]
-# ## Load O*NET metadata and set up connections
+# ## Prepare and stage data on Isambard
+#
+# Instead of uploading 500MB of serialized items per sbatch job, stage the
+# raw data files on Isambard once. Each job reads its chunk via predicate
+# pushdown on the Lustre filesystem.
 
 # %%
 #|export
@@ -90,9 +97,7 @@ filtered_path = const.pipeline_store_path / run_name / "llm_filter_candidates" /
 onet_targets = pd.read_parquet(const.onet_targets_path)
 onet_titles_lookup = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets["Title"]))
 
-# Build rich document text per occupation for reranking: title, alternate titles,
-# description, and top tasks. Mirrors the embedding text structure so the reranker
-# has the same information as the embedding model used for cosine candidates.
+# Build rich document text per occupation for reranking
 def _build_onet_doc(row):
     parts = [row["Title"]]
     alt = row["Alternate_Titles"]
@@ -106,20 +111,49 @@ def _build_onet_doc(row):
 
 onet_docs = dict(zip(onet_targets["O*NET-SOC Code"], onet_targets.apply(_build_onet_doc, axis=1)))
 
-matches_conn = duckdb.connect()  # in-memory
-matches_conn.execute(f"CREATE VIEW filtered AS SELECT * FROM read_parquet('{filtered_path}')")
-
 n_ads = len(ad_ids)
 print(f"rerank_candidates: {n_ads} ads")
 print(f"  rerank_model: {rerank_model}")
 print(f"  reading from: {const.rel(filtered_path)}")
 
+# Export ad texts and onet docs to temp files, then stage everything to Isambard.
+# This uploads ~3 files once instead of 500MB per chunk (100 chunks).
+staging_dir = output_dir / "_staging"
+staging_dir.mkdir(parents=True, exist_ok=True)
+
+# Export ad_texts.parquet (id, title, description) for all ad_ids
+print(f"rerank_candidates: exporting ad texts for {n_ads} ads...")
+ads_table = get_ads_by_id(ad_ids, columns=["title", "description"])
+ad_texts_path = staging_dir / "ad_texts.parquet"
+pq.write_table(ads_table, ad_texts_path)
+del ads_table
+print(f"  ad_texts.parquet: {ad_texts_path.stat().st_size / 1e6:.1f} MB")
+
+# Export onet_docs.json (onet_code -> doc_text)
+onet_docs_path = staging_dir / "onet_docs.json"
+with open(onet_docs_path, "w") as f:
+    json.dump(onet_docs, f)
+print(f"  onet_docs.json: {onet_docs_path.stat().st_size / 1e6:.1f} MB")
+
+# Stage all three files to Isambard
+print("rerank_candidates: staging files to Isambard...")
+staged_refs = await astage_files(
+    {
+        "filtered_matches": filtered_path,
+        "ad_texts": ad_texts_path,
+        "onet_docs": onet_docs_path,
+    },
+    print_fn=print,
+)
+print("rerank_candidates: staging complete")
+
 # %% [markdown]
 # ## Score in batches
 #
-# Process ads in chunks. For each chunk, load the filtered candidates,
-# build query and document texts, call the reranker, and write results
-# incrementally to parquet.
+# Process ads in chunks. For each chunk, read the candidate structure from
+# filtered_matches.parquet (lightweight, predicate pushdown), then send a
+# StagedInput to arerank_pairs. The heavy item building (query + doc texts)
+# happens on the Isambard GPU node from the pre-staged files.
 
 # %%
 #|export
@@ -142,47 +176,48 @@ slurm_jobs = []
 started_at = time.time()
 
 async def _process_chunk(chunk_idx, chunk_ad_ids):
-    # Load filtered candidates for this chunk
-    id_list = ",".join(str(int(i)) for i in chunk_ad_ids)
-    chunk_matches = matches_conn.execute(
-        f"SELECT ad_id, onet_code, onet_title, cosine_score "
-        f"FROM filtered "
-        f"WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
-    ).fetchdf()
+    # Read candidate structure from parquet (lightweight, predicate pushdown).
+    # No DuckDB in-memory view needed: each chunk reads only its rows.
+    chunk_matches = pq.read_table(
+        filtered_path,
+        filters=pc.field("ad_id").isin(chunk_ad_ids),
+        columns=["ad_id", "onet_code", "onet_title"],
+    )
 
-    if chunk_matches.empty:
+    if len(chunk_matches) == 0:
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
         return []
 
-    # Group candidates by ad
+    # Group candidates by ad (lightweight: just onet_code + onet_title)
     candidates_by_ad = {}
-    for ad_id, group in chunk_matches.groupby("ad_id"):
-        candidates_by_ad[int(ad_id)] = group.to_dict("records")
+    ad_id_col = chunk_matches.column("ad_id").to_pylist()
+    onet_code_col = chunk_matches.column("onet_code").to_pylist()
+    onet_title_col = chunk_matches.column("onet_title").to_pylist()
+    for i in range(len(chunk_matches)):
+        aid = ad_id_col[i]
+        if aid not in candidates_by_ad:
+            candidates_by_ad[aid] = []
+        candidates_by_ad[aid].append({
+            "onet_code": onet_code_col[i],
+            "onet_title": onet_title_col[i],
+        })
+    del chunk_matches
 
-    # Build query texts
     ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_by_ad]
     if not ads_with_candidates:
         return []
-    ads_table = get_ads_by_id(ads_with_candidates, columns=["title", "description"])
-    ads_df = ads_table.to_pandas().set_index("id")
 
-    # Build (query, documents) items for all ads in the chunk, then score
-    # them in a single arerank_pairs call. This sends one sbatch job per
-    # chunk instead of one per ad.
-    items = []
-    for ad_id in ads_with_candidates:
-        candidates = candidates_by_ad[ad_id]
-        query = f"{ads_df.loc[ad_id, 'title']}. {str(ads_df.loc[ad_id, 'description'] or '')[:6000]}"
-        doc_texts = [onet_docs[c['onet_code']] for c in candidates]
-        items.append((query, doc_texts))
-
-    # Free heavy intermediates before the (potentially hours-long) sbatch call.
-    # candidates_by_ad is kept because it's needed to build results after.
-    del chunk_matches, ads_df
+    # Build a StagedInput: the resolver on Isambard will read the staged
+    # parquets/JSON and build the (query, doc_texts) items for this chunk.
+    staged_items = StagedInput(
+        resolver="rerank_pairs_items",
+        sources=staged_refs,
+        params={"ad_ids": ads_with_candidates},
+    )
 
     _sa = {}
     scores_per_ad = await arerank_pairs(
-        items,
+        staged_items,
         model=rerank_model,
         cache=sbatch_cache, time=sbatch_time,
         slurm_accounting=_sa,
@@ -206,8 +241,6 @@ async def _process_chunk(chunk_idx, chunk_ad_ids):
     print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(ads_with_candidates)} ads, {len(chunk_rows)} scored")
     return chunk_rows
 
-# Launch chunks with bounded dispatch (max 10 building data at once)
-# while up to max_concurrent_chunks can poll remote jobs simultaneously.
 def _on_chunk_result(chunk_rows):
     nonlocal total_scored
     if chunk_rows:
@@ -223,7 +256,6 @@ await _dispatch_wave(
 )
 
 writer.close()
-matches_conn.close()
 
 ended_at = time.time()
 print(f"rerank_candidates: scored {total_scored} candidate rows for {n_ads} ads")
