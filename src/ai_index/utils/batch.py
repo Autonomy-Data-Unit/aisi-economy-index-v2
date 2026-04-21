@@ -33,22 +33,17 @@ def strict_format(template: str, **kwargs) -> str:
     return template.format(**kwargs)
 
 
-async def _dispatch_wave(tasks_args, task_fn, on_result, *, max_concurrent, max_dispatch):
-    """Run async tasks with bounded concurrency and staged dispatch.
+async def _dispatch_wave(tasks_args, task_fn, on_result, *, max_concurrent):
+    """Run async tasks with bounded concurrency.
 
-    The initial wave is limited to ``max_dispatch`` tasks to control the
-    memory burst from building heavy data.  After the first completions,
-    new tasks are created up to ``max_concurrent`` total pending so that
-    many tasks can poll lightweight remote jobs simultaneously while only
-    a few are in the heavy build/upload phase at any time.
+    Creates up to ``max_concurrent`` tasks immediately, then refills as
+    tasks complete.
 
     Args:
         tasks_args: Iterable of argument tuples, one per task.
         task_fn: ``async (*args) -> result`` coroutine factory.
         on_result: ``(result) -> None`` callback for each completed task.
-        max_concurrent: Total concurrent tasks (including polling).
-        max_dispatch: Initial wave size (controls memory burst from
-            simultaneous data building).
+        max_concurrent: Max concurrent tasks.
     """
     sem = asyncio.Semaphore(max_concurrent)
 
@@ -63,8 +58,8 @@ async def _dispatch_wave(tasks_args, task_fn, on_result, *, max_concurrent, max_
     pending: set[asyncio.Task] = set()
     idx = 0
 
-    # Seed first wave (limited to max_dispatch to control memory burst)
-    wave = min(max_dispatch, len(tasks_args))
+    # Create up to max_concurrent tasks
+    wave = min(max_concurrent, len(tasks_args))
     for i in range(wave):
         pending.add(asyncio.create_task(_guarded(*tasks_args[i])))
     idx = wave
@@ -73,9 +68,6 @@ async def _dispatch_wave(tasks_args, task_fn, on_result, *, max_concurrent, max_
         done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
         for task in done:
             on_result(task.result())
-        # After initial wave, fill up to max_concurrent pending.
-        # Builds are sequential on the event loop so only a few tasks
-        # hold heavy data at once, regardless of how many are pending.
         while idx < len(tasks_args) and len(pending) < max_concurrent:
             pending.add(asyncio.create_task(_guarded(*tasks_args[idx])))
             idx += 1
@@ -88,7 +80,6 @@ async def run_batched(
     *,
     batch_size: int,
     max_concurrent: int = 1,
-    max_dispatch: int = 10,
     max_retries: int = 0,
     resume: bool = True,
     node_name: str = "batch",
@@ -106,10 +97,6 @@ async def run_batched(
         batch_size: Number of IDs per chunk.
         max_concurrent: Max concurrent work_fn calls (total active tasks
             including those polling remote jobs).
-        max_dispatch: Max tasks started at once. Controls the memory burst
-            during the initial build/upload phase: only ``max_dispatch``
-            tasks build heavy data simultaneously, while up to
-            ``max_concurrent`` can poll lightweight remote jobs.
         max_retries: Number of retry rounds for failed IDs (0 = no retries).
         resume: If True, skip IDs already in the store.
         node_name: Label for log messages.
@@ -157,7 +144,6 @@ async def run_batched(
         _process,
         lambda df: store.insert(df),
         max_concurrent=max_concurrent,
-        max_dispatch=max_dispatch,
     )
 
     # Retry failed IDs

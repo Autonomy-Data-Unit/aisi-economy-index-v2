@@ -178,7 +178,6 @@ async def main(ctx, print, ad_ids: list[int]) -> {
         _process_chunk,
         _on_chunk_result,
         max_concurrent=max_concurrent_chunks,
-        max_dispatch=10,
     )
     
     writer.close()
