@@ -66,7 +66,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from ai_index import const
-from ai_index.utils import arerank_pairs, get_ads_by_id
+from ai_index.utils import arerank_pairs
 from ai_index.utils.batch import _dispatch_wave
 from isambard_utils.orchestrate import StagedInput
 from isambard_utils.staging import astage_files
@@ -116,24 +116,17 @@ print(f"rerank_candidates: {n_ads} ads")
 print(f"  rerank_model: {rerank_model}")
 print(f"  reading from: {const.rel(filtered_path)}")
 
-# Export ad texts and onet docs to temp files, then stage everything to Isambard.
-# This uploads ~3 files once instead of 500MB per chunk (100 chunks).
-staging_dir = output_dir / "_staging"
-staging_dir.mkdir(parents=True, exist_ok=True)
-
-# Export ad_texts.parquet (id, title, description) for all ad_ids
-print(f"rerank_candidates: exporting ad texts for {n_ads} ads...")
-ads_table = get_ads_by_id(ad_ids, columns=["title", "description"])
-ad_texts_path = staging_dir / "ad_texts.parquet"
-pq.write_table(ads_table, ad_texts_path)
-del ads_table
-print(f"  ad_texts.parquet: {ad_texts_path.stat().st_size / 1e6:.1f} MB")
+# Use the ad_texts.parquet already written by sample_ads (deterministic, ZSTD).
+# This avoids re-exporting 5M ads from DuckDB (30 min, 30GB RAM) and ensures
+# a stable content hash across pipeline restarts for Isambard cache hits.
+ad_texts_path = const.pipeline_store_path / run_name / "sample_ads" / "ad_texts.parquet"
 
 # Export onet_docs.json (onet_code -> doc_text)
+staging_dir = output_dir / "_staging"
+staging_dir.mkdir(parents=True, exist_ok=True)
 onet_docs_path = staging_dir / "onet_docs.json"
 with open(onet_docs_path, "w") as f:
-    json.dump(onet_docs, f)
-print(f"  onet_docs.json: {onet_docs_path.stat().st_size / 1e6:.1f} MB")
+    json.dump(onet_docs, f, sort_keys=True)
 
 # Stage all three files to Isambard
 print("rerank_candidates: staging files to Isambard...")
