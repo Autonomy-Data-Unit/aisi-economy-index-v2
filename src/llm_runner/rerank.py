@@ -105,6 +105,20 @@ def _init_vllm_reranker(model_name, tokenizer, tensor_parallel_size, dtype, vllm
     return engine, sampling_params, true_token, false_token, suffix_tokens, style_ctx
 
 
+def _to_int_list(token_ids) -> list[int]:
+    """Ensure token IDs are a plain list[int].
+
+    Newer transformers/tokenizers versions may return BatchEncoding or
+    tokenizers.Encoding instead of list[int] from apply_chat_template
+    and encode. This normalises any such return value.
+    """
+    if isinstance(token_ids, list) and (not token_ids or isinstance(token_ids[0], int)):
+        return token_ids
+    if hasattr(token_ids, "input_ids"):
+        return list(token_ids.input_ids)
+    return list(token_ids)
+
+
 def _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, suffix_tokens, max_model_len):
     """Build a single tokenised prompt for a (query, doc) pair."""
     from vllm.inputs import TokensPrompt
@@ -114,27 +128,27 @@ def _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, su
             {"role": "system", "content": "Judge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\"."},
             {"role": "user", "content": f"<Instruct>: {instruction}\n\n<Query>: {query}\n\n<Document>: {doc}"},
         ]
-        token_ids = tokenizer.apply_chat_template(
+        token_ids = _to_int_list(tokenizer.apply_chat_template(
             messages, tokenize=True, add_generation_prompt=False, enable_thinking=False
-        )
+        ))
         max_prompt_len = max_model_len - len(suffix_tokens)
         token_ids = token_ids[:max_prompt_len] + suffix_tokens
     elif vllm_prompt_style == "bge-gemma":
         text = f"A: {query}\nB: {doc}\n{instruction}"
-        token_ids = [tokenizer.bos_token_id] + tokenizer.encode(text, add_special_tokens=False)
+        token_ids = [tokenizer.bos_token_id] + _to_int_list(tokenizer.encode(text, add_special_tokens=False))
         token_ids = token_ids[:max_model_len]
     elif vllm_prompt_style == "lb-reranker":
         messages = [
             {"role": "system", "content": "Given a query and a piece of text, output a score of 1-7 based on how related the query is to the text. 1 means least related and 7 is most related."},
             {"role": "user", "content": f"<<<Query>>>\n{query}\n\n<<<Context>>>\n{doc}"},
         ]
-        token_ids = tokenizer.apply_chat_template(
+        token_ids = _to_int_list(tokenizer.apply_chat_template(
             messages, tokenize=True, add_generation_prompt=True,
-        )
+        ))
         token_ids = token_ids[:max_model_len]
     elif vllm_prompt_style == "rank1":
         text = f"Determine if the following passage is relevant to the query. Answer only with 'true' or 'false'.\nQuery: {query}\nPassage: {doc}\n<think>\n"
-        token_ids = tokenizer.encode(text, add_special_tokens=True)
+        token_ids = _to_int_list(tokenizer.encode(text, add_special_tokens=True))
         token_ids = token_ids[:max_model_len]
 
     return TokensPrompt(prompt_token_ids=token_ids)
