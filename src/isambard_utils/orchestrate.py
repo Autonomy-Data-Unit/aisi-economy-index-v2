@@ -145,6 +145,20 @@ def _is_json_hashable(value) -> bool:
     return False
 
 # %% nbs/isambard_utils/orchestrate.ipynb 9
+_DOWNLOAD_SEM: asyncio.Semaphore | None = None
+_DOWNLOAD_SEM_LOOP: asyncio.AbstractEventLoop | None = None
+_DOWNLOAD_MAX_CONCURRENT: int = 10
+
+def _get_download_sem() -> asyncio.Semaphore:
+    """Get the download semaphore, recreating if the event loop has changed."""
+    global _DOWNLOAD_SEM, _DOWNLOAD_SEM_LOOP
+    loop = asyncio.get_running_loop()
+    if _DOWNLOAD_SEM_LOOP is not loop:
+        _DOWNLOAD_SEM = asyncio.Semaphore(_DOWNLOAD_MAX_CONCURRENT)
+        _DOWNLOAD_SEM_LOOP = loop
+    return _DOWNLOAD_SEM
+
+
 _JOB_LOCKS: dict[str, asyncio.Lock] = {}
 _JOB_LOCKS_LOOP: asyncio.AbstractEventLoop | None = None
 
@@ -366,7 +380,23 @@ async def _download_outputs(
     *,
     config: IsambardConfig,
 ) -> dict[str, Any]:
-    """Download and deserialize outputs from remote cache."""
+    """Download and deserialize outputs from remote cache.
+
+    Throttled by a module-level semaphore to prevent OOM when many jobs
+    complete simultaneously. The limit is set via max_concurrent_downloads
+    in arun_remote (default 10).
+    """
+    async with _get_download_sem():
+        return await _download_outputs_inner(cache_path, output_transfer, config=config)
+
+
+async def _download_outputs_inner(
+    cache_path: str,
+    output_transfer: TransferMode,
+    *,
+    config: IsambardConfig,
+) -> dict[str, Any]:
+    """Download and deserialize outputs from remote cache (inner, unsemaphored)."""
     from .transfer import adownload_tar_pipe, adownload
     from llm_runner.serialization import deserialize
 
@@ -542,6 +572,7 @@ async def arun_remote(
     print_fn=_fprint,
     cache: bool = True,
     upload_timeout: int = 600,
+    max_concurrent_downloads: int = 10,
 ) -> dict[str, Any]:
     """Run a llm_runner operation remotely on Isambard via SBATCH (async).
 
@@ -567,6 +598,9 @@ async def arun_remote(
             a UUID-based temp directory (old behavior).
         upload_timeout: Seconds to wait when another process is uploading
             before treating as stale (default 600).
+        max_concurrent_downloads: Max concurrent result downloads from
+            Isambard (default 10). Prevents OOM when many jobs complete
+            simultaneously.
 
     Returns:
         Dict of operation outputs (deserialized).
@@ -574,6 +608,14 @@ async def arun_remote(
     from .models import aensure_model
 
     ic = _get_config(isambard_config)
+
+    # Update download concurrency limit
+    global _DOWNLOAD_MAX_CONCURRENT
+    if max_concurrent_downloads != _DOWNLOAD_MAX_CONCURRENT:
+        _DOWNLOAD_MAX_CONCURRENT = max_concurrent_downloads
+        global _DOWNLOAD_SEM, _DOWNLOAD_SEM_LOOP
+        _DOWNLOAD_SEM = None  # force re-creation with new limit
+        _DOWNLOAD_SEM_LOOP = None
 
     # Normalize transfer_modes to per-key dict
     if isinstance(transfer_modes, TransferMode):
@@ -961,6 +1003,7 @@ def run_remote(
     print_fn=_fprint,
     cache: bool = True,
     upload_timeout: int = 600,
+    max_concurrent_downloads: int = 10,
 ) -> dict[str, Any]:
     """Run a llm_runner operation remotely on Isambard via SBATCH.
 
@@ -977,4 +1020,5 @@ def run_remote(
         print_fn=print_fn,
         cache=cache,
         upload_timeout=upload_timeout,
+        max_concurrent_downloads=max_concurrent_downloads,
     ))
