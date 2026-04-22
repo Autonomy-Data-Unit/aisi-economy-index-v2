@@ -62,7 +62,6 @@ import time
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from ai_index import const
@@ -152,6 +151,29 @@ print("rerank_candidates: staging complete")
 #|export
 CHUNK_SIZE = chunk_size
 
+# Read candidate structure ONCE from filtered_matches.parquet (not per-chunk).
+# With 100 concurrent tasks, per-chunk parquet reads consumed ~40GB and OOM-killed
+# the server. One read + shared dict lookup is ~2GB total.
+print("rerank_candidates: reading candidate structure...")
+_all_matches = pq.read_table(
+    filtered_path,
+    columns=["ad_id", "onet_code", "onet_title"],
+)
+all_candidates_by_ad = {}
+_aid_col = _all_matches.column("ad_id").to_pylist()
+_code_col = _all_matches.column("onet_code").to_pylist()
+_title_col = _all_matches.column("onet_title").to_pylist()
+for _i in range(len(_all_matches)):
+    _aid = _aid_col[_i]
+    if _aid not in all_candidates_by_ad:
+        all_candidates_by_ad[_aid] = []
+    all_candidates_by_ad[_aid].append({
+        "onet_code": _code_col[_i],
+        "onet_title": _title_col[_i],
+    })
+del _all_matches, _aid_col, _code_col, _title_col
+print(f"  {len(all_candidates_by_ad)} ads with candidates")
+
 reranked_schema = pa.schema([
     ("ad_id", pa.int64()),
     ("rank", pa.int32()),
@@ -169,35 +191,9 @@ slurm_jobs = []
 started_at = time.time()
 
 async def _process_chunk(chunk_idx, chunk_ad_ids):
-    # Read candidate structure from parquet (lightweight, predicate pushdown).
-    # No DuckDB in-memory view needed: each chunk reads only its rows.
-    chunk_matches = pq.read_table(
-        filtered_path,
-        filters=pc.field("ad_id").isin(chunk_ad_ids),
-        columns=["ad_id", "onet_code", "onet_title"],
-    )
-
-    if len(chunk_matches) == 0:
-        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
-        return []
-
-    # Group candidates by ad (lightweight: just onet_code + onet_title)
-    candidates_by_ad = {}
-    ad_id_col = chunk_matches.column("ad_id").to_pylist()
-    onet_code_col = chunk_matches.column("onet_code").to_pylist()
-    onet_title_col = chunk_matches.column("onet_title").to_pylist()
-    for i in range(len(chunk_matches)):
-        aid = ad_id_col[i]
-        if aid not in candidates_by_ad:
-            candidates_by_ad[aid] = []
-        candidates_by_ad[aid].append({
-            "onet_code": onet_code_col[i],
-            "onet_title": onet_title_col[i],
-        })
-    del chunk_matches
-
-    ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_by_ad]
+    ads_with_candidates = [aid for aid in chunk_ad_ids if aid in all_candidates_by_ad]
     if not ads_with_candidates:
+        print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
         return []
 
     # Build a StagedInput: the resolver on Isambard will read the staged
@@ -220,7 +216,7 @@ async def _process_chunk(chunk_idx, chunk_ad_ids):
 
     chunk_rows = []
     for i, ad_id in enumerate(ads_with_candidates):
-        candidates = candidates_by_ad[ad_id]
+        candidates = all_candidates_by_ad[ad_id]
         ad_scores = scores_per_ad[i]
         for rank, c in enumerate(candidates):
             chunk_rows.append({
