@@ -226,7 +226,19 @@ The high-level entry point is `orchestrate.arun_remote()`, which manages the ful
 
 Integration tests: `pytest src/tests/isambard_utils/` (requires active Clifton cert).
 
-**Clifton VPN certificates:** The user has access to Clifton certificates for Isambard. These expire periodically and may need to be re-certified. If sbatch commands fail with SSH/connection errors, check whether the certificate has expired.
+**Clifton VPN certificates:** The user has access to Clifton certificates for Isambard. These expire every ~12 hours and may need to be re-certified. If sbatch commands fail with SSH/connection errors, check whether the certificate has expired. See `CLAUDE.local.md` for auto-renewal procedure.
+
+### Staged Data System
+
+Instead of uploading serialized data per sbatch job (500MB each), raw data files (parquet, JSON) are staged on Isambard once and each job reads its chunk directly from Lustre.
+
+- `isambard_utils/staging.py` -- `StagedRef`, `astage_file()`, `astage_files()` for idempotent uploads to `.staged_data/{content_hash}/`
+- `isambard_utils/orchestrate.py` -- `StagedInput` dataclass (resolver name + source refs + chunk params). Hashed instantly from source hashes + params. `_download_outputs()` is throttled by a semaphore (`max_concurrent_downloads`, default 10) to prevent OOM.
+- `llm_runner/staged.py` -- Resolver registry (`@resolver()` decorator). Resolvers run on the GPU node, read staged parquets with predicate pushdown, and build model inputs locally.
+
+**Determinism:** Files used in content hashing must produce identical bytes across pipeline restarts. Use `ORDER BY` in DuckDB exports and `sort_keys=True` in JSON dumps. Use skip-if-exists for expensive exports (sample_ads/ad_texts.parquet, llm_filter/filtered_matches.parquet) to avoid re-writing files that haven't changed.
+
+**Memory:** For large lookup structures (e.g. 38M candidate rows), use pyarrow tables with offset indexes rather than Python dicts. A sorted Arrow table with a `dict[ad_id, (start, end)]` index uses ~500MB vs ~15GB for equivalent Python dicts.
 
 ## Project Structure
 
