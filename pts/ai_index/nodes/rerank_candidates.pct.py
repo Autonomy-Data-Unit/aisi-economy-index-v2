@@ -151,28 +151,32 @@ print("rerank_candidates: staging complete")
 #|export
 CHUNK_SIZE = chunk_size
 
-# Read candidate structure ONCE from filtered_matches.parquet (not per-chunk).
-# With 100 concurrent tasks, per-chunk parquet reads consumed ~40GB and OOM-killed
-# the server. One read + shared dict lookup is ~2GB total.
+# Read candidate structure ONCE as a sorted pyarrow table (~500MB columnar)
+# instead of 38M Python dicts (~15GB). Build an offset index for O(1) lookups.
+import pyarrow.compute as pc
+
 print("rerank_candidates: reading candidate structure...")
 _all_matches = pq.read_table(
     filtered_path,
     columns=["ad_id", "onet_code", "onet_title"],
 )
-all_candidates_by_ad = {}
-_aid_col = _all_matches.column("ad_id").to_pylist()
-_code_col = _all_matches.column("onet_code").to_pylist()
-_title_col = _all_matches.column("onet_title").to_pylist()
-for _i in range(len(_all_matches)):
-    _aid = _aid_col[_i]
-    if _aid not in all_candidates_by_ad:
-        all_candidates_by_ad[_aid] = []
-    all_candidates_by_ad[_aid].append({
-        "onet_code": _code_col[_i],
-        "onet_title": _title_col[_i],
-    })
-del _all_matches, _aid_col, _code_col, _title_col
-print(f"  {len(all_candidates_by_ad)} ads with candidates")
+# Sort by ad_id so each ad's candidates are contiguous
+_sort_indices = pc.sort_indices(_all_matches, sort_keys=[("ad_id", "ascending")])
+candidates_table = _all_matches.take(_sort_indices)
+del _all_matches, _sort_indices
+
+# Build offset index: ad_id -> (start, end) row range in sorted table
+_ad_ids_arr = candidates_table.column("ad_id").to_numpy()
+candidates_index = {}
+_i = 0
+while _i < len(_ad_ids_arr):
+    _aid = int(_ad_ids_arr[_i])
+    _start = _i
+    while _i < len(_ad_ids_arr) and _ad_ids_arr[_i] == _aid:
+        _i += 1
+    candidates_index[_aid] = (_start, _i)
+del _ad_ids_arr
+print(f"  {len(candidates_index)} ads with candidates, {len(candidates_table)} rows ({candidates_table.nbytes / 1e6:.0f} MB)")
 
 reranked_schema = pa.schema([
     ("ad_id", pa.int64()),
@@ -191,7 +195,7 @@ slurm_jobs = []
 started_at = time.time()
 
 async def _process_chunk(chunk_idx, chunk_ad_ids):
-    ads_with_candidates = [aid for aid in chunk_ad_ids if aid in all_candidates_by_ad]
+    ads_with_candidates = [aid for aid in chunk_ad_ids if aid in candidates_index]
     if not ads_with_candidates:
         print(f"  chunk {chunk_idx + 1}/{n_chunks}: {len(chunk_ad_ids)} ads (no candidates)")
         return []
@@ -214,16 +218,19 @@ async def _process_chunk(chunk_idx, chunk_ad_ids):
     if _sa:
         slurm_jobs.append(_sa)
 
+    # Map scores back to candidates using the offset index into the Arrow table
+    _codes = candidates_table.column("onet_code")
+    _titles = candidates_table.column("onet_title")
     chunk_rows = []
     for i, ad_id in enumerate(ads_with_candidates):
-        candidates = all_candidates_by_ad[ad_id]
+        start, end = candidates_index[ad_id]
         ad_scores = scores_per_ad[i]
-        for rank, c in enumerate(candidates):
+        for rank in range(end - start):
             chunk_rows.append({
                 "ad_id": ad_id,
                 "rank": rank,
-                "onet_code": c["onet_code"],
-                "onet_title": c["onet_title"],
+                "onet_code": _codes[start + rank].as_py(),
+                "onet_title": _titles[start + rank].as_py(),
                 "rerank_score": float(ad_scores[rank]),
             })
 
