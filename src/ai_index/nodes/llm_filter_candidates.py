@@ -216,97 +216,111 @@ async def main(ctx, print, ad_ids: list[int]) -> {
     import pyarrow as pa
     import pyarrow.parquet as pq
     
-    filter_conn = duckdb.connect(str(db_path))
-    filter_rows = filter_conn.execute(
-        "SELECT id, data FROM results WHERE error IS NULL"
-    ).fetchall()
-    filter_conn.close()
-    
-    filtered_schema = pa.schema([
-        ("ad_id", pa.int64()),
-        ("rank", pa.int32()),
-        ("onet_code", pa.string()),
-        ("onet_title", pa.string()),
-        ("cosine_score", pa.float32()),
-    ])
-    dropped_schema = pa.schema([
-        ("ad_id", pa.int64()),
-        ("onet_code", pa.string()),
-        ("onet_title", pa.string()),
-        ("cosine_score", pa.float32()),
-        ("original_rank", pa.int32()),
-    ])
-    
     filtered_path = output_dir / "filtered_matches.parquet"
     dropped_path = output_dir / "dropped_matches.parquet"
-    filtered_writer = pq.ParquetWriter(filtered_path, filtered_schema)
-    dropped_writer = pq.ParquetWriter(dropped_path, dropped_schema)
-    
-    total_kept = 0
-    total_dropped = 0
-    
-    FILTER_CHUNK_SIZE = 5000
-    for chunk_start in range(0, len(filter_rows), FILTER_CHUNK_SIZE):
-        chunk = filter_rows[chunk_start:chunk_start + FILTER_CHUNK_SIZE]
-        chunk_ad_ids = [int(row[0]) for row in chunk]
-    
-        # Load matches for this chunk from parquet
-        id_list = ",".join(str(i) for i in chunk_ad_ids)
-        chunk_matches = _matches_conn.execute(
-            f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
-        ).fetchdf()
-        matches_by_ad = {}
-        for ad_id, group in chunk_matches.groupby("ad_id"):
-            matches_by_ad[int(ad_id)] = group.to_dict("records")
-    
-        kept_rows = []
-        drop_rows = []
-        for ad_id_raw, data_str in chunk:
-            ad_id = int(ad_id_raw)
-            if ad_id not in matches_by_ad:
-                continue
-            parsed = json.loads(data_str)
-            keep_set = set(parsed["keep"])  # 1-based indices
-            candidates = matches_by_ad[ad_id]
-    
-            rank = 0
-            for i, c in enumerate(candidates):
-                if (i + 1) in keep_set:
-                    kept_rows.append({
-                        "ad_id": ad_id,
-                        "rank": rank,
-                        "onet_code": c["onet_code"],
-                        "onet_title": c["onet_title"],
-                        "cosine_score": float(c["cosine_score"]),
-                    })
-                    rank += 1
-                else:
-                    drop_rows.append({
-                        "ad_id": ad_id,
-                        "onet_code": c["onet_code"],
-                        "onet_title": c["onet_title"],
-                        "cosine_score": float(c["cosine_score"]),
-                        "original_rank": i,
-                    })
-    
-        if kept_rows:
-            filtered_writer.write_table(pa.Table.from_pylist(kept_rows, schema=filtered_schema))
-            total_kept += len(kept_rows)
-        if drop_rows:
-            dropped_writer.write_table(pa.Table.from_pylist(drop_rows, schema=dropped_schema))
-            total_dropped += len(drop_rows)
-    
-    filtered_writer.close()
-    dropped_writer.close()
-    _matches_conn.close()
-    _ads_conn.close()
     
     failed_set = set(filter_meta["failed_ids"])
     successful_ad_ids = [i for i in ad_ids if i not in failed_set]
     
-    print(f"llm_filter: {total_kept} kept, {total_dropped} dropped for {len(successful_ad_ids)} ads")
-    print(f"  mean candidates kept: {total_kept / max(len(successful_ad_ids), 1):.1f}")
-    print(f"  filtered: {filtered_path}")
-    print(f"  dropped: {dropped_path}")
+    if filtered_path.exists() and dropped_path.exists():
+        # Skip re-export: parquets already exist from a previous run.
+        # Re-exporting is non-deterministic (async chunk order) and takes ~35 min.
+        _meta = pq.read_metadata(filtered_path)
+        total_kept = _meta.num_rows
+        _meta_d = pq.read_metadata(dropped_path)
+        total_dropped = _meta_d.num_rows
+        print(f"llm_filter: parquets already exist, skipping export")
+        print(f"llm_filter: {total_kept} kept, {total_dropped} dropped for {len(successful_ad_ids)} ads")
+        print(f"  mean candidates kept: {total_kept / max(len(successful_ad_ids), 1):.1f}")
+        print(f"  filtered: {filtered_path}")
+        print(f"  dropped: {dropped_path}")
+    else:
+        filter_conn = duckdb.connect(str(db_path))
+        filter_rows = filter_conn.execute(
+            "SELECT id, data FROM results WHERE error IS NULL"
+        ).fetchall()
+        filter_conn.close()
+    
+        filtered_schema = pa.schema([
+            ("ad_id", pa.int64()),
+            ("rank", pa.int32()),
+            ("onet_code", pa.string()),
+            ("onet_title", pa.string()),
+            ("cosine_score", pa.float32()),
+        ])
+        dropped_schema = pa.schema([
+            ("ad_id", pa.int64()),
+            ("onet_code", pa.string()),
+            ("onet_title", pa.string()),
+            ("cosine_score", pa.float32()),
+            ("original_rank", pa.int32()),
+        ])
+    
+        filtered_writer = pq.ParquetWriter(filtered_path, filtered_schema)
+        dropped_writer = pq.ParquetWriter(dropped_path, dropped_schema)
+    
+        total_kept = 0
+        total_dropped = 0
+    
+        FILTER_CHUNK_SIZE = 5000
+        for chunk_start in range(0, len(filter_rows), FILTER_CHUNK_SIZE):
+            chunk = filter_rows[chunk_start:chunk_start + FILTER_CHUNK_SIZE]
+            chunk_ad_ids = [int(row[0]) for row in chunk]
+    
+            # Load matches for this chunk from parquet
+            id_list = ",".join(str(i) for i in chunk_ad_ids)
+            chunk_matches = _matches_conn.execute(
+                f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
+            ).fetchdf()
+            matches_by_ad = {}
+            for ad_id, group in chunk_matches.groupby("ad_id"):
+                matches_by_ad[int(ad_id)] = group.to_dict("records")
+    
+            kept_rows = []
+            drop_rows = []
+            for ad_id_raw, data_str in chunk:
+                ad_id = int(ad_id_raw)
+                if ad_id not in matches_by_ad:
+                    continue
+                parsed = json.loads(data_str)
+                keep_set = set(parsed["keep"])  # 1-based indices
+                candidates = matches_by_ad[ad_id]
+    
+                rank = 0
+                for i, c in enumerate(candidates):
+                    if (i + 1) in keep_set:
+                        kept_rows.append({
+                            "ad_id": ad_id,
+                            "rank": rank,
+                            "onet_code": c["onet_code"],
+                            "onet_title": c["onet_title"],
+                            "cosine_score": float(c["cosine_score"]),
+                        })
+                        rank += 1
+                    else:
+                        drop_rows.append({
+                            "ad_id": ad_id,
+                            "onet_code": c["onet_code"],
+                            "onet_title": c["onet_title"],
+                            "cosine_score": float(c["cosine_score"]),
+                            "original_rank": i,
+                        })
+    
+            if kept_rows:
+                filtered_writer.write_table(pa.Table.from_pylist(kept_rows, schema=filtered_schema))
+                total_kept += len(kept_rows)
+            if drop_rows:
+                dropped_writer.write_table(pa.Table.from_pylist(drop_rows, schema=dropped_schema))
+                total_dropped += len(drop_rows)
+    
+        filtered_writer.close()
+        dropped_writer.close()
+        _matches_conn.close()
+        _ads_conn.close()
+    
+        print(f"llm_filter: {total_kept} kept, {total_dropped} dropped for {len(successful_ad_ids)} ads")
+        print(f"  mean candidates kept: {total_kept / max(len(successful_ad_ids), 1):.1f}")
+        print(f"  filtered: {filtered_path}")
+        print(f"  dropped: {dropped_path}")
     
     return successful_ad_ids
