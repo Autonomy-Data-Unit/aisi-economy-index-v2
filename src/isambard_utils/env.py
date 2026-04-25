@@ -32,11 +32,11 @@ async def _aensure_venv(*, config: IsambardConfig, print_fn=print) -> None:
     """
     import subprocess
 
-    # Fast path: skip sync if pyproject.toml hasn't changed since last success
+    # Fast path: skip sync if pyproject.toml + uv.lock haven't changed since last success
     check_script = f"""
 cd {config.project_dir}
 [ -f .venv/bin/python ] && [ -f .venv/.pyproject_hash ] && \
-  [ "$(sha256sum pyproject.toml | cut -d' ' -f1)" = "$(cat .venv/.pyproject_hash)" ] && \
+  [ "$(cat pyproject.toml uv.lock 2>/dev/null | sha256sum | cut -d' ' -f1)" = "$(cat .venv/.pyproject_hash)" ] && \
   echo DEPS_CURRENT || echo DEPS_STALE
 """.strip()
     result = await async_ssh_run(
@@ -54,7 +54,7 @@ cd {config.project_dir}
 export UV_CACHE_DIR={config.project_dir}/.uv_cache
 export UV_LINK_MODE=copy
 uv sync --no-dev --no-install-project
-sha256sum pyproject.toml | cut -d' ' -f1 > .venv/.pyproject_hash
+cat pyproject.toml uv.lock 2>/dev/null | sha256sum | cut -d' ' -f1 > .venv/.pyproject_hash
 """.strip()
     try:
         await async_ssh_run(

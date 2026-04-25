@@ -514,11 +514,15 @@ async def asetup_runner(*, config: IsambardConfig | None = None, print_fn=_fprin
             # 2. Ensure uv
             await _aensure_uv(config=config)
 
-            # 3. Upload remote_pyproject.toml as pyproject.toml
+            # 3. Upload remote_pyproject.toml as pyproject.toml (+ lock file if present)
             runner_src = Path(llm_runner.__path__[0])
             remote_pyproject = runner_src / "assets" / "remote_pyproject.toml"
             await aupload_bytes(remote_pyproject.read_bytes(),
                                 f"{config.project_dir}/pyproject.toml", config=config)
+            remote_lockfile = runner_src / "assets" / "remote_uv.lock"
+            if remote_lockfile.exists():
+                await aupload_bytes(remote_lockfile.read_bytes(),
+                                    f"{config.project_dir}/uv.lock", config=config)
 
             # 4. Rsync llm_runner source
             print_fn("runner setup: syncing llm_runner source...")
