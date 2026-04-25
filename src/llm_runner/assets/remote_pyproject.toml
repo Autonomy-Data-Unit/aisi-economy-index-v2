@@ -1,6 +1,11 @@
 # Minimal pyproject.toml for deploying llm_runner on Isambard.
 # Only lists the dependencies llm_runner actually needs — not the
 # full ai-index project. Uploaded by asetup_runner().
+#
+# IMPORTANT: torch must come from the CUDA index (PyPI only has CPU-only
+# wheels for aarch64/GH200). The [tool.uv.sources] section pins this so
+# `uv sync` installs CUDA torch directly, avoiding the fragile post-hoc
+# reinstall step.
 
 [project]
 name = "llm-runner"
@@ -17,6 +22,9 @@ dependencies = [
     "vllm",
     "nest-asyncio>=1.6",
 ]
+
+[tool.uv]
+extra-index-url = ["https://download.pytorch.org/whl/cu126"]
 
 [build-system]
 requires = ["hatchling"]

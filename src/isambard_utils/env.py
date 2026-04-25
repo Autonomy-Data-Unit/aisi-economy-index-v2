@@ -142,10 +142,9 @@ cd {config.project_dir}
     result = await async_ssh_run(
         f"bash -lc {_shlex_quote(check_script)}", config=config, check=False,
     )
-    if result.returncode != 0:
-        return  # torch not installed, nothing to do
-    if "+cu" in result.stdout.strip():
-        return  # Already has CUDA torch
+    if result.returncode == 0 and "+cu" in result.stdout.strip():
+        return  # Already has working CUDA torch
+    # torch is either missing, broken (import error), or CPU-only: reinstall
 
     # Check if vllm is installed (before changing torch)
     has_vllm_script = f"""

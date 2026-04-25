@@ -15,7 +15,7 @@ structured_output = true
 
 [defaults.sbatch]
 max_new_tokens = 60
-dtype = "fp8"
+dtype = "bfloat16"  # fp8 produces garbage on vLLM 0.19.1 + torch 2.10 + GH200 aarch64
 backend = "vllm"
 gpus = 1
 job_name = "llm_generate"
@@ -92,6 +92,7 @@ structured_output = false
 [models.qwen-72b-sbatch]
 mode = "sbatch"
 model = "Qwen/Qwen2.5-72B-Instruct"
+gpus = 2
 
 # Dropped: worst agreement with other models on all metrics (oldest 7B architecture).
 # structured_output=false: this model produces malformed output with vLLM's structured output backend.
@@ -119,6 +120,7 @@ model = "Qwen/Qwen2.5-72B-Instruct"
 [models.llama-70b-sbatch]
 mode = "sbatch"
 model = "meta-llama/Meta-Llama-3.1-70B-Instruct"
+gpus = 2
 structured_output = false
 
 [models.phi-4-sbatch]

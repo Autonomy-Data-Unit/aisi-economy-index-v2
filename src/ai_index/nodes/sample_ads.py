@@ -36,15 +36,17 @@ def main(ctx, print) -> {
         print(f"sample_ads: ad_texts.parquet already exists, skipping export ({const.rel(ad_texts_path)})")
     else:
         conn_texts = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
-        # Register the sampled IDs as an Arrow table so DuckDB can join efficiently
+        # Register the sampled IDs as an Arrow table so DuckDB can join efficiently.
+        # Use a semi-join (WHERE id IN) instead of INNER JOIN + ORDER BY to avoid
+        # a full sort of the 30M row table. The parquet is written once (skip-if-exists)
+        # so row order doesn't affect content-hash stability across restarts.
         _sample_table = pa.table({"id": pa.array(sample_ad_ids, type=pa.int64())})
         conn_texts.register("_sample", _sample_table)
         conn_texts.execute(f"""
             COPY (
-                SELECT a.id, a.title, a.description
+                SELECT a.id, a.title, a.category_name, a.description
                 FROM ads a
-                INNER JOIN _sample s ON a.id = s.id
-                ORDER BY a.id
+                WHERE a.id IN (SELECT id FROM _sample)
             ) TO '{ad_texts_path}' (FORMAT PARQUET, COMPRESSION ZSTD)
         """)
         conn_texts.close()

@@ -121,7 +121,10 @@ def _to_int_list(token_ids) -> list[int]:
 
 def _build_vllm_prompt(query, doc, tokenizer, instruction, vllm_prompt_style, suffix_tokens, max_model_len):
     """Build a single tokenised prompt for a (query, doc) pair."""
-    from vllm.inputs import TokensPrompt
+    try:
+        from vllm.inputs import TokensPrompt
+    except ImportError:
+        from vllm.inputs.data import TokensPrompt
 
     if vllm_prompt_style == "qwen":
         messages = [

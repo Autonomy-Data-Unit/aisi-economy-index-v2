@@ -81,15 +81,18 @@ show_node_vars('llm_filter_candidates', run_name=run_name)
 
 # %%
 #|export
-import duckdb
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pyarrow.compute as pc
 
 from ai_index import const
 from ai_index.utils import (
-    ResultStore, run_batched, strict_format, load_prompt, allm_generate,
+    ResultStore, run_batched, load_prompt, allm_generate,
     extract_json, is_reasoning_model, uses_structured_output,
-    get_adzuna_conn, duckdb_connect_retry,
 )
+from isambard_utils.orchestrate import StagedInput
+from isambard_utils.staging import astage_files
 
 # %%
 #|export
@@ -126,18 +129,16 @@ output_dir.mkdir(parents=True, exist_ok=True)
 db_path = output_dir / "filter_results.duckdb"
 
 # %% [markdown]
-# ## Prepare data connections
+# ## Stage data and build candidate index
 #
-# Data is loaded per-chunk inside `_work_fn` to avoid holding all matches
-# and raw ads in memory at once.
+# Stage candidates, ad texts, and O*NET descriptions to Isambard once.
+# Read candidate structure into a sorted Arrow table with offset index
+# so per-chunk lookups are O(1) dict access instead of DuckDB queries.
 
 # %%
 #|export
 matches_path = const.pipeline_store_path / run_name / "cosine_candidates" / "candidates.parquet"
-
-_matches_conn = duckdb.connect()  # in-memory
-_matches_conn.execute(f"CREATE VIEW candidates AS SELECT * FROM read_parquet('{matches_path}')")
-_ads_conn = get_adzuna_conn(read_only=True, memory_limit=duckdb_memory_limit)
+ad_texts_path = const.pipeline_store_path / run_name / "sample_ads" / "ad_texts.parquet"
 
 # Build O*NET candidate text for the LLM prompt: description + top 5 tasks.
 # No alternate titles (they blow up the context without helping the LLM's
@@ -153,30 +154,51 @@ def _build_onet_text(row):
 
 _onet_descriptions = dict(zip(_onet_targets["O*NET-SOC Code"], _onet_targets.apply(_build_onet_text, axis=1)))
 
+# Export onet_descriptions.json for staging
+staging_dir = output_dir / "_staging"
+staging_dir.mkdir(parents=True, exist_ok=True)
+onet_desc_path = staging_dir / "onet_descriptions.json"
+with open(onet_desc_path, "w") as f:
+    json.dump(_onet_descriptions, f, sort_keys=True)
+
+# Stage files to Isambard
+print("llm_filter: staging files to Isambard...")
+staged_refs = await astage_files(
+    {
+        "candidates": matches_path,
+        "ad_texts": ad_texts_path,
+        "onet_descriptions": onet_desc_path,
+    },
+    print_fn=print,
+)
+print("llm_filter: staging complete")
+
 print(f"llm_filter: {len(ad_ids)} ads to process")
 print(f"llm_filter: reading candidates from {const.rel(matches_path)}")
 
+# Read candidate structure ONCE as sorted Arrow table with offset index.
+# At 5M ads x 20 candidates, this is ~500MB columnar vs ~15GB as Python dicts.
+print("llm_filter: reading candidate structure...")
+_all_matches = pq.read_table(
+    matches_path,
+    columns=["ad_id", "onet_code", "onet_title", "cosine_score"],
+)
+_sort_indices = pc.sort_indices(_all_matches, sort_keys=[("ad_id", "ascending")])
+candidates_table = _all_matches.take(_sort_indices)
+del _all_matches, _sort_indices
 
-def _load_chunk_context(chunk_ids):
-    """Load matches and raw ads for a chunk of ad IDs."""
-    id_list = ",".join(str(int(i)) for i in chunk_ids)
-
-    # Matches from parquet
-    chunk_matches = _matches_conn.execute(
-        f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
-    ).fetchdf()
-    matches_by_ad = {}
-    for ad_id, group in chunk_matches.groupby("ad_id"):
-        matches_by_ad[int(ad_id)] = group.to_dict("records")
-
-    # Raw ads
-    _ads_conn.execute(f"CREATE OR REPLACE TEMP TABLE _chunk_ids AS SELECT unnest([{id_list}]::BIGINT[]) AS id")
-    raw_rows = _ads_conn.execute(
-        "SELECT a.id, a.title, a.category_name, a.description FROM ads a JOIN _chunk_ids c ON a.id = c.id"
-    ).fetchall()
-    raw_ads_by_id = {int(r[0]): {"title": r[1], "category_name": r[2], "description": r[3]} for r in raw_rows}
-
-    return matches_by_ad, raw_ads_by_id
+# Build offset index: ad_id -> (start, end) row range in sorted table
+_ad_ids_arr = candidates_table.column("ad_id").to_numpy()
+candidates_index = {}
+_i = 0
+while _i < len(_ad_ids_arr):
+    _aid = int(_ad_ids_arr[_i])
+    _start = _i
+    while _i < len(_ad_ids_arr) and _ad_ids_arr[_i] == _aid:
+        _i += 1
+    candidates_index[_aid] = (_start, _i)
+del _ad_ids_arr
+print(f"  {len(candidates_index)} ads with candidates, {len(candidates_table)} rows ({candidates_table.nbytes / 1e6:.0f} MB)")
 
 # %% [markdown]
 # ## Define work function
@@ -185,29 +207,6 @@ def _load_chunk_context(chunk_ids):
 
 # %%
 #|export
-def _build_prompt(ad_id, candidates, raw_ad):
-    """Build the negative selection prompt for one ad."""
-    candidate_lines = []
-    for i, c in enumerate(candidates):
-        desc = _onet_descriptions[c["onet_code"]]
-        candidate_lines.append(f"{i+1}. {c['onet_title']}: {desc}" if desc else f"{i+1}. {c['onet_title']}")
-    candidates_str = "\n".join(candidate_lines)
-    # Cap at 6000 chars: covers p95+ of ads (median 2217, p95 5544, p99 7955).
-    # The old limit of 1200 truncated 82% of ads. With 20 candidates at ~300
-    # chars each, the total prompt stays under ~3K tokens for most ads, well
-    # within all models' context windows (smallest is gemma-4b at 8K).
-    full_ad_excerpt = (raw_ad["description"] or "")[:6000].strip()
-
-    return strict_format(
-        USER_PROMPT_TEMPLATE,
-        n_candidates=len(candidates),
-        job_ad_title=raw_ad["title"] or "",
-        job_sector_category=raw_ad["category_name"] or "",
-        full_ad_excerpt=full_ad_excerpt,
-        candidates_str=candidates_str,
-    )
-
-
 def _validate_response(raw: str, n_candidates: int) -> str | None:
     """Validate an LLM filter response. Returns None if valid, or an error string."""
     try:
@@ -224,24 +223,28 @@ def _validate_response(raw: str, n_candidates: int) -> str | None:
 _slurm_jobs = []
 
 async def _work_fn(chunk_ids):
-    """Load chunk context, build prompts, call LLM, validate, return DataFrame."""
-    matches_by_ad, raw_ads_by_id = _load_chunk_context(chunk_ids)
-
-    prompts = []
+    """Build StagedInput, call LLM, validate responses, return DataFrame."""
+    # Pre-compute n_candidates_per_ad from offset index (no DuckDB query)
     n_candidates_per_ad = []
     for ad_id in chunk_ids:
-        candidates = matches_by_ad[ad_id]
-        prompts.append(_build_prompt(ad_id, candidates, raw_ads_by_id[ad_id]))
-        n_candidates_per_ad.append(len(candidates))
+        start, end = candidates_index[ad_id]
+        n_candidates_per_ad.append(end - start)
 
-    # Free heavy context data before the (potentially hours-long) LLM call.
-    # Only prompts + n_candidates_per_ad are needed from here on.
-    del matches_by_ad, raw_ads_by_id
+    # The resolver on Isambard reads staged parquets/JSON and builds
+    # the formatted prompts for this chunk using predicate pushdown.
+    staged_prompts = StagedInput(
+        resolver="filter_candidates_prompts",
+        sources=staged_refs,
+        params={
+            "ad_ids": list(chunk_ids),
+            "user_prompt_template": USER_PROMPT_TEMPLATE,
+        },
+    )
 
     _sa = {}
     schema = FilterResponseModel.model_json_schema() if _use_structured_output else None
     responses = await allm_generate(
-        prompts,
+        staged_prompts,
         model=llm_model,
         system_message=SYSTEM_PROMPT,
         max_new_tokens=max_new_tokens,
@@ -308,9 +311,6 @@ print(f"llm_filter: wrote {const.rel(meta_path)}")
 
 # %%
 #|export
-import pyarrow as pa
-import pyarrow.parquet as pq
-
 filtered_path = output_dir / "filtered_matches.parquet"
 dropped_path = output_dir / "dropped_matches.parquet"
 
@@ -330,6 +330,7 @@ if filtered_path.exists() and dropped_path.exists():
     print(f"  filtered: {filtered_path}")
     print(f"  dropped: {dropped_path}")
 else:
+    import duckdb
     filter_conn = duckdb.connect(str(db_path))
     filter_rows = filter_conn.execute(
         "SELECT id, data FROM results WHERE error IS NULL"
@@ -354,50 +355,49 @@ else:
     filtered_writer = pq.ParquetWriter(filtered_path, filtered_schema)
     dropped_writer = pq.ParquetWriter(dropped_path, dropped_schema)
 
+    # Use the Arrow table + offset index instead of per-chunk DuckDB queries
+    _codes = candidates_table.column("onet_code")
+    _titles = candidates_table.column("onet_title")
+    _scores = candidates_table.column("cosine_score")
+
     total_kept = 0
     total_dropped = 0
 
     FILTER_CHUNK_SIZE = 5000
     for chunk_start in range(0, len(filter_rows), FILTER_CHUNK_SIZE):
         chunk = filter_rows[chunk_start:chunk_start + FILTER_CHUNK_SIZE]
-        chunk_ad_ids = [int(row[0]) for row in chunk]
-
-        # Load matches for this chunk from parquet
-        id_list = ",".join(str(i) for i in chunk_ad_ids)
-        chunk_matches = _matches_conn.execute(
-            f"SELECT * FROM candidates WHERE ad_id IN ({id_list}) ORDER BY ad_id, rank"
-        ).fetchdf()
-        matches_by_ad = {}
-        for ad_id, group in chunk_matches.groupby("ad_id"):
-            matches_by_ad[int(ad_id)] = group.to_dict("records")
 
         kept_rows = []
         drop_rows = []
         for ad_id_raw, data_str in chunk:
             ad_id = int(ad_id_raw)
-            if ad_id not in matches_by_ad:
+            if ad_id not in candidates_index:
                 continue
+            start, end = candidates_index[ad_id]
             parsed = json.loads(data_str)
             keep_set = set(parsed["keep"])  # 1-based indices
-            candidates = matches_by_ad[ad_id]
 
             rank = 0
-            for i, c in enumerate(candidates):
+            for i in range(end - start):
+                row_idx = start + i
+                code = _codes[row_idx].as_py()
+                title = _titles[row_idx].as_py()
+                score = float(_scores[row_idx].as_py())
                 if (i + 1) in keep_set:
                     kept_rows.append({
                         "ad_id": ad_id,
                         "rank": rank,
-                        "onet_code": c["onet_code"],
-                        "onet_title": c["onet_title"],
-                        "cosine_score": float(c["cosine_score"]),
+                        "onet_code": code,
+                        "onet_title": title,
+                        "cosine_score": score,
                     })
                     rank += 1
                 else:
                     drop_rows.append({
                         "ad_id": ad_id,
-                        "onet_code": c["onet_code"],
-                        "onet_title": c["onet_title"],
-                        "cosine_score": float(c["cosine_score"]),
+                        "onet_code": code,
+                        "onet_title": title,
+                        "cosine_score": score,
                         "original_rank": i,
                     })
 
@@ -410,8 +410,6 @@ else:
 
     filtered_writer.close()
     dropped_writer.close()
-    _matches_conn.close()
-    _ads_conn.close()
 
     print(f"llm_filter: {total_kept} kept, {total_dropped} dropped for {len(successful_ad_ids)} ads")
     print(f"  mean candidates kept: {total_kept / max(len(successful_ad_ids), 1):.1f}")

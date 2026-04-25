@@ -154,6 +154,28 @@ sbatch_time = "08:00:00"
 [runs.validation_5k.score_task_exposure]
 sbatch_time = "02:00:00"
 
+[runs.validation_50k]
+sample_n = 50000
+sample_seed = 42
+sbatch_cache = true
+duckdb_memory_limit = "16GB"
+
+[runs.validation_50k.llm_filter_candidates]
+sbatch_time = "24:00:00"
+filter_resume = true
+
+[runs.validation_50k.embed_onet]
+sbatch_time = "01:00:00"
+
+[runs.validation_50k.embed_ads]
+sbatch_time = "08:00:00"
+
+[runs.validation_50k.rerank_candidates]
+sbatch_time = "24:00:00"
+
+[runs.validation_50k.score_task_exposure]
+sbatch_time = "02:00:00"
+
 
 # ---------------
 #   Benchmark

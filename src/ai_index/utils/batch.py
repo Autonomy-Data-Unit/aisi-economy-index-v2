@@ -166,7 +166,6 @@ async def run_batched(
             lambda chunk_ids: work_fn(chunk_ids),
             lambda df: store.insert(df),
             max_concurrent=max_concurrent,
-            max_dispatch=max_dispatch,
         )
 
         retry_ok = len([i for i in retry_ids if i not in set(store.failed_ids())])
